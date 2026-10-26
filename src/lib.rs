@@ -1,0 +1,29 @@
+//! Muse day-1 scaffold.
+//!
+//! Plain-English merge preferences go in. One zone plan comes out.
+//! Local cars execute that plan, or a dumb baseline. The judge only
+//! scores trajectories. Muse never ticks the world and never brakes.
+
+#![forbid(unsafe_code)]
+
+pub const DINNER_SENTENCE: &str = "You say what matters in plain English — the traffic bends. Muse plans the merge; the cars just drive. Dumb equal stays jammed; the scoreboard goes green.";
+
+pub mod agents;
+pub mod episode;
+pub mod error;
+mod judge;
+pub mod muse;
+pub mod prefs;
+pub mod schema;
+pub mod world;
+
+pub use agents::{DumbEqual, FollowPlan, Selfish};
+pub use episode::{default_horizon, rollout, run_episode, EpisodeOpts, EpisodeReport};
+pub use error::MuseError;
+pub use judge::{judge, Trajectory, FAIRNESS_MAX};
+pub use muse::{render_prompt, FakeEcho, HttpMuse, MuseClient, MuseKind};
+pub use prefs::{bias_from_prefs_block, interpret_english, Bias, Prefs};
+pub use schema::{
+    AgentState, Approach, Cell, LaneIntent, OrderIntent, Score, Verdict, WorldState, ZonePlan,
+};
+pub use world::{validate_plan, Executor, JamType, Scenario, World, NEIGHBOR_RADIUS};
