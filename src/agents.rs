@@ -1,7 +1,7 @@
 use crate::world::{Executor, World};
 
-/// Enter whenever the mouth is mine and the gate is not already wrecked.
-/// The other approach does the same, so the first contested tick collides.
+/// Enter whenever the mouth is mine and the gore is not already wrecked.
+/// The other approach does the same, so both noses occupy the gore and overlap.
 #[derive(Clone, Copy, Debug)]
 pub struct Selfish;
 
@@ -12,7 +12,7 @@ impl Executor for Selfish {
 }
 
 /// Same priority, so a visible car at the other mouth means neither of us goes.
-/// With both fronts in fog range, the merge never moves.
+/// With both fronts inside the meter fog, the merge never moves.
 #[derive(Clone, Copy, Debug)]
 pub struct DumbEqual;
 

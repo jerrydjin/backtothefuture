@@ -4,8 +4,29 @@ use crate::schema::{
     WorldState, ZonePlan,
 };
 
-/// How far a local car can see, in Chebyshev cells. The other mouth is visible; the tail of a long queue is not.
-pub const NEIGHBOR_RADIUS: i32 = 2;
+/// How far a local car can see, in meters. The other mouth is in range; a long queue's tail is not.
+pub const NEIGHBOR_FOG_M: f64 = 16.0;
+
+/// Front-to-rear length of every car. A compact car, not a sprite.
+pub const CAR_LENGTH_M: f64 = 4.5;
+/// Body width. Two of these do not fit in one lane, and they do fit side by side across a lane line.
+pub const CAR_WIDTH_M: f64 = 1.8;
+/// Lane spacing. Ramp accel lane sits beside the mainline at this offset.
+pub const LANE_WIDTH_M: f64 = 3.7;
+/// Stopped bumper gap. Also the extra room a cooperative car wants in the gore.
+pub const MIN_GAP_M: f64 = 2.0;
+/// Comfortable merge acceleration. Locals may not jump past this.
+pub const A_MAX_MPS2: f64 = 2.5;
+/// Service brake. A hard stop at the yield line sheds speed no faster than this.
+pub const B_MAX_MPS2: f64 = 4.5;
+/// Merge speed cap, about 54 km/h. Fast enough to clear, slow enough to watch.
+pub const V_MAX_MPS: f64 = 15.0;
+/// Simulation step. One tick is one second of driving.
+pub const DT_S: f64 = 1.0;
+/// How far the ramp's drawn taper runs past the gore. The lane drop itself is the gore point.
+pub const TAPER_M: f64 = 12.0;
+/// Through lane past the gore. Home is this far downstream of the nose.
+pub const HOME_BEYOND_M: f64 = 24.0;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum JamType {
@@ -35,7 +56,7 @@ impl std::fmt::Display for JamType {
     }
 }
 
-/// Scenario knobs for one episode. The world geometry is derived from these, not from a map file.
+/// Scenario knobs for one episode. The road is derived from these, not from a map file.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Scenario {
     pub cars: u32,
@@ -87,6 +108,12 @@ pub struct Agent {
     pub approach: Approach,
     pub queue_index: u32,
     pub cell: Option<Cell>,
+    /// Front bumper station, meters, increasing toward home.
+    pub s: f64,
+    /// Lateral center. 0 is the through lane; the ramp accel lane is `LANE_WIDTH_M`.
+    pub lane_m: f64,
+    pub v: f64,
+    pub length: f64,
     pub home: bool,
     pub collided: bool,
     pub passed_gate: bool,
@@ -103,6 +130,10 @@ impl Agent {
             queue_index: self.queue_index,
             x: self.cell.map(|cell| cell.x),
             y: self.cell.map(|cell| cell.y),
+            s_m: self.s,
+            lane_m: self.lane_m,
+            v_mps: self.v,
+            length_m: self.length,
             home: self.home,
             collided: self.collided,
             passed_gate: self.passed_gate,
@@ -120,18 +151,19 @@ pub enum StubMessage {
     PeerPing { from: u32 },
 }
 
-/// Local policy. A claim asks for the single gate cell this tick. It is not a brake or a speed.
+/// Local policy. A claim asks for the gore this tick. It is not a brake or a speed.
+/// The world turns one claim into a gap-accepted entry, and two claims into an overlap.
 pub trait Executor {
     fn claim_gate(&self, agent_id: u32, world: &World) -> bool;
 }
 
-/// Closed 2D merge. One gate cell, two approaches, a through lane to home.
+/// Closed ramp merge. Mainline and an accel lane meet at one gore, then a through lane runs home.
 #[derive(Clone, Debug)]
 pub struct World {
     width: i32,
     height: i32,
-    gate_x: i32,
-    home_x: i32,
+    gate_s: f64,
+    home_s: f64,
     tick: u32,
     gate_blocked: bool,
     collisions: u32,
@@ -152,20 +184,17 @@ impl World {
             ));
         }
 
-        let depth = i32::try_from(main_n.max(ramp_n)).unwrap_or(i32::MAX);
-        let gate_x = depth;
-        let cars = i32::try_from(scenario.cars).unwrap_or(i32::MAX);
-        let home_x = gate_x.saturating_add(cars).saturating_add(1);
+        let (gate_s, home_s) = road_ends(main_n.max(ramp_n));
         let mut agents = Vec::with_capacity(scenario.cars as usize);
         let mut id = 0u32;
-        push_approach(&mut agents, &mut id, Approach::Main, main_n, gate_x, 0);
-        push_approach(&mut agents, &mut id, Approach::Ramp, ramp_n, gate_x, 1);
+        push_approach(&mut agents, &mut id, Approach::Main, main_n, gate_s);
+        push_approach(&mut agents, &mut id, Approach::Ramp, ramp_n, gate_s);
 
         let mut world = World {
-            width: home_x.saturating_add(1),
+            width: home_s.ceil() as i32 + 2,
             height: 2,
-            gate_x,
-            home_x,
+            gate_s,
+            home_s,
             tick: 0,
             gate_blocked: false,
             collisions: 0,
@@ -184,10 +213,14 @@ impl World {
             width: self.width,
             height: self.height,
             gate: Cell {
-                x: self.gate_x,
+                x: self.gate_s.round() as i32,
                 y: 0,
             },
-            home_x: self.home_x,
+            home_x: self.home_s.round() as i32,
+            gate_s_m: self.gate_s,
+            home_s_m: self.home_s,
+            fog_m: NEIGHBOR_FOG_M,
+            dt_s: DT_S,
             gate_blocked: self.gate_blocked,
             collisions: self.collisions,
             agents: self.agents.iter().map(Agent::to_state).collect(),
@@ -257,7 +290,7 @@ impl World {
         self.agents
             .get(agent_id as usize)
             .filter(|agent| agent.id == agent_id)
-            .is_some_and(|agent| at_mouth(agent, self.gate_x))
+            .is_some_and(|agent| at_mouth(agent, self.gate_s))
     }
 
     pub fn gate_blocked(&self) -> bool {
@@ -279,118 +312,175 @@ impl World {
             .min()
     }
 
-    /// One discrete tick. Policies may only claim the gate; they do not set speed or brake.
+    /// One second of driving. Policies may only claim the gore; speed and gap checks stay here.
     pub fn step(&mut self, policy: &dyn Executor) {
         self.tick = self.tick.saturating_add(1);
         self.rebuild_views();
-        self.advance_through();
-        if !self.gate_blocked {
-            let ids: Vec<u32> = self.agents.iter().map(|agent| agent.id).collect();
-            let claimants: Vec<u32> = ids
-                .into_iter()
-                .filter(|id| policy.claim_gate(*id, self))
-                .collect();
-            match claimants.as_slice() {
-                [] => {}
-                [only] => {
-                    if self.cell_empty(self.gate_x, 0) {
-                        self.enter_gate(*only);
-                    }
+
+        let ids: Vec<u32> = self.agents.iter().map(|agent| agent.id).collect();
+        let claimants: Vec<u32> = if self.gate_blocked {
+            Vec::new()
+        } else {
+            ids.into_iter()
+                .filter(|id| self.is_at_mouth(*id) && policy.claim_gate(*id, self))
+                .collect()
+        };
+        // Two mouths taking the same gore is a wreck. One mouth waits for a real gap.
+        let force = claimants.len() >= 2;
+        let enter_ids: Vec<u32> = if force {
+            claimants.clone()
+        } else if claimants.len() == 1 && self.pinch_clear() {
+            claimants.clone()
+        } else {
+            Vec::new()
+        };
+
+        let motion: Vec<(u32, f64, f64)> = self
+            .agents
+            .iter()
+            .map(|agent| {
+                let entering = enter_ids.contains(&agent.id);
+                let keep_out = self.keep_out(agent, entering);
+                let (s, v) = if agent.home || agent.collided {
+                    (agent.s, 0.0)
+                } else {
+                    advance_body(agent.s, agent.v, keep_out)
+                };
+                (agent.id, s, v)
+            })
+            .collect();
+
+        let gate_s = self.gate_s;
+        let tick = self.tick;
+        for (id, s, v) in motion {
+            if let Some(agent) = self.agent_mut(id) {
+                if agent.home || agent.collided {
+                    continue;
                 }
-                _ => {
-                    // Two mouths, one cell. Equal greed occupies the gate with a wreck and stays that way.
-                    self.collisions = self.collisions.saturating_add(1);
-                    self.gate_blocked = true;
-                    for id in claimants {
-                        if let Some(agent) = self.agent_mut(id) {
-                            agent.collided = true;
+                agent.s = s;
+                agent.v = v;
+                agent.lane_m = lateral(agent.approach, agent.s, gate_s);
+                sync_cell(agent);
+            }
+        }
+
+        if !force {
+            for id in &enter_ids {
+                if let Some(agent) = self.agent_mut(*id) {
+                    if !agent.collided && agent.s > gate_s + 0.05 {
+                        agent.passed_gate = true;
+                        if agent.passed_tick.is_none() {
+                            agent.passed_tick = Some(tick);
                         }
+                        sync_cell(agent);
                     }
                 }
             }
         }
-        self.advance_approaches();
-        let gate_x = self.gate_x;
+
+        self.note_overlaps();
+
+        let home_s = self.home_s;
         for agent in &mut self.agents {
-            if at_mouth(agent, gate_x) {
+            if agent.passed_gate && !agent.collided && !agent.home && agent.s >= home_s {
+                agent.home = true;
+                agent.cell = None;
+                agent.arrived_tick = Some(tick);
+            }
+        }
+
+        for agent in &mut self.agents {
+            if at_mouth(agent, gate_s) {
                 agent.wait_ticks = agent.wait_ticks.saturating_add(1);
             }
         }
         self.rebuild_views();
     }
 
-    fn advance_through(&mut self) {
-        let gate_x = self.gate_x;
-        let home_x = self.home_x;
-        let mut moving: Vec<(i32, u32)> = self
-            .agents
-            .iter()
-            .filter_map(|agent| {
-                if agent.home || agent.collided || !agent.passed_gate {
-                    return None;
-                }
-                let cell = agent.cell?;
-                if cell.y != 0 || cell.x < gate_x {
-                    return None;
-                }
-                Some((cell.x, agent.id))
-            })
-            .collect();
-        moving.sort_by(|left, right| right.0.cmp(&left.0).then(left.1.cmp(&right.1)));
-        let tick = self.tick;
-        for (x, id) in moving {
-            if x + 1 >= home_x {
-                if let Some(agent) = self.agent_mut(id) {
-                    agent.cell = None;
-                    agent.home = true;
-                    agent.arrived_tick = Some(tick);
-                }
-                continue;
-            }
-            if self.cell_empty(x + 1, 0) {
-                if let Some(agent) = self.agent_mut(id) {
-                    agent.cell = Some(Cell { x: x + 1, y: 0 });
-                }
-            }
+    fn keep_out(&self, agent: &Agent, entering: bool) -> f64 {
+        if agent.passed_gate || entering {
+            return self
+                .through_leader(agent)
+                .map(|leader| leader.s - leader.length - MIN_GAP_M)
+                .unwrap_or(f64::INFINITY);
         }
+        let mut limit = self.gate_s;
+        if let Some(leader) = self.approach_leader(agent) {
+            limit = limit.min(leader.s - leader.length - MIN_GAP_M);
+        }
+        limit
     }
 
-    fn advance_approaches(&mut self) {
-        let mouth_x = self.gate_x - 1;
-        if mouth_x <= 0 {
+    fn approach_leader(&self, agent: &Agent) -> Option<&Agent> {
+        self.agents
+            .iter()
+            .filter(|other| {
+                other.id != agent.id
+                    && !other.home
+                    && other.approach == agent.approach
+                    && other.s > agent.s + 0.05
+            })
+            .min_by(|left, right| left.s.total_cmp(&right.s))
+    }
+
+    fn through_leader(&self, agent: &Agent) -> Option<&Agent> {
+        self.agents
+            .iter()
+            .filter(|other| {
+                other.id != agent.id && !other.home && other.passed_gate && other.s > agent.s + 0.05
+            })
+            .min_by(|left, right| left.s.total_cmp(&right.s))
+    }
+
+    /// Cooperative gap: the gore must be empty for one car length plus the stopped gap.
+    fn pinch_clear(&self) -> bool {
+        let zone = (self.gate_s, self.gate_s + CAR_LENGTH_M + MIN_GAP_M);
+        !self.agents.iter().any(|agent| {
+            gore_slice(
+                agent.s,
+                agent.length,
+                agent.approach,
+                agent.passed_gate,
+                self.gate_s,
+            )
+            .is_some_and(|slice| intervals_overlap(slice, zone))
+        })
+    }
+
+    fn note_overlaps(&mut self) {
+        if self.gate_blocked {
             return;
         }
-        for x in (0..mouth_x).rev() {
-            for y in [0, 1] {
-                let Some(id) = self.agent_id_at(x, y) else {
-                    continue;
-                };
-                let blocked = self
-                    .agent(id)
-                    .is_none_or(|agent| agent.collided || agent.home || agent.passed_gate);
-                if blocked || !self.cell_empty(x + 1, y) {
-                    continue;
-                }
-                if let Some(agent) = self.agent_mut(id) {
-                    agent.cell = Some(Cell { x: x + 1, y });
+        let gate_s = self.gate_s;
+        let states: Vec<AgentState> = self.agents.iter().map(Agent::to_state).collect();
+        let mut hit = Vec::new();
+        for i in 0..states.len() {
+            for j in (i + 1)..states.len() {
+                if bodies_overlap(&states[i], &states[j], gate_s) {
+                    hit.push(states[i].id);
+                    hit.push(states[j].id);
                 }
             }
         }
-    }
-
-    fn enter_gate(&mut self, id: u32) {
-        let tick = self.tick;
-        let gate_x = self.gate_x;
-        if let Some(agent) = self.agent_mut(id) {
-            agent.cell = Some(Cell { x: gate_x, y: 0 });
-            agent.passed_gate = true;
-            agent.passed_tick = Some(tick);
+        if hit.is_empty() {
+            return;
+        }
+        self.collisions = self.collisions.saturating_add(1);
+        self.gate_blocked = true;
+        for id in hit {
+            if let Some(agent) = self.agent_mut(id) {
+                agent.collided = true;
+                agent.v = 0.0;
+                agent.passed_gate = false;
+                agent.passed_tick = None;
+                sync_cell(agent);
+            }
         }
     }
 
     fn rebuild_views(&mut self) {
-        let gate_x = self.gate_x;
-        let positions: Vec<(u32, Approach, Option<Cell>, bool)> = self
+        let gate_s = self.gate_s;
+        let poses: Vec<(u32, Approach, Option<Cell>, f64, f64, bool)> = self
             .agents
             .iter()
             .map(|agent| {
@@ -398,33 +488,52 @@ impl World {
                     agent.id,
                     agent.approach,
                     agent.cell,
-                    at_mouth(agent, gate_x),
+                    agent.s - agent.length * 0.5,
+                    agent.lane_m,
+                    at_mouth(agent, gate_s),
                 )
             })
             .collect();
-        self.neighbor_views = positions
+        self.neighbor_views = poses
             .iter()
-            .map(|(id, _, cell, _)| NeighborView {
+            .map(|(id, _, cell, along, lane, _)| NeighborView {
                 agent_id: *id,
                 visible: match cell {
-                    Some(origin) => positions
+                    Some(_) => poses
                         .iter()
-                        .filter(|(other_id, _, other_cell, _)| {
+                        .filter(|(other_id, _, other_cell, other_along, other_lane, _)| {
                             *other_id != *id
-                                && other_cell.is_some_and(|other| {
-                                    chebyshev(*origin, other) <= NEIGHBOR_RADIUS
-                                })
+                                && other_cell.is_some()
+                                && distance_m(*along, *lane, *other_along, *other_lane)
+                                    <= NEIGHBOR_FOG_M
                         })
-                        .map(|(other_id, approach, other_cell, at_gate_mouth)| {
-                            let other = other_cell.expect("filter keeps positioned neighbors");
-                            VisibleNeighbor {
-                                agent_id: *other_id,
-                                approach: *approach,
-                                x: other.x,
-                                y: other.y,
-                                at_gate_mouth: *at_gate_mouth,
-                            }
-                        })
+                        .map(
+                            |(
+                                other_id,
+                                approach,
+                                other_cell,
+                                other_along,
+                                other_lane,
+                                at_gate_mouth,
+                            )| {
+                                let other = other_cell.expect("filter keeps positioned neighbors");
+                                VisibleNeighbor {
+                                    agent_id: *other_id,
+                                    approach: *approach,
+                                    x: other.x,
+                                    y: other.y,
+                                    s_m: *other_along + CAR_LENGTH_M * 0.5,
+                                    lane_m: *other_lane,
+                                    distance_m: distance_m(
+                                        *along,
+                                        *lane,
+                                        *other_along,
+                                        *other_lane,
+                                    ),
+                                    at_gate_mouth: *at_gate_mouth,
+                                }
+                            },
+                        )
                         .collect(),
                     None => Vec::new(),
                 },
@@ -432,31 +541,19 @@ impl World {
             .collect();
     }
 
-    fn agent(&self, id: u32) -> Option<&Agent> {
-        self.agents.get(id as usize).filter(|agent| agent.id == id)
-    }
-
     fn agent_mut(&mut self, id: u32) -> Option<&mut Agent> {
         self.agents
             .get_mut(id as usize)
             .filter(|agent| agent.id == id)
     }
+}
 
-    fn agent_id_at(&self, x: i32, y: i32) -> Option<u32> {
-        self.agents.iter().find_map(|agent| {
-            if agent.home {
-                return None;
-            }
-            match agent.cell {
-                Some(cell) if cell.x == x && cell.y == y => Some(agent.id),
-                _ => None,
-            }
-        })
-    }
-
-    fn cell_empty(&self, x: i32, y: i32) -> bool {
-        self.agent_id_at(x, y).is_none()
-    }
+fn road_ends(max_queue: u32) -> (f64, f64) {
+    let spacing = CAR_LENGTH_M + MIN_GAP_M;
+    let tail_rear = 8.0;
+    let gate = tail_rear + CAR_LENGTH_M + (max_queue.saturating_sub(1) as f64) * spacing;
+    let home = gate + HOME_BEYOND_M;
+    (gate, home)
 }
 
 fn push_approach(
@@ -464,43 +561,163 @@ fn push_approach(
     id: &mut u32,
     approach: Approach,
     count: u32,
-    gate_x: i32,
-    y: i32,
+    gate_s: f64,
 ) {
+    let spacing = CAR_LENGTH_M + MIN_GAP_M;
     for queue_index in 0..count {
-        let x = gate_x - 1 - i32::try_from(queue_index).unwrap_or(0);
-        agents.push(Agent {
+        let s = gate_s - f64::from(queue_index) * spacing;
+        let mut agent = Agent {
             id: *id,
             approach,
             queue_index,
-            cell: Some(Cell { x, y }),
+            cell: None,
+            s,
+            lane_m: lateral(approach, s, gate_s),
+            v: 0.0,
+            length: CAR_LENGTH_M,
             home: false,
             collided: false,
             passed_gate: false,
             passed_tick: None,
             arrived_tick: None,
             wait_ticks: 0,
-        });
+        };
+        sync_cell(&mut agent);
+        agents.push(agent);
         *id = id.saturating_add(1);
     }
 }
 
-fn at_mouth(agent: &Agent, gate_x: i32) -> bool {
+fn at_mouth(agent: &Agent, gate_s: f64) -> bool {
     if agent.home || agent.collided || agent.passed_gate {
         return false;
     }
-    let Some(cell) = agent.cell else {
-        return false;
-    };
-    let y = match agent.approach {
-        Approach::Main => 0,
-        Approach::Ramp => 1,
-    };
-    cell.x == gate_x - 1 && cell.y == y
+    (agent.s - gate_s).abs() <= 0.8
 }
 
-fn chebyshev(a: Cell, b: Cell) -> i32 {
-    (a.x - b.x).abs().max((a.y - b.y).abs())
+fn lateral(approach: Approach, s: f64, gate_s: f64) -> f64 {
+    match approach {
+        Approach::Main => 0.0,
+        Approach::Ramp => {
+            if s <= gate_s {
+                LANE_WIDTH_M
+            } else if s >= gate_s + TAPER_M {
+                0.0
+            } else {
+                LANE_WIDTH_M * (1.0 - (s - gate_s) / TAPER_M)
+            }
+        }
+    }
+}
+
+fn sync_cell(agent: &mut Agent) {
+    if agent.home {
+        agent.cell = None;
+        return;
+    }
+    let y = if agent.approach == Approach::Ramp && !agent.passed_gate {
+        1
+    } else {
+        0
+    };
+    agent.cell = Some(Cell {
+        x: agent.s.round() as i32,
+        y,
+    });
+}
+
+/// Speed-capped step toward `keep_out`. Infinite keep-out is an open through lane.
+fn advance_body(s: f64, v: f64, keep_out: f64) -> (f64, f64) {
+    if !keep_out.is_finite() {
+        let new_v = (v + A_MAX_MPS2 * DT_S).min(V_MAX_MPS);
+        return (s + new_v * DT_S, new_v);
+    }
+    let room = keep_out - s;
+    if room <= 1e-3 {
+        let new_v = (v - B_MAX_MPS2 * DT_S).max(0.0);
+        return (s.min(keep_out), new_v);
+    }
+    let v_cap = (2.0 * B_MAX_MPS2 * room).sqrt().min(V_MAX_MPS);
+    let mut new_v = (v + A_MAX_MPS2 * DT_S)
+        .min(v_cap)
+        .min(room / DT_S)
+        .min(V_MAX_MPS);
+    let floor = (v - B_MAX_MPS2 * DT_S).max(0.0);
+    if new_v < floor {
+        new_v = floor;
+    }
+    let mut new_s = s + new_v * DT_S;
+    if new_s > keep_out {
+        new_s = keep_out;
+    }
+    (new_s, new_v)
+}
+
+fn distance_m(a_s: f64, a_lane: f64, b_s: f64, b_lane: f64) -> f64 {
+    let ds = a_s - b_s;
+    let dy = a_lane - b_lane;
+    (ds * ds + dy * dy).sqrt()
+}
+
+/// Body overlap on the road. Same-lane cars that share length overlap.
+/// Past the gore the ramp has ended, so two noses in that single-file stretch overlap
+/// even while the drawn taper still shows a little lateral offset.
+pub fn bodies_overlap(a: &AgentState, b: &AgentState, gate_s: f64) -> bool {
+    if a.home || b.home || a.length_m <= 0.0 || b.length_m <= 0.0 {
+        return false;
+    }
+    if same_lane_queue_overlap(a, b) || rectangles_overlap(a, b) {
+        return true;
+    }
+    match (
+        gore_slice(a.s_m, a.length_m, a.approach, a.passed_gate, gate_s),
+        gore_slice(b.s_m, b.length_m, b.approach, b.passed_gate, gate_s),
+    ) {
+        (Some(left), Some(right)) => intervals_overlap(left, right),
+        _ => false,
+    }
+}
+
+fn same_lane_queue_overlap(a: &AgentState, b: &AgentState) -> bool {
+    if a.approach != b.approach || a.passed_gate || b.passed_gate {
+        return false;
+    }
+    lon_overlap(a.s_m, a.length_m, b.s_m, b.length_m)
+}
+
+fn rectangles_overlap(a: &AgentState, b: &AgentState) -> bool {
+    lon_overlap(a.s_m, a.length_m, b.s_m, b.length_m)
+        && (a.lane_m - b.lane_m).abs() < CAR_WIDTH_M - 1e-3
+}
+
+fn lon_overlap(a_s: f64, a_len: f64, b_s: f64, b_len: f64) -> bool {
+    intervals_overlap((a_s - a_len, a_s), (b_s - b_len, b_s))
+}
+
+fn gore_slice(
+    s: f64,
+    length: f64,
+    approach: Approach,
+    passed: bool,
+    gate_s: f64,
+) -> Option<(f64, f64)> {
+    let rear = s - length;
+    let front = s;
+    if front <= gate_s + 1e-3 && !passed {
+        return None;
+    }
+    if passed {
+        return Some((rear, front));
+    }
+    // Nose that has crossed the gore occupies the single through lane.
+    // The rest of a ramp car is still on the accel lane and is not in this slice.
+    let _ = approach;
+    let lo = rear.max(gate_s);
+    (front > lo + 1e-4).then_some((lo, front))
+}
+
+fn intervals_overlap(a: (f64, f64), b: (f64, f64)) -> bool {
+    a.0 < b.1 - 1e-3 && b.0 < a.1 - 1e-3
 }
 
 /// A plan is runnable when it is a queue-respecting order of the cars that have not passed yet.
@@ -568,50 +785,180 @@ pub fn validate_plan(plan: &ZonePlan, world: &World) -> Result<(), MuseError> {
 }
 
 pub fn render_ascii(state: &WorldState) -> String {
-    let mut lines = Vec::new();
-    lines.push(format!(
-        "t={} collisions={} blocked={}",
-        state.tick, state.collisions, state.gate_blocked
-    ));
-    for (y, name) in [(0, "main"), (1, "ramp")] {
-        let mut row = format!("{name:4} ");
-        for x in 0..state.width {
-            if x == state.gate.x && y == 0 {
-                if let Some(cell) = state
-                    .occupied
-                    .iter()
-                    .find(|cell| cell.x == x && cell.y == y)
-                {
-                    row.push_str(&format!("{:2}G", cell.agent_id));
-                } else {
-                    row.push_str("[G]");
-                }
-                continue;
-            }
-            if x == state.home_x && y == 0 {
-                row.push_str("(H)");
-                continue;
-            }
-            if let Some(cell) = state
-                .occupied
-                .iter()
-                .find(|cell| cell.x == x && cell.y == y)
-            {
-                row.push_str(&format!("{:2} ", cell.agent_id));
-            } else if y == 1 && x >= state.gate.x {
-                row.push_str("   ");
-            } else {
-                row.push_str(" . ");
-            }
+    let (s0, s1) = axis_span(state);
+    let span = (s1 - s0).max(1.0);
+    let (cols, meters_per_col) = if span <= 100.0 {
+        (span.ceil() as usize, 1.0)
+    } else {
+        (100, span / 100.0)
+    };
+    let cols = cols.max(8);
+    let mut main = vec![' '; cols];
+    let mut ramp = vec![' '; cols];
+    let mut marks = vec![' '; cols];
+
+    for col in 0..cols {
+        let s = s0 + (col as f64 + 0.5) * meters_per_col;
+        if s <= state.home_s_m + meters_per_col {
+            main[col] = if s < state.gate_s_m { '-' } else { '=' };
         }
-        lines.push(row);
+        if s <= state.gate_s_m {
+            ramp[col] = '-';
+        } else if s <= state.gate_s_m + TAPER_M {
+            ramp[col] = '/';
+        }
     }
+    write_label_fit(
+        &mut marks,
+        map_col(state.gate_s_m, s0, meters_per_col, cols),
+        "gore",
+    );
+    write_label_fit(
+        &mut marks,
+        map_col(state.home_s_m, s0, meters_per_col, cols),
+        "home",
+    );
+
+    let mut cars: Vec<&AgentState> = state.agents.iter().filter(|agent| !agent.home).collect();
+    cars.sort_by(|left, right| left.s_m.total_cmp(&right.s_m));
+    for car in cars {
+        let left = map_col(car.s_m - car.length_m, s0, meters_per_col, cols);
+        let right = map_col(car.s_m, s0, meters_per_col, cols).max(left);
+        let on_ramp = car.approach == Approach::Ramp && car.lane_m > LANE_WIDTH_M * 0.5;
+        let row = if on_ramp { &mut ramp } else { &mut main };
+        paint_car(row, left, right, car.id, car.collided);
+    }
+
+    let main_v = mouth_speed(state, Approach::Main);
+    let ramp_v = mouth_speed(state, Approach::Ramp);
+    let gate = if state.gate_blocked {
+        "GATE WRECK"
+    } else {
+        "gate open"
+    };
+    let caption = if state.collisions > 0 || state.gate_blocked {
+        "COLLISION: bodies overlap in the single-file gore"
+    } else {
+        "ramp accel lane tapers / into the mainline; one car fits the gate; [] is a car"
+    };
+    let mut lines = vec![
+        format!(
+            "t={}s  collisions={}  {gate}  fog={:.0}m  {:.1}m/col  car={:.1}m  accel<={:.1}m/s^2",
+            state.tick, state.collisions, state.fog_m, meters_per_col, CAR_LENGTH_M, A_MAX_MPS2
+        ),
+        format!("mouths  main {main_v:.1}m/s   ramp {ramp_v:.1}m/s"),
+        prefixed(" ", &ruler(s0, meters_per_col, cols)),
+        prefixed("main", &main),
+        prefixed("ramp", &ramp),
+        prefixed(" ", &marks),
+        caption.to_string(),
+    ];
+    lines.retain(|line| !line.trim().is_empty());
     lines.join("\n")
+}
+
+fn axis_span(state: &WorldState) -> (f64, f64) {
+    // Queues are born with the tail rear at 8 m. Hold that edge so the road
+    // stays put while cars roll toward home.
+    let mut s0 = 7.0_f64;
+    for agent in &state.agents {
+        if agent.home || agent.length_m <= 0.0 {
+            continue;
+        }
+        s0 = s0.min(agent.s_m - agent.length_m - 1.0);
+    }
+    (s0, state.home_s_m + 5.0)
+}
+
+fn map_col(s: f64, s0: f64, meters_per_col: f64, cols: usize) -> usize {
+    let col = ((s - s0) / meters_per_col).floor() as isize;
+    col.clamp(0, cols as isize - 1) as usize
+}
+
+fn ruler(s0: f64, meters_per_col: f64, cols: usize) -> Vec<char> {
+    let mut row = vec![' '; cols];
+    let mut mark = (s0 / 10.0).ceil() * 10.0;
+    let end = s0 + cols as f64 * meters_per_col;
+    while mark < end {
+        let col = map_col(mark, s0, meters_per_col, cols);
+        let label = format!("{mark:.0}");
+        if col + label.len() <= cols {
+            write_label(&mut row, col, &label);
+        }
+        mark += 10.0;
+    }
+    row
+}
+
+fn write_label(row: &mut [char], at: usize, text: &str) {
+    for (offset, ch) in text.chars().enumerate() {
+        let idx = at + offset;
+        if idx >= row.len() {
+            break;
+        }
+        row[idx] = ch;
+    }
+}
+
+fn write_label_fit(row: &mut [char], at: usize, text: &str) {
+    let len = text.chars().count();
+    if len == 0 || row.is_empty() {
+        return;
+    }
+    let start = if at + len > row.len() {
+        row.len() - len
+    } else {
+        at
+    };
+    write_label(row, start, text);
+}
+
+fn paint_car(row: &mut [char], left: usize, right: usize, id: u32, collided: bool) {
+    let right = right.max(left).min(row.len().saturating_sub(1));
+    let left = left.min(right);
+    for cell in &mut row[left..=right] {
+        *cell = if collided { 'X' } else { '#' };
+    }
+    let label = id.to_string();
+    let width = right - left + 1;
+    if width >= label.len() {
+        let start = left + (width - label.len()) / 2;
+        for (offset, ch) in label.chars().enumerate() {
+            row[start + offset] = ch;
+        }
+    }
+    if width >= label.len() + 2 {
+        row[left] = '[';
+        row[right] = ']';
+    }
+}
+
+fn mouth_speed(state: &WorldState, approach: Approach) -> f64 {
+    state
+        .agents
+        .iter()
+        .filter(|agent| agent.approach == approach && !agent.home && !agent.passed_gate)
+        .max_by(|left, right| left.s_m.total_cmp(&right.s_m))
+        .map(|agent| agent.v_mps)
+        .unwrap_or(0.0)
+}
+
+fn prefixed(name: &str, row: &[char]) -> String {
+    format!("{name:<5}{}", row.iter().collect::<String>())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::muse::MuseClient;
+
+    fn fair(cars: u32) -> Scenario {
+        Scenario::new(
+            cars,
+            JamType::Symmetric,
+            "Zipper fairly so both approaches get home.",
+        )
+    }
 
     #[test]
     fn fog_hides_the_tail_and_shows_the_other_mouth() {
@@ -627,17 +974,36 @@ mod tests {
             .iter()
             .find(|view| view.agent_id == 3)
             .unwrap();
+        let other = front
+            .visible
+            .iter()
+            .find(|neighbor| neighbor.agent_id == 4 && neighbor.at_gate_mouth)
+            .expect("main front should see the ramp front");
         assert!(
-            front
-                .visible
-                .iter()
-                .any(|neighbor| neighbor.agent_id == 4 && neighbor.at_gate_mouth),
-            "main front should see the ramp front"
+            other.distance_m > 3.0 && other.distance_m <= NEIGHBOR_FOG_M,
+            "other mouth is a few meters away, not a toy cell: {}",
+            other.distance_m
         );
         assert!(
             tail.visible.iter().all(|neighbor| neighbor.agent_id != 4),
             "main tail should not see the ramp front"
         );
+    }
+
+    #[test]
+    fn queues_are_meters_and_side_by_side_do_not_overlap() {
+        let world = World::spawn(&fair(6)).unwrap();
+        let state = world.snapshot();
+        let main = state.agents.iter().find(|agent| agent.id == 0).unwrap();
+        let ramp = state.agents.iter().find(|agent| agent.id == 3).unwrap();
+        assert!((main.length_m - CAR_LENGTH_M).abs() < 1e-9);
+        assert_eq!(main.v_mps, 0.0);
+        assert!((main.s_m - ramp.s_m).abs() < 1e-6);
+        assert!((main.lane_m - ramp.lane_m).abs() > 3.0);
+        assert!(!bodies_overlap(main, ramp, state.gate_s_m));
+        let behind = state.agents.iter().find(|agent| agent.id == 1).unwrap();
+        let gap = (main.s_m - main.length_m) - behind.s_m;
+        assert!((gap - MIN_GAP_M).abs() < 1e-6, "bumper gap {gap}");
     }
 
     struct OnlyMain;
@@ -649,14 +1015,137 @@ mod tests {
     }
 
     #[test]
+    fn ascii_reads_as_a_ramp_merge() {
+        let world = World::spawn(&fair(6)).unwrap();
+        let picture = render_ascii(&world.snapshot());
+        assert!(picture.contains("main"), "{picture}");
+        assert!(picture.contains("ramp"), "{picture}");
+        assert!(picture.contains("gore"), "{picture}");
+        assert!(picture.contains('/'), "{picture}");
+        assert!(picture.contains('['), "{picture}");
+        assert!(
+            picture.contains("0.0m/s"),
+            "a stopped queue should show jam speed:\n{picture}"
+        );
+        let main_line = picture
+            .lines()
+            .find(|line| line.starts_with("main"))
+            .unwrap();
+        let ramp_line = picture
+            .lines()
+            .find(|line| line.starts_with("ramp"))
+            .unwrap();
+        assert!(main_line.contains('0'), "{picture}");
+        assert!(
+            ramp_line.contains('3') || ramp_line.contains('4') || ramp_line.contains('5'),
+            "{picture}"
+        );
+    }
+
+    #[test]
     fn ascii_shows_the_car_inside_the_gate() {
         let mut world =
             World::spawn(&Scenario::new(2, JamType::Symmetric, "zipper fairly")).unwrap();
         world.step(&OnlyMain);
         let picture = render_ascii(&world.snapshot());
+        let main_line = picture
+            .lines()
+            .find(|line| line.starts_with("main"))
+            .unwrap();
         assert!(
-            picture.contains("0G"),
-            "gate occupant should be visible:\n{picture}"
+            main_line.contains('0'),
+            "car 0 should be on the mainline after taking the gore:\n{picture}"
+        );
+        assert!(
+            picture.contains("ramp") && picture.contains('/'),
+            "{picture}"
+        );
+    }
+
+    #[test]
+    fn selfish_fronts_overlap_in_the_gore() {
+        let mut world = World::spawn(&fair(6)).unwrap();
+        world.step(&crate::agents::Selfish);
+        let state = world.snapshot();
+        assert!(state.collisions >= 1, "{state:?}");
+        assert!(state.gate_blocked);
+        let main = state.agents.iter().find(|agent| agent.id == 0).unwrap();
+        let ramp = state.agents.iter().find(|agent| agent.id == 3).unwrap();
+        assert!(bodies_overlap(main, ramp, state.gate_s_m));
+        assert!(!main.passed_gate && !ramp.passed_gate);
+    }
+
+    #[test]
+    fn dumb_equal_holds_the_gore() {
+        let mut world = World::spawn(&fair(6)).unwrap();
+        let start = world.snapshot();
+        for _ in 0..12 {
+            world.step(&crate::agents::DumbEqual);
+        }
+        let state = world.snapshot();
+        assert_eq!(state.collisions, 0);
+        assert!(state
+            .agents
+            .iter()
+            .all(|agent| !agent.home && !agent.passed_gate));
+        for agent in &state.agents {
+            let before = start
+                .agents
+                .iter()
+                .find(|item| item.id == agent.id)
+                .unwrap();
+            assert!((agent.s_m - before.s_m).abs() < 1e-6);
+            assert!(agent.v_mps.abs() < 1e-6);
+        }
+    }
+
+    #[test]
+    fn zipper_respects_accel_gaps_and_gets_home() {
+        let scenario = fair(6);
+        let mut world = World::spawn(&scenario).unwrap();
+        let prompt = crate::muse::render_prompt(&scenario.prefs, &world.snapshot());
+        let plan = ZonePlan::parse(&crate::muse::FakeEcho.complete(&prompt)).unwrap();
+        validate_plan(&plan, &world).unwrap();
+        world.broadcast_plan(&plan);
+        let mut prev: Vec<f64> = world.agents.iter().map(|agent| agent.v).collect();
+        for _ in 0..80 {
+            world.step(&crate::agents::FollowPlan);
+            let state = world.snapshot();
+            assert_eq!(state.collisions, 0, "{}", render_ascii(&state));
+            for pair in state.agents.iter().enumerate() {
+                for other in state.agents.iter().skip(pair.0 + 1) {
+                    assert!(
+                        !bodies_overlap(pair.1, other, state.gate_s_m),
+                        "overlap {} and {}\n{}",
+                        pair.1.id,
+                        other.id,
+                        render_ascii(&state)
+                    );
+                }
+            }
+            for agent in &state.agents {
+                let before = prev[agent.id as usize];
+                let dv = agent.v_mps - before;
+                assert!(
+                    dv <= A_MAX_MPS2 * DT_S + 1e-6,
+                    "id {} sped up by {dv}",
+                    agent.id
+                );
+                assert!(
+                    dv >= -B_MAX_MPS2 * DT_S - 1e-6,
+                    "id {} braked by {dv}",
+                    agent.id
+                );
+                prev[agent.id as usize] = agent.v_mps;
+            }
+            if world.all_home() {
+                break;
+            }
+        }
+        assert!(
+            world.all_home(),
+            "zipper did not clear\n{}",
+            render_ascii(&world.snapshot())
         );
     }
 

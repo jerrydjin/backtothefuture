@@ -135,6 +135,7 @@ Rules:\n\
 - within one approach, a smaller queue_index must get a smaller rank than the cars behind it\n\
 - lane is \"through\"\n\
 - do not emit brake, throttle, velocity, acceleration, or per-tick controls\n\
+- world_state distances are meters (s_m along the road, lane_m lateral, fog_m)\n\
 - honor the prefs block\n\
 \n\
 <prefs>\n\
