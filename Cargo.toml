@@ -1,0 +1,10 @@
+[package]
+name = "muse"
+version = "0.1.0"
+edition = "2021"
+description = "Day-1 scaffold: English preferences bend a merge-zone traffic grid"
+publish = false
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
