@@ -26,4 +26,4 @@ pub use prefs::{bias_from_prefs_block, interpret_english, Bias, Prefs};
 pub use schema::{
     AgentState, Approach, Cell, LaneIntent, OrderIntent, Score, Verdict, WorldState, ZonePlan,
 };
-pub use world::{validate_plan, Executor, JamType, Scenario, World, NEIGHBOR_RADIUS};
+pub use world::{validate_plan, Executor, JamType, Scenario, World, NEIGHBOR_FOG_M};

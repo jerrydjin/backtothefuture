@@ -2,7 +2,7 @@
 name = "muse"
 version = "0.1.0"
 edition = "2021"
-description = "Day-1 scaffold: English preferences bend a merge-zone traffic grid"
+description = "Day-1 scaffold: English preferences bend a meter-scale ramp merge"
 publish = false
 
 [dependencies]

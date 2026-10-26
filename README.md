@@ -2,7 +2,7 @@
 
 You say what matters in plain English — the traffic bends. Muse plans the merge; the cars just drive. Dumb equal stays jammed; the scoreboard goes green.
 
-Traffic here is a closed 2D merge, not a renderer. A fixed priority queue cannot write the fair order before the run, because the order comes from the English (or a small structured stub) plus the symbolic jam. Muse emits that order once. Local cars only execute it. The judge scores the trajectories.
+Traffic here is a closed ramp merge in meters, not a renderer. Mainline and a ramp accel lane meet at one gore. A fixed priority queue cannot write the fair order before the run, because the order comes from the English (or a small structured stub) plus the jam. Muse emits that order once. Local cars only execute it, under length, speed, and gap limits. The judge scores the trajectories.
 
 ChemStation is not this product.
 
@@ -20,7 +20,7 @@ Fair prefs: selfish and dumb-equal print `RED`, Muse/FakeEcho prints `GREEN`, pr
 ```text
 selfish     RED time_home=inf collisions=1 fairness=1.00 home=0/6 (collision, not all home)
 dumb-equal  RED time_home=inf collisions=0 fairness=1.00 home=0/6 (not all home)
-muse        GREEN time_home=63 collisions=0 fairness=0.00 home=6/6
+muse        GREEN time_home=69 collisions=0 fairness=0.00 home=6/6
 ```
 
 That board is N=6, symmetric, FakeEcho, no API key.
@@ -33,14 +33,14 @@ A fair run that fails to go green exits 1.
 2. Roll the selfish baseline and the dumb-equal baseline. Both are red.
 3. Render prefs + symbolic state into a prompt. `MuseClient::complete(prompt) -> String`.
 4. Parse one `ZonePlan`. Broadcast it on the local stub mailbox.
-5. Cars execute. A mid-run rewrite is another `complete` (`--rewrite-every`).
+5. Cars execute. A cooperative claim waits for a physical gap; two claims at once overlap in the gore. A mid-run rewrite is another `complete` (`--rewrite-every`).
 6. Judge the trajectories.
 
-Muse is not in the tick. A claim is "I want the gate cell", not a brake.
+Muse is not in the tick. A claim is "I want the gore", not a brake.
 
 ## Schemas
 
-- `WorldState` — grid size, agents, occupied cells, neighbor views inside a 2-cell fog.
+- `WorldState` — road in meters, agents (front bumper, lane, speed, length), occupied sketch, neighbor views inside a 16 m fog.
 - `ZonePlan` — ranked `through` / `hold_approach` intents. Brake, throttle, and velocity keys are rejected.
 - `Score` — `time_home`, `collisions`, `fairness`. Green needs all three: nobody collided, every car home inside budget, fairness ≤ 0.15.
 
@@ -54,7 +54,7 @@ Fairness is the share of contested gate passages that repeated the same approach
 | `--jam` | `symmetric`, `ramp-surge`, or `mainline-plug`. |
 | `--prefs` | Plain English. "Zipper fairly…" balances. "Main has priority. Main first." does not. |
 | `--rewrite-every` | New Muse call every N ticks. |
-| `--show` | ASCII trace of the grid. |
+| `--show` | Top-down trace of the ramp merge: mainline, accel lane, gore, jam. |
 
 Structured prefs are a `Bias` on `Prefs` (`balanced`, `favor_main`, `favor_ramp`). The prompt carries them. When set, they win over the sentence. The executor never reads prefs itself.
 
@@ -76,4 +76,4 @@ No key: FakeEcho, the ALLOW_CHEAT stub. It reads the state inside the prompt and
 
 ## Layout
 
-`src/world.rs` grid and fog, `src/agents.rs` executors, `src/muse.rs` client, `src/judge.rs` score, `src/episode.rs` the loop. `STATUS.md` is the day-1 board.
+`src/world.rs` meters, gore, and fog, `src/agents.rs` executors, `src/muse.rs` client, `src/judge.rs` score, `src/episode.rs` the loop. `STATUS.md` is the day-1 board.

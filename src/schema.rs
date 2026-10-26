@@ -19,22 +19,30 @@ impl std::fmt::Display for Approach {
     }
 }
 
-/// Grid coordinate. `y = 0` is the main / through lane. `y = 1` is the ramp, and only before the gate.
+/// Meter sketch of a pose. `y = 0` is the through lane. `y = 1` is the ramp accel lane, before the gore.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Cell {
     pub x: i32,
     pub y: i32,
 }
 
-/// One car as the judge and Muse see it. This is symbolic state, not a pose from a renderer.
+/// One car as the judge and Muse see it.
+///
+/// `s_m` is the front bumper along the road, in meters. `lane_m` is the lateral
+/// center (0 is the through lane). `x`/`y` are a rounded meter sketch of that pose
+/// so a plan can still talk about the queue without a renderer.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AgentState {
     pub id: u32,
     pub approach: Approach,
-    /// 0 is the car closest to the gate on its approach. Higher indexes are stuck behind it.
+    /// 0 is the car closest to the gore on its approach. Higher indexes are stuck behind it.
     pub queue_index: u32,
     pub x: Option<i32>,
     pub y: Option<i32>,
+    pub s_m: f64,
+    pub lane_m: f64,
+    pub v_mps: f64,
+    pub length_m: f64,
     pub home: bool,
     pub collided: bool,
     pub passed_gate: bool,
@@ -43,13 +51,16 @@ pub struct AgentState {
     pub wait_ticks: u32,
 }
 
-/// A neighbor inside the local fog radius. Cars do not receive the whole map from each other.
+/// A neighbor inside the local fog radius, in meters. Cars do not receive the whole road.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct VisibleNeighbor {
     pub agent_id: u32,
     pub approach: Approach,
     pub x: i32,
     pub y: i32,
+    pub s_m: f64,
+    pub lane_m: f64,
+    pub distance_m: f64,
     pub at_gate_mouth: bool,
 }
 
@@ -66,7 +77,10 @@ pub struct OccupiedCell {
     pub agent_id: u32,
 }
 
-/// Symbolic world Muse is allowed to read, and the trajectory frame the judge scores.
+/// Merge world Muse is allowed to read, and the trajectory frame the judge scores.
+///
+/// Geometry is meters. `gate` / `home_x` stay on the schema as the gore and the
+/// downstream home line, rounded to a meter. `ZonePlan` is still the only thing Muse emits.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct WorldState {
     pub tick: u32,
@@ -74,6 +88,10 @@ pub struct WorldState {
     pub height: i32,
     pub gate: Cell,
     pub home_x: i32,
+    pub gate_s_m: f64,
+    pub home_s_m: f64,
+    pub fog_m: f64,
+    pub dt_s: f64,
     pub gate_blocked: bool,
     pub collisions: u32,
     pub agents: Vec<AgentState>,

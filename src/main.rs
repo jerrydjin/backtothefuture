@@ -64,6 +64,9 @@ fn main() -> ExitCode {
     if let Some(trace) = &report.selfish_trace {
         println!("\nselfish trace\n{trace}");
     }
+    if let Some(trace) = &report.dumb_trace {
+        println!("\ndumb-equal jam\n{trace}");
+    }
     if let Some(trace) = &report.muse_trace {
         println!("\nmuse trace\n{trace}");
     }
@@ -149,7 +152,7 @@ Knobs:
   --jam KIND               symmetric | ramp-surge | mainline-plug
   --prefs SENTENCE         plain English merge preference
   --rewrite-every N        ask Muse again every N ticks
-  --show                   print a short grid trace
+  --show                   print a top-down trace of the ramp merge
   --help
 
 Score:

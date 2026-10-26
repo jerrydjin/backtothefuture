@@ -6,7 +6,9 @@ use crate::schema::{Score, WorldState, ZonePlan};
 use crate::world::{render_ascii, validate_plan, Scenario, World};
 
 pub fn default_horizon(cars: u32) -> u32 {
-    cars.saturating_mul(4).saturating_add(8)
+    // A stopped zipper discharges one car every few seconds, then each car
+    // still has to roll the through lane home. The old cell horizon was too short.
+    cars.saturating_mul(8).saturating_add(16)
 }
 
 #[derive(Clone, Debug, Default)]
@@ -28,6 +30,7 @@ pub struct EpisodeReport {
     pub plan_json: String,
     pub muse_calls: usize,
     pub selfish_trace: Option<String>,
+    pub dumb_trace: Option<String>,
     pub muse_trace: Option<String>,
 }
 
@@ -89,6 +92,7 @@ pub fn run_episode(
         plan_json,
         muse_calls,
         selfish_trace: opts.show.then(|| trace_of(&selfish_traj.states)),
+        dumb_trace: opts.show.then(|| jam_trace(&dumb_traj.states)),
         muse_trace: opts.show.then(|| trace_of(&states)),
     })
 }
@@ -131,10 +135,54 @@ pub fn rollout(world: World, policy: &dyn crate::world::Executor, horizon: u32) 
 }
 
 fn trace_of(states: &[WorldState]) -> String {
-    states
-        .iter()
-        .take(24)
+    sample_frames(states, 10)
+        .into_iter()
         .map(render_ascii)
         .collect::<Vec<_>>()
         .join("\n\n")
+}
+
+fn jam_trace(states: &[WorldState]) -> String {
+    let Some(first) = states.first() else {
+        return String::new();
+    };
+    let last = states.last().unwrap_or(first);
+    let picture = render_ascii(first);
+    let held = last.agents.iter().all(|agent| {
+        first
+            .agents
+            .iter()
+            .find(|start| start.id == agent.id)
+            .is_some_and(|start| (start.s_m - agent.s_m).abs() < 1e-3 && !agent.passed_gate)
+    });
+    if held {
+        format!(
+            "{picture}\n\njam holds for {}s: both mouths stay stopped at the gore",
+            last.tick
+        )
+    } else {
+        format!("{picture}\n\n{}", render_ascii(last))
+    }
+}
+
+fn sample_frames(states: &[WorldState], max: usize) -> Vec<&WorldState> {
+    if states.is_empty() || max == 0 {
+        return Vec::new();
+    }
+    if states.len() <= max {
+        return states.iter().collect();
+    }
+    let last = states.len() - 1;
+    let mut indexes = Vec::with_capacity(max);
+    for step in 0..max {
+        let index = if step + 1 == max {
+            last
+        } else {
+            (step * last) / (max - 1)
+        };
+        if indexes.last().copied() != Some(index) {
+            indexes.push(index);
+        }
+    }
+    indexes.into_iter().map(|index| &states[index]).collect()
 }
