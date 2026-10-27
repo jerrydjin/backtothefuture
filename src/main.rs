@@ -4,8 +4,8 @@ use std::env;
 use std::process::ExitCode;
 
 use muse::{
-    interpret_english, run_episode, Bias, EpisodeOpts, JamType, MuseKind, Scenario, Verdict,
-    DINNER_SENTENCE,
+    board_from_run, interpret_english, present_board, render_board_html, run_dinner, Bias,
+    EpisodeOpts, JamType, MuseKind, Scenario, Verdict, DINNER_SENTENCE,
 };
 
 fn main() -> ExitCode {
@@ -28,7 +28,7 @@ fn main() -> ExitCode {
         Err(error) => {
             eprintln!("{error}");
             eprintln!(
-                "blocker: set MODEL_API_KEY for a real completion, or leave it unset with ALLOW_CHEAT=1 (the default) so FakeEcho can run"
+                "blocker: set MODEL_API_KEY for a real completion, or leave it unset with ALLOW_CHEAT=1 (the default) so the scripted plan can run"
             );
             return ExitCode::from(1);
         }
@@ -40,13 +40,14 @@ fn main() -> ExitCode {
         horizon: None,
         show: args.show,
     };
-    let report = match run_episode(&scenario, &muse, muse.label(), &opts) {
-        Ok(report) => report,
+    let dinner = match run_dinner(&scenario, &muse, &opts) {
+        Ok(dinner) => dinner,
         Err(error) => {
             eprintln!("episode failed: {error}");
             return ExitCode::from(1);
         }
     };
+    let report = dinner.to_report(muse.label(), &opts);
 
     println!("Muse day-1");
     println!("{DINNER_SENTENCE}");
@@ -58,9 +59,9 @@ fn main() -> ExitCode {
     println!("prefs: {}", report.prefs);
     println!("selfish     {}", report.selfish);
     println!("dumb-equal  {}", report.dumb_equal);
-    println!("muse        {}", report.muse);
+    println!("{:<12}{}", report.client, report.muse);
     println!("plan: {}", report.plan_json);
-    println!("muse calls: {}", report.muse_calls);
+    println!("plan calls: {}", report.muse_calls);
     if let Some(trace) = &report.selfish_trace {
         println!("\nselfish trace\n{trace}");
     }
@@ -68,7 +69,17 @@ fn main() -> ExitCode {
         println!("\ndumb-equal jam\n{trace}");
     }
     if let Some(trace) = &report.muse_trace {
-        println!("\nmuse trace\n{trace}");
+        println!("\n{} trace\n{trace}", report.client);
+    }
+    if args.board {
+        let html = render_board_html(&board_from_run(&dinner, muse.label()));
+        match present_board(&html) {
+            Ok(path) => println!("board: {}", path.display()),
+            Err(error) => {
+                eprintln!("board: {error}");
+                return ExitCode::from(1);
+            }
+        }
     }
 
     let baseline_red =
@@ -90,6 +101,7 @@ struct Args {
     jam: JamType,
     prefs: String,
     show: bool,
+    board: bool,
     rewrite_every: Option<u32>,
 }
 
@@ -101,6 +113,7 @@ impl Args {
             jam: JamType::Symmetric,
             prefs: "Zipper fairly so both approaches get home.".to_string(),
             show: false,
+            board: false,
             rewrite_every: None,
         };
         let mut args = env::args().skip(1);
@@ -108,6 +121,7 @@ impl Args {
             match arg.as_str() {
                 "-h" | "--help" => parsed.help = true,
                 "--show" => parsed.show = true,
+                "--board" => parsed.board = true,
                 "--cars" => {
                     let value = args.next().ok_or("--cars needs a number")?;
                     parsed.cars = value
@@ -151,16 +165,17 @@ Knobs:
   --cars N                 fleet size, 2 to 64 (default 6)
   --jam KIND               symmetric | ramp-surge | mainline-plug
   --prefs SENTENCE         plain English merge preference
-  --rewrite-every N        ask Muse again every N ticks
-  --show                   print the ramp merge: wreck, held jam, and cleared road
+  --rewrite-every N        ask for a new plan every N ticks
+  --show                   print the ramp merge in the terminal: wreck, held jam, and cleared road
+  --board                  open the live top-down window for that same dinner path
   --help
 
 Score:
   GREEN requires zero collisions, every car home, fairness <= 0.15, and time-home inside budget.
-  Selfish and dumb-equal stay RED. A fair Muse plan can go GREEN.
+  Selfish and dumb-equal stay RED. A fair scripted plan can go GREEN.
 
 Blocker:
-  MODEL_API_KEY selects the HTTP client (curl). When it is unset, FakeEcho runs (ALLOW_CHEAT).
-  ALLOW_CHEAT=0 with no key fails closed."
+  MODEL_API_KEY selects the HTTP client (curl). When it is unset, the scripted plan runs (ALLOW_CHEAT).
+  With a key, the client label is muse. ALLOW_CHEAT=0 with no key fails closed."
     )
 }

@@ -34,13 +34,61 @@ pub struct EpisodeReport {
     pub muse_trace: Option<String>,
 }
 
-/// Spawn a jam, score the sticky baselines, then ask Muse for one plan and score that too.
-pub fn run_episode(
+/// One baseline or the planned run, with every frame the view can draw.
+#[derive(Clone, Debug)]
+pub struct ModeRun {
+    pub score: Score,
+    pub states: Vec<WorldState>,
+}
+
+/// The three dinner runs. The board is a view of this; it does not resimulate.
+#[derive(Clone, Debug)]
+pub struct DinnerRun {
+    pub cars: u32,
+    pub jam: String,
+    pub prefs: String,
+    pub selfish: ModeRun,
+    pub dumb_equal: ModeRun,
+    pub plan: ModeRun,
+    pub plan_json: String,
+    pub muse_calls: usize,
+}
+
+impl DinnerRun {
+    /// Terminal report. `client_label` is `scripted` or `muse`; the plan score stays `report.muse`.
+    pub fn to_report(&self, client_label: &str, opts: &EpisodeOpts) -> EpisodeReport {
+        let selfish_trace = opts
+            .show
+            .then(|| show_block(&self.selfish.score, &trace_of(&self.selfish.states)));
+        let dumb_trace = opts
+            .show
+            .then(|| show_block(&self.dumb_equal.score, &jam_trace(&self.dumb_equal.states)));
+        let muse_trace = opts
+            .show
+            .then(|| show_block(&self.plan.score, &trace_of(&self.plan.states)));
+        EpisodeReport {
+            client: client_label.to_string(),
+            cars: self.cars,
+            jam: self.jam.clone(),
+            prefs: self.prefs.clone(),
+            selfish: self.selfish.score.clone(),
+            dumb_equal: self.dumb_equal.score.clone(),
+            muse: self.plan.score.clone(),
+            plan_json: self.plan_json.clone(),
+            muse_calls: self.muse_calls,
+            selfish_trace,
+            dumb_trace,
+            muse_trace,
+        }
+    }
+}
+
+/// Spawn a jam, score the sticky baselines, then ask for one plan and score that too.
+pub fn run_dinner(
     scenario: &Scenario,
     muse: &dyn MuseClient,
-    client_label: &str,
     opts: &EpisodeOpts,
-) -> Result<EpisodeReport, MuseError> {
+) -> Result<DinnerRun, MuseError> {
     let horizon = opts
         .horizon
         .unwrap_or_else(|| default_horizon(scenario.cars));
@@ -77,33 +125,39 @@ pub fn run_episode(
             break;
         }
     }
-    let muse_score = judge(&Trajectory {
+    let plan_score = judge(&Trajectory {
         states: states.clone(),
     });
-    let selfish_trace = opts
-        .show
-        .then(|| show_block(&selfish, &trace_of(&selfish_traj.states)));
-    let dumb_trace = opts
-        .show
-        .then(|| show_block(&dumb_equal, &jam_trace(&dumb_traj.states)));
-    let muse_trace = opts
-        .show
-        .then(|| show_block(&muse_score, &trace_of(&states)));
 
-    Ok(EpisodeReport {
-        client: client_label.to_string(),
+    Ok(DinnerRun {
         cars: scenario.cars,
         jam: scenario.jam.to_string(),
         prefs: scenario.prefs.english.clone(),
-        selfish,
-        dumb_equal,
-        muse: muse_score,
+        selfish: ModeRun {
+            score: selfish,
+            states: selfish_traj.states,
+        },
+        dumb_equal: ModeRun {
+            score: dumb_equal,
+            states: dumb_traj.states,
+        },
+        plan: ModeRun {
+            score: plan_score,
+            states,
+        },
         plan_json,
         muse_calls,
-        selfish_trace,
-        dumb_trace,
-        muse_trace,
     })
+}
+
+/// Spawn a jam, score the sticky baselines, then ask for one plan and score that too.
+pub fn run_episode(
+    scenario: &Scenario,
+    muse: &dyn MuseClient,
+    client_label: &str,
+    opts: &EpisodeOpts,
+) -> Result<EpisodeReport, MuseError> {
+    Ok(run_dinner(scenario, muse, opts)?.to_report(client_label, opts))
 }
 
 fn request_plan(
