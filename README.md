@@ -16,7 +16,7 @@ cargo run -- --cars 8 --jam ramp-surge --prefs "Zipper fairly so both approaches
 cargo run -- --cars 6 --jam symmetric --prefs "Main has priority. Main first."
 ```
 
-`cargo run -- --board` opens the live birds-eye window: cars on a road network (arterial, ramp merge, cross street), yield / merge on the cars, and a side scoreboard RED / RED / GREEN. `--show` prints that same dinner path in the terminal.
+`cargo run -- --board` opens the live birds-eye window: thin roads, car rectangles, one yield or merge cue, and three tiny RED / RED / GREEN pills. `--show` prints that same dinner path in the terminal.
 
 Fair prefs: selfish and dumb-equal print `RED`, the scripted plan prints `GREEN`, process exits 0.
 

@@ -118,20 +118,27 @@ fn board_dinner_is_red_red_green() {
     assert!(html.contains("yield"));
     assert!(html.contains("merge"));
     assert!(html.contains("talkFor"));
-    assert!(html.contains("class=\"pill red\""));
-    assert!(html.contains("class=\"pill green\""));
-    assert!(html.contains("#e10600"));
-    assert!(html.contains("#00b248"));
+    assert!(html.contains("oneCue"));
+    assert_eq!(html.matches("class=\"pill red\"").count(), 2);
+    assert_eq!(html.matches("class=\"pill green\"").count(), 1);
+    assert_eq!(html.matches(">RED</button>").count(), 2);
+    assert_eq!(html.matches(">GREEN</button>").count(), 1);
     assert!(html.contains("<canvas id=\"network\""));
     assert_eq!(
         html.matches("<canvas").count(),
         1,
         "the map is one network canvas"
     );
-    assert!(html.contains("id=\"score\""));
-    assert!(html.contains("birds-eye"));
-    assert!(html.contains("cross street"));
-    assert!(html.contains("standingTalks"));
+    assert!(!html.contains("id=\"score\""));
+    assert!(!html.contains("id=\"now\""));
+    assert!(!html.contains("class=\"card"));
+    assert!(!html.contains("class=\"talks\""));
+    assert!(!html.contains("class=\"legend\""));
+    assert!(!html.contains("cross street"));
+    assert!(!html.contains("standingTalks"));
+    assert!(!html.contains("drawIntent"));
+    assert!(!html.contains("#e10600"));
+    assert!(!html.contains("#00b248"));
     assert!(!html.contains("class=\"strip"));
     assert!(
         html.contains("25.5"),
