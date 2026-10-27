@@ -16,7 +16,7 @@ cargo run -- --cars 8 --jam ramp-surge --prefs "Zipper fairly so both approaches
 cargo run -- --cars 6 --jam symmetric --prefs "Main has priority. Main first."
 ```
 
-`cargo run -- --board` opens the live top-down window: car blobs on the merge, selfish wreck, dumb-equal jam, scripted clear, scoreboard RED / RED / GREEN. `--show` prints that same dinner path in the terminal.
+`cargo run -- --board` opens the live birds-eye window: a white diagram of the road network, small flat cars moving through it, one yield or merge cue, and three tiny RED / RED / GREEN pills. `--show` prints that same dinner path in the terminal.
 
 Fair prefs: selfish and dumb-equal print `RED`, the scripted plan prints `GREEN`, process exits 0.
 
@@ -58,7 +58,7 @@ Fairness is the share of contested gate passages that repeated the same approach
 | `--prefs` | Plain English. "Zipper fairly…" balances. "Main has priority. Main first." does not. |
 | `--rewrite-every` | New plan every N ticks. |
 | `--show` | Terminal trace. Dinner path: wreck stays, jam stays, fair road clears. |
-| `--board` | Open the live top-down window for that same dinner path. |
+| `--board` | Open the live birds-eye network window for that same dinner path. |
 
 Structured prefs are a `Bias` on `Prefs` (`balanced`, `favor_main`, `favor_ramp`). The prompt carries them. When set, they win over the sentence. The executor never reads prefs itself.
 

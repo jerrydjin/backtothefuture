@@ -1,5 +1,6 @@
-//! Top-down dinner board. A view of [`DinnerRun`](crate::episode::DinnerRun):
-//! the same frames the terminal `--show` path already scores. No second physics.
+//! Birds-eye dinner board. A view of [`DinnerRun`](crate::episode::DinnerRun):
+//! the same frames the terminal `--show` path already scores, laid on one road
+//! network. No second physics. Schemas and the judge stay out.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -7,13 +8,14 @@ use std::time::Duration;
 
 use serde::Serialize;
 
-use crate::episode::{DinnerRun, EpisodeOpts, ModeRun};
+use crate::episode::{default_horizon, rollout, DinnerRun, EpisodeOpts, ModeRun};
 use crate::error::MuseError;
 use crate::muse::MuseClient;
+use crate::negotiate::LocalNegotiate;
 use crate::schema::{Score, TalkPhase, WorldState, YieldRole};
-use crate::world::{CAR_LENGTH_M, CAR_WIDTH_M, LANE_WIDTH_M, TAPER_M};
+use crate::world::{JamType, Scenario, World, CAR_LENGTH_M, CAR_WIDTH_M, LANE_WIDTH_M, TAPER_M};
 
-/// One car blob. `s` is the front bumper in meters, the same station the sim uses.
+/// One flat car. `s` is the front bumper in meters, the same station the sim uses.
 #[derive(Clone, Debug, Serialize)]
 pub struct BoardCar {
     pub id: u32,
@@ -46,7 +48,40 @@ pub struct BoardFrame {
     pub talks: Vec<BoardTalk>,
 }
 
-/// One strip: selfish, dumb-equal, or the client that produced the plan.
+/// One car on a background merge. Same meters as [`BoardCar`], without the talk row.
+#[derive(Clone, Debug, Serialize)]
+pub struct FlowCar {
+    pub id: u32,
+    pub approach: String,
+    pub s: f64,
+    pub lane: f64,
+    pub length: f64,
+    #[serde(skip_serializing_if = "is_false")]
+    pub home: bool,
+    #[serde(skip_serializing_if = "is_false")]
+    pub collided: bool,
+}
+
+/// One tick of a background merge.
+#[derive(Clone, Debug, Serialize)]
+pub struct FlowFrame {
+    pub tick: u32,
+    pub vehicles: Vec<FlowCar>,
+}
+
+/// A merge rolled with the local negotiator, drawn on another street of the network.
+#[derive(Clone, Debug, Serialize)]
+pub struct NetworkFlow {
+    pub gate_s_m: f64,
+    pub home_s_m: f64,
+    pub frames: Vec<FlowFrame>,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+
+/// One scored run. The side panel lists these. The map plays one at a time.
 #[derive(Clone, Debug, Serialize)]
 pub struct BoardStrip {
     pub name: String,
@@ -74,6 +109,8 @@ pub struct DinnerBoard {
     pub car_length_m: f64,
     pub car_width_m: f64,
     pub strips: Vec<BoardStrip>,
+    /// Platoons on the other roads. Same world, not the sticky score.
+    pub flows: Vec<NetworkFlow>,
 }
 
 /// Run the dinner path and shape it for the window.
@@ -108,6 +145,59 @@ pub fn board_from_run(run: &DinnerRun, client_label: &str) -> DinnerBoard {
             strip(client_label, &run.plan, true),
             strip("negotiate", &run.negotiate, false),
         ],
+        flows: network_flows(),
+    }
+}
+
+/// Background roads. Local negotiate only, so this path never calls a model.
+fn network_flows() -> Vec<NetworkFlow> {
+    // Page order: spine west, spine east, north, south, link, slip.
+    // Mainline-heavy, so each platoon sits on one centerline.
+    // The scored dinner merge is a strip, not one of these.
+    [
+        (14, JamType::MainlinePlug),
+        (12, JamType::MainlinePlug),
+        (16, JamType::MainlinePlug),
+        (14, JamType::MainlinePlug),
+        (18, JamType::MainlinePlug),
+        (10, JamType::MainlinePlug),
+    ]
+    .into_iter()
+    .map(|(cars, jam)| flow_run(cars, jam))
+    .collect()
+}
+
+fn flow_run(cars: u32, jam: JamType) -> NetworkFlow {
+    let scenario = Scenario::new(cars, jam, "Zipper fairly so both approaches get home.");
+    let world = World::spawn(&scenario).expect("network flow");
+    let traj = rollout(world, &LocalNegotiate, default_horizon(cars));
+    let first = traj
+        .states
+        .first()
+        .expect("a flow starts with the spawn frame");
+    NetworkFlow {
+        gate_s_m: first.gate_s_m,
+        home_s_m: first.home_s_m,
+        frames: traj.states.iter().map(flow_frame).collect(),
+    }
+}
+
+fn flow_frame(state: &WorldState) -> FlowFrame {
+    FlowFrame {
+        tick: state.tick,
+        vehicles: state
+            .agents
+            .iter()
+            .map(|agent| FlowCar {
+                id: agent.id,
+                approach: agent.approach.to_string(),
+                s: (agent.s_m * 100.0).round() / 100.0,
+                lane: (agent.lane_m * 100.0).round() / 100.0,
+                length: agent.length_m,
+                home: agent.home,
+                collided: agent.collided,
+            })
+            .collect(),
     }
 }
 
@@ -198,61 +288,31 @@ fn road_marks(run: &DinnerRun) -> (f64, f64) {
     (0.0, 1.0)
 }
 
-/// Self-contained page. The scoreboard is HTML so RED / GREEN is on screen
-/// even before the canvases paint. The script only moves the blobs.
+/// Self-contained page. Three mute pills carry the sticky RED / RED / GREEN.
+/// The script draws a white network and moves flat cars. One yield or merge cue.
 pub fn render_board_html(board: &DinnerBoard) -> String {
     let json = serde_json::to_string(board).unwrap_or_else(|_| "{}".to_string());
     let json = json.replace('<', "\\u003c");
     let mut pills = String::new();
-    let mut strips = String::new();
     for (index, strip) in board.strips.iter().enumerate() {
+        if !strip.scoreboard {
+            continue;
+        }
         let kind = if strip.verdict == "GREEN" {
             "green"
         } else {
             "red"
         };
-        if strip.scoreboard {
-            pills.push_str(&format!(
-                "<div class=\"pill {kind}\">{} {}</div>",
-                esc(&strip.name),
-                esc(&strip.verdict)
-            ));
-        }
-        let talks = if strip.caption.is_empty() {
-            String::new()
-        } else {
-            format!("<span class=\"talks\">{}</span>", esc(&strip.caption))
-        };
-        let extra = if strip.scoreboard { "" } else { " talk" };
-        strips.push_str(&format!(
-            "<section class=\"strip {kind}{extra}\">\
-<header>\
-<span class=\"name\">{}</span>\
-<span class=\"story\">{story}</span>\
-{talks}\
-<span class=\"meta\" id=\"meta-{index}\"></span>\
-<span class=\"scoreline\">{}</span>\
-<span class=\"pill {kind}\">{}</span>\
-</header>\
-<div class=\"stage\"><canvas id=\"c{index}\"></canvas></div>\
-</section>",
-            esc(&strip.name),
-            esc(&strip.score),
-            esc(&strip.verdict),
-            story = esc(&strip.story),
+        pills.push_str(&format!(
+            "<button type=\"button\" class=\"pill {kind}\" data-strip=\"{index}\" title=\"{name}\">{verdict}</button>",
+            kind = kind,
+            index = index,
+            name = esc(&strip.name),
+            verdict = esc(&strip.verdict),
         ));
     }
-    let sub = format!(
-        "{} · N={} · {} · {}",
-        esc(&board.client),
-        board.cars,
-        esc(&board.jam),
-        esc(&board.prefs)
-    );
     PAGE_TEMPLATE
-        .replace("__SUB__", &sub)
         .replace("__PILLS__", &pills)
-        .replace("__STRIPS__", &strips)
         .replace("__BOARD_JSON__", &json)
 }
 
@@ -271,106 +331,106 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
 <meta http-equiv="Cache-Control" content="no-store">
 <title>dinner board</title>
 <style>
-  :root { color-scheme: dark; }
-  html, body { margin: 0; height: 100%; background: #10141c; color: #f4f6fb; }
-  body { font: 16px/1.35 ui-sans-serif, system-ui, sans-serif; }
-  #page { height: 100%; display: flex; flex-direction: column; }
-  #top { display: flex; gap: 16px; align-items: center; justify-content: space-between;
-         padding: 12px 16px 10px; background: #0c0f15; border-bottom: 1px solid #2a3142; }
-  .title { font-size: 20px; font-weight: 800; letter-spacing: 0.02em; }
-  .sub { margin: 2px 0 0; color: #b7c0d0; font-size: 14px; }
-  .legend { display: flex; gap: 12px; margin-top: 6px; color: #c5cedb; font-size: 13px; }
-  .swatch { display: inline-block; width: 18px; height: 10px; border-radius: 6px; margin-right: 4px; vertical-align: -1px; }
-  .swatch.main { background: #4ea1ff; }
-  .swatch.ramp { background: #ffb020; }
-  .swatch.hit { background: #ff2d2d; }
-  .live { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #9aa6b8; }
-  .live .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #3ddc84; margin-right: 6px;
-               animation: pulse 1.1s ease-in-out infinite; }
-  .live.paused .dot { animation: none; background: #9aa6b8; }
-  @keyframes pulse { 50% { opacity: 0.35; } }
-  #pills { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
-  .pill { color: #fff; font-weight: 800; letter-spacing: 0.04em; border-radius: 10px;
-          padding: 8px 14px; font-size: 22px; white-space: nowrap; }
-  .pill.red { background: #e10600; }
-  .pill.green { background: #00b248; }
-  #strips { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-  .strip { flex: 1; min-height: 0; display: flex; flex-direction: column; border-top: 1px solid #2a3142; }
-  .strip.red { box-shadow: inset 10px 0 0 #e10600; }
-  .strip.green { box-shadow: inset 10px 0 0 #00b248; }
-  .strip > header { display: flex; gap: 12px; align-items: baseline; padding: 6px 16px 4px 22px; }
-  .name { font-weight: 800; font-size: 18px; min-width: 7.5rem; }
-  .story { font-weight: 800; letter-spacing: 0.12em; font-size: 18px; }
-  .strip.red .story { color: #ff8d8d; }
-  .strip.green .story { color: #7dffa8; }
-  .meta { color: #d5dbe6; font-variant-numeric: tabular-nums; min-width: 9rem; }
-  .talks { color: #ffd27a; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap; }
-  .scoreline { color: #9aa6b8; font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .strip > header .pill { font-size: 18px; padding: 4px 10px; }
-  .stage { flex: 1; min-height: 72px; }
-  canvas { width: 100%; height: 100%; display: block; }
+  :root { color-scheme: light; }
+  html, body { margin: 0; height: 100%; background: #fff; }
+  #network { position: fixed; inset: 0; width: 100%; height: 100%; display: block; background: #fff; }
+  #pills { position: fixed; top: 12px; left: 12px; z-index: 2; display: flex; gap: 4px; }
+  .pill { appearance: none; font: 10px/1 ui-sans-serif, system-ui, sans-serif; letter-spacing: 0.08em;
+          color: #8d8d8d; background: transparent; border: 1px solid #d5d5d5;
+          border-radius: 999px; padding: 2px 6px; cursor: pointer; }
+  .pill.red { color: #a94444; border-color: #e7cccc; }
+  .pill.green { color: #2f7a4a; border-color: #c9e0d0; }
+  .pill.on { color: #1c1c1c; border-color: #1c1c1c; }
 </style>
 </head>
 <body>
-<div id="page">
-  <header id="top">
-    <div>
-      <div class="title">dinner board</div>
-      <p class="sub">__SUB__</p>
-      <div class="legend">
-        <span><i class="swatch main"></i>main</span>
-        <span><i class="swatch ramp"></i>ramp</span>
-        <span><i class="swatch hit"></i>wreck</span>
-        <span>wreck → jam → clear</span>
-        <span>yield / merge</span>
-        <span class="live" id="live"><span class="dot"></span>live</span>
-        <span>click to pause</span>
-      </div>
-    </div>
-    <div id="pills">__PILLS__</div>
-  </header>
-  <div id="strips">__STRIPS__</div>
-</div>
+<canvas id="network"></canvas>
+<div id="pills">__PILLS__</div>
 <script id="board-data" type="application/json">__BOARD_JSON__</script>
 <script>
 (function () {
   var data = JSON.parse(document.getElementById("board-data").textContent);
-  var canvases = data.strips.map(function (_, i) { return document.getElementById("c" + i); });
-  var metas = data.strips.map(function (_, i) { return document.getElementById("meta-" + i); });
   var maxTick = 0;
   data.strips.forEach(function (strip) {
     var last = strip.frames[strip.frames.length - 1];
     if (last && last.tick > maxTick) maxTick = last.tick;
   });
   if (maxTick < 1) maxTick = 1;
-  var speed = 5;
-  var hold = 1.8;
+  var speed = 2.4;
+  var hold = 2.0;
   var origin = performance.now();
   var paused = false;
   var pausedAt = origin;
-  document.getElementById("page").addEventListener("click", function () {
-    var live = document.getElementById("live");
+  var active = data.strips.length - 1;
+  data.strips.forEach(function (strip, i) {
+    if (strip.name === "negotiate") active = i;
+  });
+  var seekTo = null;
+  var seekMatch = /[?#&]t=([0-9]+(?:\.[0-9]+)?)/.exec(String(location.href));
+  if (seekMatch) seekTo = Number(seekMatch[1]);
+  var runMatch = /[?#&]run=([a-z0-9-]+)/.exec(String(location.href));
+  if (runMatch) {
+    data.strips.forEach(function (strip, i) {
+      if (strip.name === runMatch[1]) active = i;
+    });
+  }
+
+  document.getElementById("network").addEventListener("click", function (ev) {
+    ev.stopPropagation();
+    togglePause();
+  });
+  document.getElementById("pills").addEventListener("click", function (ev) {
+    var pill = ev.target.closest ? ev.target.closest(".pill") : null;
+    if (!pill) return;
+    ev.stopPropagation();
+    var index = Number(pill.getAttribute("data-strip"));
+    if (index === active) {
+      data.strips.forEach(function (strip, i) {
+        if (strip.name === "negotiate") index = i;
+      });
+    }
+    setActive(index);
+  });
+
+  function setActive(index) {
+    if (index < 0 || index >= data.strips.length || isNaN(index)) return;
+    active = index;
+    var pills = document.querySelectorAll(".pill");
+    for (var i = 0; i < pills.length; i++) {
+      pills[i].classList.toggle("on", Number(pills[i].getAttribute("data-strip")) === index);
+    }
+  }
+
+  function togglePause() {
     if (!paused) {
       paused = true;
       pausedAt = performance.now();
-      live.classList.add("paused");
-      live.lastChild.textContent = "paused";
     } else {
       origin += performance.now() - pausedAt;
       paused = false;
-      live.classList.remove("paused");
-      live.lastChild.textContent = "live";
     }
-  });
+  }
+
+  function elapsedSec(now) {
+    var elapsed = ((paused ? pausedAt : now) - origin) / 1000;
+    return elapsed < 0 ? 0 : elapsed;
+  }
 
   function simTime(now) {
-    var elapsed = ((paused ? pausedAt : now) - origin) / 1000;
-    if (elapsed < 0) elapsed = 0;
+    if (seekTo != null) return Math.max(0, Math.min(maxTick, seekTo));
     var play = maxTick / speed;
-    var cycle = play + hold;
-    var local = elapsed % cycle;
+    var local = elapsedSec(now) % (play + hold);
     if (local >= play) return maxTick;
     return local * speed;
+  }
+
+  function flowTime(now, frames) {
+    if (!frames || !frames.length) return 0;
+    var last = frames[frames.length - 1].tick;
+    if (last < 1) return 0;
+    var t = seekTo != null ? Math.max(0, seekTo) : elapsedSec(now) * speed;
+    if (t <= last) return t;
+    return t % last;
   }
 
   function sample(frames, simT) {
@@ -387,11 +447,11 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     return { a: a, b: b, u: u, tick: simT };
   }
 
-  function blend(sample) {
+  function blend(posed) {
     var byId = {};
-    sample.b.vehicles.forEach(function (car) { byId[car.id] = car; });
-    var flagsFrom = sample.u >= 1 ? sample.b : sample.a;
-    return sample.a.vehicles.map(function (car) {
+    posed.b.vehicles.forEach(function (car) { byId[car.id] = car; });
+    var flagsFrom = posed.u >= 1 ? posed.b : posed.a;
+    return posed.a.vehicles.map(function (car) {
       var nxt = byId[car.id] || car;
       var flag = null;
       flagsFrom.vehicles.forEach(function (item) { if (item.id === car.id) flag = item; });
@@ -399,25 +459,240 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
       return {
         id: car.id,
         approach: car.approach,
-        s: car.s + (nxt.s - car.s) * sample.u,
-        lane: car.lane + (nxt.lane - car.lane) * sample.u,
+        s: car.s + (nxt.s - car.s) * posed.u,
+        lane: (car.lane || 0) + ((nxt.lane || 0) - (car.lane || 0)) * posed.u,
         length: car.length,
-        home: flag.home,
-        collided: flag.collided
+        home: !!flag.home,
+        collided: !!flag.collided
       };
     });
   }
 
-  function roundRect(ctx, x, y, w, h, r) {
-    var radius = Math.max(0, Math.min(r, w / 2, h / 2));
-    ctx.beginPath();
-    ctx.moveTo(x + radius, y);
-    ctx.arcTo(x + w, y, x + w, y + h, radius);
-    ctx.arcTo(x + w, y + h, x, y + h, radius);
-    ctx.arcTo(x, y + h, x, y, radius);
-    ctx.arcTo(x, y, x + w, y, radius);
-    ctx.closePath();
+  function talkFor(frame, id) {
+    var talks = (frame && frame.talks) || [];
+    var accept = null;
+    var propose = null;
+    talks.forEach(function (talk) {
+      if (talk.id !== id) return;
+      if (talk.phase === "accept") accept = talk;
+      else propose = talk;
+    });
+    return accept || propose;
   }
+
+  // One yield or merge cue. Merge wins when both are still in view.
+  function oneCue(frames, simT) {
+    var yielded = null;
+    var merged = null;
+    for (var i = 0; i < frames.length; i++) {
+      var frame = frames[i];
+      if (frame.tick > simT) break;
+      var vehicles = frame.vehicles || [];
+      for (var v = 0; v < vehicles.length; v++) {
+        var talk = talkFor(frame, vehicles[v].id);
+        if (!talk || talk.phase !== "accept") continue;
+        if (talk.role === "yield") yielded = { id: talk.id, role: talk.role, tick: frame.tick };
+        else if (talk.role === "merge") merged = { id: talk.id, role: talk.role, tick: frame.tick };
+      }
+    }
+    if (merged && simT - merged.tick <= 6) return merged;
+    if (yielded && simT - yielded.tick <= 6) return yielded;
+    return null;
+  }
+
+  // One network, in meters. Spine is the through road. The ramp joins it once.
+  // Link and slip are the only other connectors. Nothing here is a repeated cell.
+  var CAR_W = data.car_width_m || 1.8;
+  var S0 = 8;
+  var flows = data.flows || [];
+
+  function measures(pts) {
+    var cum = [0];
+    for (var i = 1; i < pts.length; i++) {
+      cum.push(cum[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
+    }
+    return cum;
+  }
+
+  function roadOf(pts) {
+    var cum = measures(pts);
+    return { pts: pts, cum: cum, len: cum[cum.length - 1] };
+  }
+
+  function pointOn(road, dist) {
+    var pts = road.pts;
+    var cum = road.cum;
+    if (dist <= 0) return { x: pts[0].x, y: pts[0].y };
+    if (dist >= road.len) {
+      var last = pts[pts.length - 1];
+      return { x: last.x, y: last.y };
+    }
+    var i = 1;
+    while (i < cum.length && cum[i] < dist) i++;
+    var span = (cum[i] - cum[i - 1]) || 1;
+    var u = (dist - cum[i - 1]) / span;
+    return {
+      x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * u,
+      y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * u
+    };
+  }
+
+  function tangentOn(road, dist) {
+    var a = pointOn(road, Math.max(0, dist - 1.2));
+    var b = pointOn(road, Math.min(road.len, dist + 1.2));
+    var len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    return { x: (b.x - a.x) / len, y: (b.y - a.y) / len };
+  }
+
+  function cr(p0, p1, p2, p3, t) {
+    var t2 = t * t;
+    var t3 = t2 * t;
+    return {
+      x: 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+      y: 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3)
+    };
+  }
+
+  function smooth(pts, step) {
+    var p = [pts[0]].concat(pts, [pts[pts.length - 1]]);
+    var out = [];
+    for (var i = 1; i < p.length - 2; i++) {
+      var seg = Math.hypot(p[i + 1].x - p[i].x, p[i + 1].y - p[i].y);
+      var n = Math.max(2, Math.round(seg / step));
+      for (var s = 0; s < n; s++) out.push(cr(p[i - 1], p[i], p[i + 1], p[i + 2], s / n));
+    }
+    out.push(pts[pts.length - 1]);
+    return roadOf(out);
+  }
+
+  function quad(p0, p1, p2) {
+    var pts = [];
+    var n = 28;
+    for (var i = 0; i <= n; i++) {
+      var t = i / n;
+      var u = 1 - t;
+      pts.push({
+        x: u * u * p0.x + 2 * u * t * p1.x + t * t * p2.x,
+        y: u * u * p0.y + 2 * u * t * p1.y + t * t * p2.y
+      });
+    }
+    return roadOf(pts);
+  }
+
+  function cubic(p0, p1, p2, p3) {
+    var pts = [];
+    var n = 32;
+    for (var i = 0; i <= n; i++) {
+      var t = i / n;
+      var u = 1 - t;
+      pts.push({
+        x: u * u * u * p0.x + 3 * u * u * t * p1.x + 3 * u * t * t * p2.x + t * t * t * p3.x,
+        y: u * u * u * p0.y + 3 * u * u * t * p1.y + 3 * u * t * t * p2.y + t * t * t * p3.y
+      });
+    }
+    return pts;
+  }
+
+  function arcNearX(road, x) {
+    var best = 0;
+    var bestD = 1e9;
+    for (var d = 0; d <= road.len; d += 2) {
+      var dx = Math.abs(pointOn(road, d).x - x);
+      if (dx < bestD) { bestD = dx; best = d; }
+    }
+    return best;
+  }
+
+  function spanOf(flow) { return flow.home_s_m - S0; }
+
+  // Through road, a shorter north road, a south road that falls away.
+  // Curves, not a repeated kink.
+  var spine = smooth([
+    { x: 0, y: 116 }, { x: 100, y: 106 }, { x: 200, y: 126 },
+    { x: 300, y: 108 }, { x: 400, y: 118 }
+  ], 4);
+  var north = smooth([
+    { x: 18, y: 26 }, { x: 140, y: 46 }, { x: 270, y: 20 }, { x: 370, y: 38 }
+  ], 4);
+  var south = smooth([
+    { x: 55, y: 198 }, { x: 170, y: 184 }, { x: 290, y: 222 }, { x: 410, y: 248 }
+  ], 4);
+
+  var gap = 22;
+  var westAt = 14;
+  var dinnerAt = westAt + spanOf(flows[0]) + gap;
+  var eastAt = dinnerAt + (data.home_s_m - S0) + gap;
+  var gateArc = dinnerAt + (data.gate_s_m - S0);
+  var gatePt = pointOn(spine, gateArc);
+  var gateDir = tangentOn(spine, gateArc);
+  var rampStart = pointOn(north, 10);
+  var pull = 24;
+  var ramp = roadOf(cubic(
+    rampStart,
+    {
+      x: rampStart.x + (gatePt.x - rampStart.x) * 0.36,
+      y: rampStart.y + (gatePt.y - rampStart.y) * 0.16
+    },
+    { x: gatePt.x - gateDir.x * pull, y: gatePt.y - gateDir.y * pull },
+    gatePt
+  ));
+
+  var linkAt = dinnerAt + (data.home_s_m - S0) + 8;
+  var linkFrom = pointOn(spine, linkAt);
+  var linkTo = pointOn(south, 12);
+  var link = quad(
+    linkFrom,
+    {
+      x: (linkFrom.x + linkTo.x) / 2 - 14,
+      y: (linkFrom.y + linkTo.y) / 2
+    },
+    linkTo
+  );
+
+  var slipTo = pointOn(spine, Math.min(spine.len - 6, eastAt + spanOf(flows[1]) + 18));
+  var slipFrom = pointOn(north, arcNearX(north, slipTo.x));
+  var slip = quad(
+    slipFrom,
+    {
+      x: (slipFrom.x + slipTo.x) / 2 + 10,
+      y: (slipFrom.y + slipTo.y) / 2
+    },
+    slipTo
+  );
+
+  var roads = [spine, north, south, ramp, link, slip];
+  var sites = [
+    { road: spine, origin: westAt, frames: flows[0].frames, mainOnly: true },
+    { road: spine, origin: eastAt, frames: flows[1].frames, mainOnly: true },
+    { road: north, origin: 36, frames: flows[2].frames, mainOnly: true },
+    { road: south, origin: 58, frames: flows[3].frames, mainOnly: true },
+    { road: link, origin: 0, frames: flows[4].frames, mainOnly: true },
+    { road: slip, origin: 0, frames: flows[5].frames, mainOnly: true }
+  ];
+  var dinnerSite = { dinner: true };
+
+  function pointFromEnd(road, dist) {
+    return pointOn(road, road.len - dist);
+  }
+
+  function dinnerLoc(s, lane) {
+    if ((lane || 0) > 0.2 && s < data.gate_s_m) return pointFromEnd(ramp, data.gate_s_m - s);
+    return pointOn(spine, dinnerAt + (s - S0));
+  }
+
+  function carLoc(site, s, lane) {
+    if (site.dinner) return dinnerLoc(s, lane);
+    return pointOn(site.road, site.origin + (s - S0));
+  }
+
+  var bounds = { minX: 1e9, minY: 1e9, maxX: -1e9, maxY: -1e9 };
+  function take(p) {
+    if (p.x < bounds.minX) bounds.minX = p.x;
+    if (p.y < bounds.minY) bounds.minY = p.y;
+    if (p.x > bounds.maxX) bounds.maxX = p.x;
+    if (p.y > bounds.maxY) bounds.maxY = p.y;
+  }
+  roads.forEach(function (road) { road.pts.forEach(take); });
 
   function fit(canvas) {
     var rect = canvas.getBoundingClientRect();
@@ -435,237 +710,143 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     return { ctx: ctx, w: w, h: h };
   }
 
-  function paint(simT) {
-    data.strips.forEach(function (strip, index) {
-      var canvas = canvases[index];
-      if (!canvas) return;
-      var fitted = fit(canvas);
-      var ctx = fitted.ctx;
-      var w = fitted.w;
-      var h = fitted.h;
-      var s0 = 6;
-      // The sim parks every arrival on one station. Keep the road metric through
-      // home, and give the right edge a dock so six blobs stay visible.
-      var sRoadEnd = data.home_s_m + 1;
-      var padL = 52;
-      var dockW = 176;
-      var lanePx = Math.max(18, Math.min(52, h * 0.28));
-      var mainY = h * 0.62;
-      var laneW = data.lane_width_m || 3.7;
-      function xOf(s) {
-        return padL + (s - s0) / (sRoadEnd - s0) * (w - padL - dockW);
-      }
-      function yOf(lane) {
-        return mainY - (lane / laneW) * (lanePx * 1.35);
-      }
-      ctx.clearRect(0, 0, w, h);
-      ctx.fillStyle = "#141820";
-      ctx.fillRect(0, 0, w, h);
-
-      var half = lanePx * 0.46;
-      var rampY = yOf(laneW);
-      var mainLine = yOf(0);
-      var gateX = xOf(data.gate_s_m);
-      var taperX = xOf(data.gate_s_m + data.taper_m);
-      ctx.fillStyle = "#3c4558";
-      ctx.beginPath();
-      ctx.moveTo(xOf(s0), rampY - half);
-      ctx.lineTo(gateX, rampY - half);
-      ctx.lineTo(taperX, mainLine - half * 0.2);
-      ctx.lineTo(taperX, mainLine + half * 0.2);
-      ctx.lineTo(gateX, rampY + half);
-      ctx.lineTo(xOf(s0), rampY + half);
-      ctx.closePath();
-      ctx.fill();
-
-      var roadH = half * 2;
-      var x0 = xOf(s0);
-      var x1 = xOf(sRoadEnd);
-      roundRect(ctx, x0, mainLine - roadH / 2, Math.max(1, x1 - x0), roadH, 8);
-      ctx.fill();
-
-      ctx.save();
-      ctx.strokeStyle = "rgba(255,255,255,0.16)";
-      ctx.setLineDash([8, 12]);
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(x0 + 6, yOf(0));
-      ctx.lineTo(x1 - 6, yOf(0));
-      ctx.stroke();
-      ctx.restore();
-
-      ctx.strokeStyle = "#ffb020";
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(xOf(data.gate_s_m), 16);
-      ctx.lineTo(xOf(data.gate_s_m), h - 18);
-      ctx.stroke();
-      ctx.fillStyle = "#ffb020";
-      ctx.font = "600 12px ui-sans-serif, system-ui, sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "alphabetic";
-      ctx.fillText("gore", xOf(data.gate_s_m), 13);
-
-      ctx.strokeStyle = "#3ddc84";
-      ctx.beginPath();
-      ctx.moveTo(xOf(data.home_s_m), 16);
-      ctx.lineTo(xOf(data.home_s_m), h - 18);
-      ctx.stroke();
-      ctx.fillStyle = "#3ddc84";
-      ctx.fillText("home", xOf(data.home_s_m), 13);
-
-      ctx.fillStyle = "rgba(244,246,251,0.72)";
-      ctx.textAlign = "left";
-      ctx.font = "12px ui-sans-serif, system-ui, sans-serif";
-      ctx.fillText("ramp", 8, yOf(laneW) + 4);
-      ctx.fillText("main", 8, yOf(0) + 4);
-
-      ctx.fillStyle = "rgba(244,246,251,0.45)";
-      ctx.font = "11px ui-sans-serif, system-ui, sans-serif";
-      ctx.textAlign = "center";
-      var mark = Math.ceil(s0 / 10) * 10;
-      while (mark < sRoadEnd) {
-        var mx = xOf(mark);
-        ctx.fillRect(mx, h - 8, 1, 5);
-        ctx.fillText(String(mark), mx, h - 12);
-        mark += 10;
-      }
-
-      var posed = sample(strip.frames, simT);
-      if (!posed.a) return;
-      var shown = posed.u >= 1 ? posed.b : posed.a;
-      if (shown.gate_blocked || shown.collisions > 0) {
-        ctx.fillStyle = "rgba(225,6,0,0.18)";
-        ctx.beginPath();
-        ctx.arc(xOf(data.gate_s_m + 2), yOf(laneW * 0.35), lanePx * 1.2, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      var cars = blend(posed);
-      cars.sort(function (a, b) { return a.s - b.s; });
-      var blobW = Math.max(10, (data.car_width_m / laneW) * lanePx * 1.25);
-      function drawBlob(rear, y, len, wid, car) {
-        ctx.save();
-        ctx.globalAlpha = car.home ? 0.85 : 1;
-        roundRect(ctx, rear, y, len, wid, Math.min(9, wid / 2));
-        ctx.fillStyle = car.collided ? "#ff2d2d" : (car.approach === "ramp" ? "#ffb020" : "#4ea1ff");
-        ctx.fill();
-        var nose = Math.max(3, len * 0.18);
-        ctx.fillStyle = "rgba(255,255,255,0.4)";
-        ctx.fillRect(rear + len - nose, y + 2, Math.max(2, nose - 2), wid - 4);
-        if (car.collided) {
-          ctx.strokeStyle = "#fff";
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(rear + 4, y + 3);
-          ctx.lineTo(rear + len - 4, y + wid - 3);
-          ctx.moveTo(rear + len - 4, y + 3);
-          ctx.lineTo(rear + 4, y + wid - 3);
-          ctx.stroke();
-        } else if (len > 16) {
-          ctx.fillStyle = "#10141c";
-          ctx.font = "700 12px ui-sans-serif, system-ui, sans-serif";
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText(String(car.id), rear + len * 0.42, y + wid / 2);
-        }
-        ctx.restore();
-      }
-      cars.forEach(function (car) {
-        if (car.home) return;
-        var front = xOf(car.s);
-        var rear = xOf(car.s - car.length);
-        drawBlob(rear, yOf(car.lane) - blobW / 2, Math.max(10, front - rear), blobW, car);
-      });
-      cars.forEach(function (car) {
-        if (car.home) return;
-        var talk = talkFor(shown, car.id);
-        if (!talk) return;
-        var front = xOf(car.s);
-        var rear = xOf(car.s - car.length);
-        var len = Math.max(10, front - rear);
-        var y = yOf(car.lane) - blobW / 2;
-        drawIntent(ctx, talk.role, rear + len / 2, y);
-      });
-      var arrived = cars.filter(function (car) { return car.home; });
-      arrived.sort(function (a, b) { return a.id - b.id; });
-      if (arrived.length) {
-        ctx.fillStyle = "rgba(61,220,132,0.85)";
-        ctx.font = "600 11px ui-sans-serif, system-ui, sans-serif";
-        ctx.textAlign = "left";
-        ctx.fillText("arrived", w - dockW + 14, 13);
-      }
-      var slotW = 48;
-      var slotH = Math.max(14, blobW);
-      arrived.forEach(function (car, i) {
-        var col = i % 3;
-        var row = Math.floor(i / 3);
-        var rear = w - dockW + 14 + col * (slotW + 6);
-        var y = mainLine - slotH - 6 + row * (slotH + 8);
-        drawBlob(rear, y, slotW, slotH, car);
-      });
-      if (metas[index]) {
-        var homeN = 0;
-        flagsHome(shown).forEach(function (car) { if (car.home) homeN++; });
-        var line = "t=" + Math.round(posed.tick) + "s  home " + homeN + "/" + shown.cars;
-        var speech = talkLine(shown);
-        if (speech) line += "  " + speech;
-        metas[index].textContent = line;
-      }
-    });
+  function makeView(w, h) {
+    var pad = 28;
+    var bw = Math.max(1, bounds.maxX - bounds.minX);
+    var bh = Math.max(1, bounds.maxY - bounds.minY);
+    var sc = Math.min((w - pad * 2) / bw, (h - pad * 2) / bh);
+    return {
+      sc: sc,
+      ox: (w - bw * sc) / 2 - bounds.minX * sc,
+      oy: (h - bh * sc) / 2 - bounds.minY * sc
+    };
   }
 
-  function flagsHome(frame) { return frame.vehicles; }
-
-  function talkFor(frame, id) {
-    var talks = (frame && frame.talks) || [];
-    var accept = null;
-    var propose = null;
-    talks.forEach(function (talk) {
-      if (talk.id !== id) return;
-      if (talk.phase === "accept") accept = talk;
-      else propose = talk;
-    });
-    return accept || propose;
+  function toScreen(view, p) {
+    return { x: view.ox + p.x * view.sc, y: view.oy + p.y * view.sc };
   }
 
-  function talkLine(frame) {
-    var talks = (frame && frame.talks) || [];
-    var rows = talks.filter(function (talk) { return talk.phase === "accept" && talk.role !== "hold"; });
-    if (!rows.length) rows = talks.filter(function (talk) { return talk.role === "hold" && talk.phase === "accept"; });
-    var seen = {};
-    var parts = [];
-    rows.forEach(function (talk) {
-      var key = talk.id + " " + talk.role;
-      if (seen[key]) return;
-      seen[key] = true;
-      parts.push(key);
-    });
-    return parts.join(" · ");
+  function tracePts(ctx, view, pts) {
+    if (!pts || pts.length < 2) return;
+    var p0 = toScreen(view, pts[0]);
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    for (var i = 1; i < pts.length; i++) {
+      var p = toScreen(view, pts[i]);
+      ctx.lineTo(p.x, p.y);
+    }
   }
 
-  function drawIntent(ctx, role, cx, top) {
+  function drawRoads(ctx, view) {
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#5e5e5e";
+    ctx.lineWidth = 1.35;
+    roads.forEach(function (road) { tracePts(ctx, view, road.pts); ctx.stroke(); });
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    var radius = Math.max(0, Math.min(r, w / 2, h / 2));
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.arcTo(x + w, y, x + w, y + h, radius);
+    ctx.arcTo(x + w, y + h, x, y + h, radius);
+    ctx.arcTo(x, y + h, x, y, radius);
+    ctx.arcTo(x, y, x + w, y, radius);
+    ctx.closePath();
+  }
+
+  function carPose(view, site, car) {
+    var front = carLoc(site, car.s, car.lane);
+    var rear = carLoc(site, car.s - (car.length || 4.5), car.lane);
+    var a = toScreen(view, front);
+    var b = toScreen(view, rear);
+    return {
+      x: a.x,
+      y: a.y,
+      ang: Math.atan2(a.y - b.y, a.x - b.x),
+      len: Math.max(2.5, (car.length || 4.5) * view.sc),
+      wid: Math.max(2, CAR_W * view.sc)
+    };
+  }
+
+  function drawCar(ctx, pose, car) {
     ctx.save();
-    ctx.font = "700 11px ui-sans-serif, system-ui, sans-serif";
-    var tw = ctx.measureText(role).width + 12;
-    var py = top - 18;
-    if (py < 16) py = top + 22;
-    var x = cx - tw / 2;
-    ctx.fillStyle = role === "merge" ? "#1f8a4c" : (role === "yield" ? "#c47d00" : "#3c4558");
-    roundRect(ctx, x, py, tw, 16, 8);
+    ctx.translate(pose.x, pose.y);
+    ctx.rotate(pose.ang);
+    var r = Math.min(1.05, pose.wid / 4);
+    roundRect(ctx, -pose.len, -pose.wid / 2, pose.len, pose.wid, r);
+    ctx.fillStyle = car.collided ? "#d23b3b" : (car.approach === "ramp" ? "#2f6fdb" : "#242424");
     ctx.fill();
-    ctx.fillStyle = "#fff";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(role, cx, py + 8);
     ctx.restore();
   }
 
+  function cueAnchor() {
+    var p = pointOn(spine, gateArc);
+    var dir = tangentOn(spine, gateArc);
+    var n = { x: -dir.y, y: dir.x };
+    var back = pointFromEnd(ramp, 14);
+    if (n.x * (back.x - p.x) + n.y * (back.y - p.y) > 0) {
+      n.x = -n.x;
+      n.y = -n.y;
+    }
+    return { x: p.x + n.x * 11, y: p.y + n.y * 11 };
+  }
+
+  function drawCue(ctx, view, role) {
+    var at = toScreen(view, cueAnchor());
+    ctx.save();
+    ctx.font = "11px ui-sans-serif, system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#222";
+    ctx.fillText(role, at.x, at.y);
+    ctx.restore();
+  }
+
+  function drawSite(ctx, view, site, frames, simT, cue) {
+    var posed = sample(frames, simT);
+    if (!posed.a) return null;
+    var cars = blend(posed);
+    var show = false;
+    cars.forEach(function (car) {
+      if (car.home) return;
+      if (site.mainOnly && car.approach === "ramp") return;
+      var pose = carPose(view, site, car);
+      drawCar(ctx, pose, car);
+      if (cue && cue.id === car.id) show = true;
+    });
+    return show;
+  }
+
+  function paint(now) {
+    var canvas = document.getElementById("network");
+    if (!canvas) return;
+    var fitted = fit(canvas);
+    var ctx = fitted.ctx;
+    ctx.clearRect(0, 0, fitted.w, fitted.h);
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, fitted.w, fitted.h);
+    var view = makeView(fitted.w, fitted.h);
+    drawRoads(ctx, view);
+    var simT = simTime(now);
+    sites.forEach(function (site) {
+      drawSite(ctx, view, site, site.frames, flowTime(now, site.frames), null);
+    });
+    var strip = data.strips[active];
+    if (!strip) return;
+    var cue = oneCue(strip.frames, simT);
+    var showCue = drawSite(ctx, view, dinnerSite, strip.frames, simT, cue);
+    if (cue && showCue) drawCue(ctx, view, cue.role);
+  }
+
   function loop(now) {
-    paint(simTime(now));
+    paint(now);
     requestAnimationFrame(loop);
   }
-  paint(0);
-  requestAnimationFrame(loop);
+  setActive(active);
+  paint(performance.now());
+  if (seekTo == null) requestAnimationFrame(loop);
 })();
 </script>
 </body>
@@ -770,7 +951,7 @@ fn launch_chrome(bin: &str, url: &str, unsandboxed: bool) -> Result<(), MuseErro
         .arg("--new-window")
         .arg("--no-first-run")
         .arg("--disable-extensions")
-        .arg("--window-size=1280,820");
+        .arg("--window-size=1440,900");
     if unsandboxed {
         cmd.arg("--no-sandbox").arg("--disable-dev-shm-usage");
     }

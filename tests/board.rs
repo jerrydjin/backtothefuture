@@ -77,6 +77,21 @@ fn board_dinner_is_red_red_green() {
         yield_ && merge && speakers.len() >= 2
     }));
 
+    assert!(board.flows.len() >= 4, "background roads keep moving");
+    for flow in &board.flows {
+        let start = flow.frames.first().expect("flow start");
+        let end = flow.frames.last().expect("flow end");
+        assert!(end.tick > start.tick);
+        assert!(
+            start.vehicles.iter().any(|car| {
+                end.vehicles
+                    .iter()
+                    .any(|later| later.id == car.id && (later.s - car.s).abs() > 8.0)
+            }),
+            "a background merge should roll"
+        );
+    }
+
     let wreck = selfish.frames.last().expect("wreck frame");
     assert!(wreck.gate_blocked, "selfish gore stays wrecked");
     assert!(wreck.vehicles.iter().any(|car| car.collided));
@@ -118,11 +133,28 @@ fn board_dinner_is_red_red_green() {
     assert!(html.contains("yield"));
     assert!(html.contains("merge"));
     assert!(html.contains("talkFor"));
-    assert!(html.contains("class=\"pill red\""));
-    assert!(html.contains("class=\"pill green\""));
-    assert!(html.contains("#e10600"));
-    assert!(html.contains("#00b248"));
-    assert!(html.contains("<canvas"));
+    assert!(html.contains("oneCue"));
+    assert_eq!(html.matches("class=\"pill red\"").count(), 2);
+    assert_eq!(html.matches("class=\"pill green\"").count(), 1);
+    assert_eq!(html.matches(">RED</button>").count(), 2);
+    assert_eq!(html.matches(">GREEN</button>").count(), 1);
+    assert!(html.contains("<canvas id=\"network\""));
+    assert_eq!(
+        html.matches("<canvas").count(),
+        1,
+        "the map is one network canvas"
+    );
+    assert!(!html.contains("id=\"score\""));
+    assert!(!html.contains("id=\"now\""));
+    assert!(!html.contains("class=\"card"));
+    assert!(!html.contains("class=\"talks\""));
+    assert!(!html.contains("class=\"legend\""));
+    assert!(!html.contains("cross street"));
+    assert!(!html.contains("standingTalks"));
+    assert!(!html.contains("drawIntent"));
+    assert!(!html.contains("#e10600"));
+    assert!(!html.contains("#00b248"));
+    assert!(!html.contains("class=\"strip"));
     assert!(
         html.contains("25.5"),
         "gate station should come from the sim"
@@ -130,6 +162,13 @@ fn board_dinner_is_red_red_green() {
     assert!(!html.contains("FakeEcho"), "{html}");
     assert!(!html.contains("Gemini"));
     assert!(!html.contains("Muse"));
+    assert!(html.contains("background: #fff"));
+    assert!(html.contains("\"flows\""));
+    assert!(!html.contains("#12161e"), "dark board should be gone");
+    assert!(
+        !html.contains("rgba(255,255,255,0.4)"),
+        "car nose highlight should be gone"
+    );
 }
 
 #[test]
