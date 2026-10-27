@@ -59,3 +59,13 @@ Knobs: `--cars`, `--jam symmetric|ramp-surge|mainline-plug`, `--prefs`, `--show`
 Real completions need `MODEL_API_KEY` (optional `MODEL_API_BASE`, `MODEL_API_MODEL`). Curl does the HTTP. The key is not logged.
 
 Unset key uses the scripted stub (`ALLOW_CHEAT`, default on) so the red/green loop still runs. `ALLOW_CHEAT=0` with no key fails closed. The board does not need a key. The negotiate exchange does not use it either.
+
+## Handoffs
+
+GitHub is the shared channel between Jerry, the Grok bots and Claude. Product scope and cuts live in Notion Decisions and are never changed from a PR or issue comment.
+
+1. Before coding, read this file on `main` and every open PR description.
+2. Claim work with an issue or a draft PR before starting it, so nobody builds the same thing twice.
+3. Schema or judge changes (`src/schema.rs`, `src/judge.rs`) start as an issue and wait for Michael's reply there.
+4. Every PR description ends with a **Handoff** line: what landed, and who picks up next.
+5. Jerry merges. Claude watches open PRs and issues, and replies, fixes and pushes on its own PRs without a relay.
