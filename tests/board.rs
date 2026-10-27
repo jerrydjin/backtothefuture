@@ -10,11 +10,14 @@ fn board_dinner_is_red_red_green() {
     let board = dinner_board(&scenario, &FakeEcho, "scripted", &EpisodeOpts::default())
         .expect("dinner board");
     assert_eq!(board.client, "scripted");
-    assert_eq!(board.strips.len(), 3);
+    assert_eq!(board.strips.len(), 4);
 
     let selfish = &board.strips[0];
     let dumb = &board.strips[1];
     let plan = &board.strips[2];
+    let negotiate = &board.strips[3];
+    assert!(selfish.scoreboard && dumb.scoreboard && plan.scoreboard);
+    assert!(!negotiate.scoreboard);
     assert_eq!(selfish.name, "selfish");
     assert_eq!(selfish.story, "WRECK");
     assert_eq!(selfish.verdict, "RED");
@@ -36,6 +39,43 @@ fn board_dinner_is_red_red_green() {
         plan.score,
         "GREEN time_home=69 collisions=0 fairness=0.00 home=6/6"
     );
+
+    assert_eq!(negotiate.name, "negotiate");
+    assert!(
+        negotiate.caption.contains("yield") && negotiate.caption.contains("merge"),
+        "{}",
+        negotiate.caption
+    );
+    assert!(
+        negotiate.score.contains("collisions=0"),
+        "{}",
+        negotiate.score
+    );
+    assert!(
+        negotiate
+            .frames
+            .iter()
+            .all(|frame| frame.collisions == 0 && !frame.gate_blocked),
+        "negotiate gore stayed clear: {}",
+        negotiate.score
+    );
+    assert!(negotiate
+        .frames
+        .last()
+        .expect("negotiate frame")
+        .vehicles
+        .iter()
+        .all(|car| car.home));
+    assert!(negotiate.frames.iter().any(|frame| {
+        let yield_ = frame.talks.iter().any(|talk| talk.role == "yield");
+        let merge = frame.talks.iter().any(|talk| talk.role == "merge");
+        let speakers = frame
+            .talks
+            .iter()
+            .map(|talk| talk.id)
+            .collect::<std::collections::BTreeSet<_>>();
+        yield_ && merge && speakers.len() >= 2
+    }));
 
     let wreck = selfish.frames.last().expect("wreck frame");
     assert!(wreck.gate_blocked, "selfish gore stays wrecked");
@@ -74,6 +114,10 @@ fn board_dinner_is_red_red_green() {
     assert!(html.contains("WRECK"));
     assert!(html.contains("JAM"));
     assert!(html.contains("CLEAR"));
+    assert!(html.contains("negotiate"));
+    assert!(html.contains("yield"));
+    assert!(html.contains("merge"));
+    assert!(html.contains("talkFor"));
     assert!(html.contains("class=\"pill red\""));
     assert!(html.contains("class=\"pill green\""));
     assert!(html.contains("#e10600"));
@@ -115,6 +159,7 @@ fn cli_labels_the_stub_scripted() {
     assert!(text.contains("selfish     RED"), "{text}");
     assert!(text.contains("dumb-equal  RED"), "{text}");
     assert!(text.contains("scripted    GREEN"), "{text}");
+    assert!(text.contains("negotiate"), "{text}");
     assert!(text.contains("time_home=69"), "{text}");
     assert!(!text.contains("FakeEcho"), "{text}");
 }

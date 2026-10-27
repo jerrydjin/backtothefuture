@@ -203,6 +203,7 @@ mod tests {
             agents,
             neighbor_views: Vec::new(),
             occupied: Vec::new(),
+            talks: Vec::new(),
         }
     }
 

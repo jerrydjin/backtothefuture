@@ -14,6 +14,7 @@ pub mod episode;
 pub mod error;
 mod judge;
 pub mod muse;
+pub mod negotiate;
 pub mod prefs;
 pub mod schema;
 pub mod world;
@@ -26,8 +27,12 @@ pub use episode::{
 pub use error::MuseError;
 pub use judge::{judge, Trajectory, FAIRNESS_MAX};
 pub use muse::{render_prompt, FakeEcho, HttpMuse, MuseClient, MuseKind};
+pub use negotiate::{
+    exchange, negotiated_claim, DecideCtx, Decision, LocalNegotiate, NegotiateAgent,
+};
 pub use prefs::{bias_from_prefs_block, interpret_english, Bias, Prefs};
 pub use schema::{
-    AgentState, Approach, Cell, LaneIntent, OrderIntent, Score, Verdict, WorldState, ZonePlan,
+    AgentState, Approach, Cell, LaneIntent, OrderIntent, Score, TalkPhase, Verdict, WorldState,
+    YieldRole, YieldTalk, ZonePlan,
 };
 pub use world::{validate_plan, Executor, JamType, Scenario, World, NEIGHBOR_FOG_M};

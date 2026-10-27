@@ -10,7 +10,7 @@ use serde::Serialize;
 use crate::episode::{DinnerRun, EpisodeOpts, ModeRun};
 use crate::error::MuseError;
 use crate::muse::MuseClient;
-use crate::schema::{Score, WorldState};
+use crate::schema::{Score, TalkPhase, WorldState, YieldRole};
 use crate::world::{CAR_LENGTH_M, CAR_WIDTH_M, LANE_WIDTH_M, TAPER_M};
 
 /// One car blob. `s` is the front bumper in meters, the same station the sim uses.
@@ -26,6 +26,14 @@ pub struct BoardCar {
     pub collided: bool,
 }
 
+/// One yield / merge line drawn on a car for this tick.
+#[derive(Clone, Debug, Serialize)]
+pub struct BoardTalk {
+    pub id: u32,
+    pub role: String,
+    pub phase: String,
+}
+
 /// One sim tick, slimmed to what the canvas draws.
 #[derive(Clone, Debug, Serialize)]
 pub struct BoardFrame {
@@ -35,6 +43,7 @@ pub struct BoardFrame {
     pub home: u32,
     pub cars: u32,
     pub vehicles: Vec<BoardCar>,
+    pub talks: Vec<BoardTalk>,
 }
 
 /// One strip: selfish, dumb-equal, or the client that produced the plan.
@@ -44,6 +53,10 @@ pub struct BoardStrip {
     pub story: String,
     pub verdict: String,
     pub score: String,
+    /// First agreed yield / merge, kept on the strip so the exchange stays readable.
+    pub caption: String,
+    /// Sticky scoreboard lines are the original three. Negotiate stays off that row.
+    pub scoreboard: bool,
     pub frames: Vec<BoardFrame>,
 }
 
@@ -90,21 +103,45 @@ pub fn board_from_run(run: &DinnerRun, client_label: &str) -> DinnerBoard {
         car_length_m: CAR_LENGTH_M,
         car_width_m: CAR_WIDTH_M,
         strips: vec![
-            strip("selfish", &run.selfish),
-            strip("dumb-equal", &run.dumb_equal),
-            strip(client_label, &run.plan),
+            strip("selfish", &run.selfish, true),
+            strip("dumb-equal", &run.dumb_equal, true),
+            strip(client_label, &run.plan, true),
+            strip("negotiate", &run.negotiate, false),
         ],
     }
 }
 
-fn strip(name: &str, mode: &ModeRun) -> BoardStrip {
+fn strip(name: &str, mode: &ModeRun, scoreboard: bool) -> BoardStrip {
     BoardStrip {
         name: name.to_string(),
         story: story_of(&mode.score).to_string(),
         verdict: mode.score.verdict.to_string(),
         score: mode.score.to_string(),
+        caption: exchange_caption(mode),
+        scoreboard,
         frames: mode.states.iter().map(frame_of).collect(),
     }
+}
+
+fn exchange_caption(mode: &ModeRun) -> String {
+    for state in &mode.states {
+        let mut accepts: Vec<_> = state
+            .talks
+            .iter()
+            .filter(|talk| talk.phase == TalkPhase::Accept && talk.role != YieldRole::Hold)
+            .collect();
+        let merge = accepts.iter().any(|talk| talk.role == YieldRole::Merge);
+        let yielded = accepts.iter().any(|talk| talk.role == YieldRole::Yield);
+        if merge && yielded {
+            accepts.sort_by_key(|talk| talk.from);
+            return accepts
+                .iter()
+                .map(|talk| format!("{} {}", talk.from, talk.role))
+                .collect::<Vec<_>>()
+                .join(" · ");
+        }
+    }
+    String::new()
 }
 
 fn story_of(score: &Score) -> &'static str {
@@ -140,6 +177,15 @@ fn frame_of(state: &WorldState) -> BoardFrame {
                 collided: agent.collided,
             })
             .collect(),
+        talks: state
+            .talks
+            .iter()
+            .map(|talk| BoardTalk {
+                id: talk.from,
+                role: talk.role.to_string(),
+                phase: talk.phase.to_string(),
+            })
+            .collect(),
     }
 }
 
@@ -165,16 +211,25 @@ pub fn render_board_html(board: &DinnerBoard) -> String {
         } else {
             "red"
         };
-        pills.push_str(&format!(
-            "<div class=\"pill {kind}\">{} {}</div>",
-            esc(&strip.name),
-            esc(&strip.verdict)
-        ));
+        if strip.scoreboard {
+            pills.push_str(&format!(
+                "<div class=\"pill {kind}\">{} {}</div>",
+                esc(&strip.name),
+                esc(&strip.verdict)
+            ));
+        }
+        let talks = if strip.caption.is_empty() {
+            String::new()
+        } else {
+            format!("<span class=\"talks\">{}</span>", esc(&strip.caption))
+        };
+        let extra = if strip.scoreboard { "" } else { " talk" };
         strips.push_str(&format!(
-            "<section class=\"strip {kind}\">\
+            "<section class=\"strip {kind}{extra}\">\
 <header>\
 <span class=\"name\">{}</span>\
 <span class=\"story\">{story}</span>\
+{talks}\
 <span class=\"meta\" id=\"meta-{index}\"></span>\
 <span class=\"scoreline\">{}</span>\
 <span class=\"pill {kind}\">{}</span>\
@@ -249,6 +304,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
   .strip.red .story { color: #ff8d8d; }
   .strip.green .story { color: #7dffa8; }
   .meta { color: #d5dbe6; font-variant-numeric: tabular-nums; min-width: 9rem; }
+  .talks { color: #ffd27a; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap; }
   .scoreline { color: #9aa6b8; font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .strip > header .pill { font-size: 18px; padding: 4px 10px; }
   .stage { flex: 1; min-height: 72px; }
@@ -266,6 +322,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
         <span><i class="swatch ramp"></i>ramp</span>
         <span><i class="swatch hit"></i>wreck</span>
         <span>wreck → jam → clear</span>
+        <span>yield / merge</span>
         <span class="live" id="live"><span class="dot"></span>live</span>
         <span>click to pause</span>
       </div>
@@ -519,6 +576,16 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
         var rear = xOf(car.s - car.length);
         drawBlob(rear, yOf(car.lane) - blobW / 2, Math.max(10, front - rear), blobW, car);
       });
+      cars.forEach(function (car) {
+        if (car.home) return;
+        var talk = talkFor(shown, car.id);
+        if (!talk) return;
+        var front = xOf(car.s);
+        var rear = xOf(car.s - car.length);
+        var len = Math.max(10, front - rear);
+        var y = yOf(car.lane) - blobW / 2;
+        drawIntent(ctx, talk.role, rear + len / 2, y);
+      });
       var arrived = cars.filter(function (car) { return car.home; });
       arrived.sort(function (a, b) { return a.id - b.id; });
       if (arrived.length) {
@@ -539,12 +606,59 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
       if (metas[index]) {
         var homeN = 0;
         flagsHome(shown).forEach(function (car) { if (car.home) homeN++; });
-        metas[index].textContent = "t=" + Math.round(posed.tick) + "s  home " + homeN + "/" + shown.cars;
+        var line = "t=" + Math.round(posed.tick) + "s  home " + homeN + "/" + shown.cars;
+        var speech = talkLine(shown);
+        if (speech) line += "  " + speech;
+        metas[index].textContent = line;
       }
     });
   }
 
   function flagsHome(frame) { return frame.vehicles; }
+
+  function talkFor(frame, id) {
+    var talks = (frame && frame.talks) || [];
+    var accept = null;
+    var propose = null;
+    talks.forEach(function (talk) {
+      if (talk.id !== id) return;
+      if (talk.phase === "accept") accept = talk;
+      else propose = talk;
+    });
+    return accept || propose;
+  }
+
+  function talkLine(frame) {
+    var talks = (frame && frame.talks) || [];
+    var rows = talks.filter(function (talk) { return talk.phase === "accept" && talk.role !== "hold"; });
+    if (!rows.length) rows = talks.filter(function (talk) { return talk.role === "hold" && talk.phase === "accept"; });
+    var seen = {};
+    var parts = [];
+    rows.forEach(function (talk) {
+      var key = talk.id + " " + talk.role;
+      if (seen[key]) return;
+      seen[key] = true;
+      parts.push(key);
+    });
+    return parts.join(" · ");
+  }
+
+  function drawIntent(ctx, role, cx, top) {
+    ctx.save();
+    ctx.font = "700 11px ui-sans-serif, system-ui, sans-serif";
+    var tw = ctx.measureText(role).width + 12;
+    var py = top - 18;
+    if (py < 16) py = top + 22;
+    var x = cx - tw / 2;
+    ctx.fillStyle = role === "merge" ? "#1f8a4c" : (role === "yield" ? "#c47d00" : "#3c4558");
+    roundRect(ctx, x, py, tw, 16, 8);
+    ctx.fill();
+    ctx.fillStyle = "#fff";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(role, cx, py + 8);
+    ctx.restore();
+  }
 
   function loop(now) {
     paint(simTime(now));

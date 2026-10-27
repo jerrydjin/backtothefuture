@@ -2,6 +2,7 @@ use crate::agents::{DumbEqual, FollowPlan, Selfish};
 use crate::error::MuseError;
 use crate::judge::{judge, Trajectory};
 use crate::muse::{render_prompt, MuseClient};
+use crate::negotiate::LocalNegotiate;
 use crate::schema::{Score, Verdict, WorldState, ZonePlan};
 use crate::world::{render_ascii, validate_plan, Scenario, World};
 
@@ -41,7 +42,8 @@ pub struct ModeRun {
     pub states: Vec<WorldState>,
 }
 
-/// The three dinner runs. The board is a view of this; it does not resimulate.
+/// The dinner runs, plus a negotiate exchange beside the zone plan.
+/// The board is a view of this; it does not resimulate.
 #[derive(Clone, Debug)]
 pub struct DinnerRun {
     pub cars: u32,
@@ -50,6 +52,7 @@ pub struct DinnerRun {
     pub selfish: ModeRun,
     pub dumb_equal: ModeRun,
     pub plan: ModeRun,
+    pub negotiate: ModeRun,
     pub plan_json: String,
     pub muse_calls: usize,
 }
@@ -96,8 +99,10 @@ pub fn run_dinner(
 
     let selfish_traj = rollout(spawned.clone(), &Selfish, horizon);
     let dumb_traj = rollout(spawned.clone(), &DumbEqual, horizon);
+    let negotiate_traj = rollout(spawned.clone(), &LocalNegotiate, horizon);
     let selfish = judge(&selfish_traj);
     let dumb_equal = judge(&dumb_traj);
+    let negotiate = judge(&negotiate_traj);
 
     let mut world = spawned;
     let mut muse_calls = 0usize;
@@ -144,6 +149,10 @@ pub fn run_dinner(
         plan: ModeRun {
             score: plan_score,
             states,
+        },
+        negotiate: ModeRun {
+            score: negotiate,
+            states: negotiate_traj.states,
         },
         plan_json,
         muse_calls,
