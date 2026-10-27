@@ -10,11 +10,11 @@ Sticky fail, N=6 symmetric, scripted, no API key: selfish collides and stays RED
 
 The scripted stub runs until `MODEL_API_KEY` is set. Curl does the HTTP. With a key, the client label is `muse`. `ALLOW_CHEAT=0` with no key fails closed.
 
-`--show` on the symmetric dinner path draws the gore wreck, the held jam, and the cleared road in the terminal. `cargo run -- --board` opens that same path as a live window: car blobs, wreck → jam → clear, scoreboard RED / RED / GREEN. Each frame carries a home count. The three score lines stay the sticky board.
+`--show` on the symmetric dinner path draws the gore wreck, the held jam, and the cleared road in the terminal. `cargo run -- --board` opens that same path as a live window. The window is a birds-eye road network: an arterial, a ramp that merges at the gore, and a cross street, with car blobs flowing along those roads. Yield / merge is drawn on the cars. The sticky scoreboard is a side panel: selfish RED, dumb-equal RED, scripted GREEN. Each frame carries a home count.
 
 ## Step 2
 
-Started. Negotiate sits beside the zone plan, on the same board. Two cars at the gore read the symbolic neighbor view and exchange yield / merge on the local stub. Agreement lets one in. Both demanding the gore holds. Cooperating cars clear it with no collision. No API key. `decide` is the local policy body; an HTTP client can replace it later. The sticky path is still selfish RED, dumb-equal RED, scripted GREEN.
+Started. Negotiate sits beside the zone plan, on the same board. Two cars at the gore read the symbolic neighbor view and exchange yield / merge on the local stub. Agreement lets one in. Both demanding the gore holds. Cooperating cars clear it with no collision. No API key. `decide` is the local policy body; an HTTP client can replace it later. The live window draws that exchange on the cars at the gore. The sticky path is still selfish RED, dumb-equal RED, scripted GREEN.
 
 Cuts below are unchanged.
 
@@ -28,6 +28,7 @@ The board is a road, in meters.
 - A collision is body overlap: same-lane length, or two noses in the single-file gore. A shared toy cell is not the rule.
 - Neighbor fog is 16 m. The other mouth is visible. The tail of a long queue is not.
 - `--show` is a top-down trace: two approaches, the gore, speeds at the mouths. A wreck, a held jam, and a cleared road are labeled. Rectangles only.
+- `--board` lays those same meters on a birds-eye network: arterial, ramp merge, and a cross street. Car blobs follow the trajectories. Rectangles only. The sticky scores sit in a side panel.
 
 Schemas stayed. Muse still emits only a `ZonePlan`. Locals still execute. The judge is still a pure read of the trajectory.
 
@@ -49,7 +50,7 @@ cargo run -- --cars 6 --jam symmetric --prefs "Zipper fairly so both approaches 
 cargo run -- --cars 6 --jam symmetric --prefs "Zipper fairly so both approaches get home." --show
 ```
 
-`--board` opens the window. `--show` stays the terminal trace. The window adds a negotiate strip: intent pills on the mouth cars, and the first yield / merge line stays on the strip.
+`--board` opens the birds-eye network window. `--show` stays the terminal trace. Yield / merge pills sit on the mouth cars on the map, and the first yield / merge line stays on the negotiate score card.
 
 Knobs: `--cars`, `--jam symmetric|ramp-surge|mainline-plug`, `--prefs`, `--show`, `--board`, `--rewrite-every`.
 
@@ -57,4 +58,4 @@ Knobs: `--cars`, `--jam symmetric|ramp-surge|mainline-plug`, `--prefs`, `--show`
 
 Real completions need `MODEL_API_KEY` (optional `MODEL_API_BASE`, `MODEL_API_MODEL`). Curl does the HTTP. The key is not logged.
 
-Unset key uses the scripted stub (`ALLOW_CHEAT`, default on) so the red/green loop still runs. `ALLOW_CHEAT=0` with no key fails closed. The board does not need a key. The negotiate strip does not use it either.
+Unset key uses the scripted stub (`ALLOW_CHEAT`, default on) so the red/green loop still runs. `ALLOW_CHEAT=0` with no key fails closed. The board does not need a key. The negotiate exchange does not use it either.

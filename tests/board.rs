@@ -122,7 +122,17 @@ fn board_dinner_is_red_red_green() {
     assert!(html.contains("class=\"pill green\""));
     assert!(html.contains("#e10600"));
     assert!(html.contains("#00b248"));
-    assert!(html.contains("<canvas"));
+    assert!(html.contains("<canvas id=\"network\""));
+    assert_eq!(
+        html.matches("<canvas").count(),
+        1,
+        "the map is one network canvas"
+    );
+    assert!(html.contains("id=\"score\""));
+    assert!(html.contains("birds-eye"));
+    assert!(html.contains("cross street"));
+    assert!(html.contains("standingTalks"));
+    assert!(!html.contains("class=\"strip"));
     assert!(
         html.contains("25.5"),
         "gate station should come from the sim"
