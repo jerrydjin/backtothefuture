@@ -54,7 +54,7 @@ Fairness is the share of contested gate passages that repeated the same approach
 | `--jam` | `symmetric`, `ramp-surge`, or `mainline-plug`. |
 | `--prefs` | Plain English. "Zipper fairly…" balances. "Main has priority. Main first." does not. |
 | `--rewrite-every` | New Muse call every N ticks. |
-| `--show` | Top-down trace of the ramp merge: mainline, accel lane, gore, jam. |
+| `--show` | Top-down trace. Dinner path: wreck stays, jam stays, fair road clears. |
 
 Structured prefs are a `Bias` on `Prefs` (`balanced`, `favor_main`, `favor_ramp`). The prompt carries them. When set, they win over the sentence. The executor never reads prefs itself.
 

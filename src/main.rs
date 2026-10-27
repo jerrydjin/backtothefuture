@@ -152,7 +152,7 @@ Knobs:
   --jam KIND               symmetric | ramp-surge | mainline-plug
   --prefs SENTENCE         plain English merge preference
   --rewrite-every N        ask Muse again every N ticks
-  --show                   print a top-down trace of the ramp merge
+  --show                   print the ramp merge: wreck, held jam, and cleared road
   --help
 
 Score:

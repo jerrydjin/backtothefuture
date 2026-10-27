@@ -831,19 +831,26 @@ pub fn render_ascii(state: &WorldState) -> String {
 
     let main_v = mouth_speed(state, Approach::Main);
     let ramp_v = mouth_speed(state, Approach::Ramp);
+    let cars_n = state.agents.len();
+    let cars_home = state.agents.iter().filter(|agent| agent.home).count();
     let gate = if state.gate_blocked {
         "GATE WRECK"
     } else {
         "gate open"
     };
+    // Picture facts only. The judge still owns RED/GREEN.
     let caption = if state.collisions > 0 || state.gate_blocked {
-        "COLLISION: bodies overlap in the single-file gore"
+        format!("WRECK: bodies overlap in the single-file gore; {cars_home}/{cars_n} home")
+    } else if cars_n > 0 && cars_home == cars_n {
+        format!("CLEAR: every car is home ({cars_home}/{cars_n})")
+    } else if jam_holding(state) {
+        format!("JAM: both mouths stopped at the gore; {cars_home}/{cars_n} home")
     } else {
-        "ramp accel lane tapers / into the mainline; one car fits the gate; [] is a car"
+        "ramp accel lane tapers / into the mainline; one car fits the gate; [] is a car".to_string()
     };
     let mut lines = vec![
         format!(
-            "t={}s  collisions={}  {gate}  fog={:.0}m  {:.1}m/col  car={:.1}m  accel<={:.1}m/s^2",
+            "t={}s  collisions={}  {gate}  home={cars_home}/{cars_n}  fog={:.0}m  {:.1}m/col  car={:.1}m  accel<={:.1}m/s^2",
             state.tick, state.collisions, state.fog_m, meters_per_col, CAR_LENGTH_M, A_MAX_MPS2
         ),
         format!("mouths  main {main_v:.1}m/s   ramp {ramp_v:.1}m/s"),
@@ -931,6 +938,18 @@ fn paint_car(row: &mut [char], left: usize, right: usize, id: u32, collided: boo
         row[left] = '[';
         row[right] = ']';
     }
+}
+
+/// A held jam: the clock has moved, and every car is still stopped short of the gore.
+fn jam_holding(state: &WorldState) -> bool {
+    state.tick > 0
+        && !state.gate_blocked
+        && state.collisions == 0
+        && !state.agents.is_empty()
+        && state
+            .agents
+            .iter()
+            .all(|agent| !agent.home && !agent.passed_gate && agent.v_mps.abs() < 1e-3)
 }
 
 fn mouth_speed(state: &WorldState, approach: Approach) -> f64 {
@@ -1060,6 +1079,34 @@ mod tests {
             picture.contains("ramp") && picture.contains('/'),
             "{picture}"
         );
+    }
+
+    #[test]
+    fn ascii_names_the_open_road_the_wreck_and_the_jam() {
+        let spawned = World::spawn(&fair(6)).unwrap();
+        let open = render_ascii(&spawned.snapshot());
+        assert!(open.contains("home=0/6"), "{open}");
+        assert!(open.contains("ramp accel lane tapers"), "{open}");
+        assert!(
+            !open.contains("JAM:"),
+            "the spawn frame is not a held jam yet:\n{open}"
+        );
+
+        let mut wrecked = spawned.clone();
+        wrecked.step(&crate::agents::Selfish);
+        let wreck = render_ascii(&wrecked.snapshot());
+        assert!(wreck.contains("GATE WRECK"), "{wreck}");
+        assert!(wreck.contains("WRECK: bodies overlap"), "{wreck}");
+        assert!(wreck.contains("0/6 home"), "{wreck}");
+        assert!(wreck.contains('X'), "{wreck}");
+
+        let mut jammed = spawned;
+        for _ in 0..4 {
+            jammed.step(&crate::agents::DumbEqual);
+        }
+        let jam = render_ascii(&jammed.snapshot());
+        assert!(jam.contains("JAM: both mouths stopped"), "{jam}");
+        assert!(jam.contains("home=0/6"), "{jam}");
     }
 
     #[test]

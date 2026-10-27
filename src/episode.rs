@@ -2,7 +2,7 @@ use crate::agents::{DumbEqual, FollowPlan, Selfish};
 use crate::error::MuseError;
 use crate::judge::{judge, Trajectory};
 use crate::muse::{render_prompt, MuseClient};
-use crate::schema::{Score, WorldState, ZonePlan};
+use crate::schema::{Score, Verdict, WorldState, ZonePlan};
 use crate::world::{render_ascii, validate_plan, Scenario, World};
 
 pub fn default_horizon(cars: u32) -> u32 {
@@ -80,6 +80,15 @@ pub fn run_episode(
     let muse_score = judge(&Trajectory {
         states: states.clone(),
     });
+    let selfish_trace = opts
+        .show
+        .then(|| show_block(&selfish, &trace_of(&selfish_traj.states)));
+    let dumb_trace = opts
+        .show
+        .then(|| show_block(&dumb_equal, &jam_trace(&dumb_traj.states)));
+    let muse_trace = opts
+        .show
+        .then(|| show_block(&muse_score, &trace_of(&states)));
 
     Ok(EpisodeReport {
         client: client_label.to_string(),
@@ -91,9 +100,9 @@ pub fn run_episode(
         muse: muse_score,
         plan_json,
         muse_calls,
-        selfish_trace: opts.show.then(|| trace_of(&selfish_traj.states)),
-        dumb_trace: opts.show.then(|| jam_trace(&dumb_traj.states)),
-        muse_trace: opts.show.then(|| trace_of(&states)),
+        selfish_trace,
+        dumb_trace,
+        muse_trace,
     })
 }
 
@@ -155,7 +164,15 @@ fn jam_trace(states: &[WorldState]) -> String {
             .find(|start| start.id == agent.id)
             .is_some_and(|start| (start.s_m - agent.s_m).abs() < 1e-3 && !agent.passed_gate)
     });
-    if held {
+    if held && last.tick != first.tick {
+        let home = last.agents.iter().filter(|agent| agent.home).count();
+        format!(
+            "{picture}\n\njam holds for {}s: both mouths stay stopped at the gore, {home}/{} home\n\n{}",
+            last.tick,
+            last.agents.len(),
+            render_ascii(last)
+        )
+    } else if held {
         format!(
             "{picture}\n\njam holds for {}s: both mouths stay stopped at the gore",
             last.tick
@@ -163,6 +180,22 @@ fn jam_trace(states: &[WorldState]) -> String {
     } else {
         format!("{picture}\n\n{}", render_ascii(last))
     }
+}
+
+/// One line a stranger can read above the pictures. The words follow the judge's score.
+fn show_block(score: &Score, picture: &str) -> String {
+    let reading = if score.collisions > 0 {
+        "wreck stays in the gore"
+    } else if score.cars_home == 0 {
+        "jam stays stopped at the gore"
+    } else if score.cars_home == score.cars && score.verdict == Verdict::Green {
+        "road clears; every car is home"
+    } else if score.cars_home == score.cars {
+        "cars reach home; fairness keeps the board red"
+    } else {
+        "the run stops short of home"
+    };
+    format!("{reading} — {score}\n\n{picture}")
 }
 
 fn sample_frames(states: &[WorldState], max: usize) -> Vec<&WorldState> {
