@@ -1,6 +1,6 @@
 //! Birds-eye dinner board. A view of [`DinnerRun`](crate::episode::DinnerRun):
-//! the same frames the terminal `--show` path already scores, plus other merges
-//! rolled by that same world. No second physics. Schemas and the judge stay out.
+//! the same frames the terminal `--show` path already scores, laid on one road
+//! network. No second physics. Schemas and the judge stay out.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -109,7 +109,7 @@ pub struct DinnerBoard {
     pub car_length_m: f64,
     pub car_width_m: f64,
     pub strips: Vec<BoardStrip>,
-    /// Other merges on the diagram. Same world, not the sticky score.
+    /// Platoons on the other roads. Same world, not the sticky score.
     pub flows: Vec<NetworkFlow>,
 }
 
@@ -149,33 +149,26 @@ pub fn board_from_run(run: &DinnerRun, client_label: &str) -> DinnerBoard {
     }
 }
 
-/// Background streets. Local negotiate only, so this path never calls a model.
+/// Background roads. Local negotiate only, so this path never calls a model.
 fn network_flows() -> Vec<NetworkFlow> {
-    // Order matches the page: horizontal blocks, skipping the dinner cell,
-    // then the cross-street blocks. Counts fit inside those blocks.
-    // 14 arterials, 5 merges each, minus the dinner cell. Matches the page.
-    let mut counts = Vec::with_capacity(69);
-    for line in 0..14 {
-        for block in 0..5 {
-            if line == 6 && block == 2 {
-                continue;
-            }
-            counts.push(match (line + block) % 3 {
-                0 => 12,
-                1 => 10,
-                _ => 8,
-            });
-        }
-    }
-    counts.into_iter().map(flow_run).collect()
+    // Page order: spine west, spine east, north, south, link, slip.
+    // Mainline-heavy, so each platoon sits on one centerline.
+    // The scored dinner merge is a strip, not one of these.
+    [
+        (14, JamType::MainlinePlug),
+        (12, JamType::MainlinePlug),
+        (16, JamType::MainlinePlug),
+        (14, JamType::MainlinePlug),
+        (18, JamType::MainlinePlug),
+        (10, JamType::MainlinePlug),
+    ]
+    .into_iter()
+    .map(|(cars, jam)| flow_run(cars, jam))
+    .collect()
 }
 
-fn flow_run(cars: u32) -> NetworkFlow {
-    let scenario = Scenario::new(
-        cars,
-        JamType::Symmetric,
-        "Zipper fairly so both approaches get home.",
-    );
+fn flow_run(cars: u32, jam: JamType) -> NetworkFlow {
+    let scenario = Scenario::new(cars, jam, "Zipper fairly so both approaches get home.");
     let world = World::spawn(&scenario).expect("network flow");
     let traj = rollout(world, &LocalNegotiate, default_horizon(cars));
     let first = traj
@@ -507,140 +500,190 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     return null;
   }
 
-  // Arterials stacked close enough that each ramp queue fills the gap between them.
-  var SPACING = 16;
-  var H_BLOCK = 68;
-  var N_ROADS = 14;
-  var N_BLOCKS = 5;
-  var WIDTH = N_BLOCKS * H_BLOCK;
-  var LANE = data.lane_width_m || 3.7;
-  var TAPER = data.taper_m || 12;
+  // One network, in meters. Spine is the through road. The ramp joins it once.
+  // Link and slip are the only other connectors. Nothing here is a repeated cell.
   var CAR_W = data.car_width_m || 1.8;
-  var REACH = SPACING - 4.6;
+  var S0 = 8;
+  var flows = data.flows || [];
 
-  function hSlot(line, block, dir) {
-    return {
-      axis: "h",
-      y: line * SPACING,
-      x0: block * H_BLOCK,
-      x1: (block + 1) * H_BLOCK,
-      side: 1,
-      dir: dir
-    };
-  }
-
-  // Same order as the flows baked by the board. Dinner is the middle arterial.
-  var FLOW_SLOTS = [];
-  var DINNER_SLOT = null;
-  for (var line = 0; line < N_ROADS; line++) {
-    for (var block = 0; block < N_BLOCKS; block++) {
-      var slot = hSlot(line, block, line % 2 === 0 ? 1 : -1);
-      if (line === 6 && block === 2) DINNER_SLOT = slot;
-      else FLOW_SLOTS.push(slot);
+  function measures(pts) {
+    var cum = [0];
+    for (var i = 1; i < pts.length; i++) {
+      cum.push(cum[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
     }
+    return cum;
   }
 
-  function gatePosFor(slot, gateS, homeS) {
-    var tail = Math.max(0, gateS - 8);
-    var ahead = Math.max(0, homeS - gateS);
-    var need = tail + ahead;
-    var start = slot.axis === "h" ? slot.x0 : slot.y0;
-    var end = slot.axis === "h" ? slot.x1 : slot.y1;
-    var margin = Math.max(1.5, (end - start - need) / 2);
-    if (slot.dir > 0) return start + margin + tail;
-    return end - margin - tail;
+  function roadOf(pts) {
+    var cum = measures(pts);
+    return { pts: pts, cum: cum, len: cum[cum.length - 1] };
   }
 
-  function mainAt(slot, s, gateS, gatePos) {
-    return { x: gatePos + (s - gateS) * slot.dir, y: slot.y };
-  }
-
-  // Ramp queue sits in the gap, then turns onto the arterial. Length stays in meters.
-  function connectorAt(slot, s, gateS, gatePos) {
-    var dist = Math.max(0, gateS - s);
-    var climb = Math.min(dist, Math.max(0, REACH - LANE));
-    var extra = dist - climb;
+  function pointOn(road, dist) {
+    var pts = road.pts;
+    var cum = road.cum;
+    if (dist <= 0) return { x: pts[0].x, y: pts[0].y };
+    if (dist >= road.len) {
+      var last = pts[pts.length - 1];
+      return { x: last.x, y: last.y };
+    }
+    var i = 1;
+    while (i < cum.length && cum[i] < dist) i++;
+    var span = (cum[i] - cum[i - 1]) || 1;
+    var u = (dist - cum[i - 1]) / span;
     return {
-      x: gatePos - slot.dir * extra,
-      y: slot.y + slot.side * (LANE + climb)
+      x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * u,
+      y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * u
     };
   }
 
-  function pointAt(slot, s, lane, gateS, gatePos) {
-    var main = mainAt(slot, s, gateS, gatePos);
-    var frac = Math.max(0, Math.min(1, (lane || 0) / LANE));
-    if (frac < 0.02) return main;
-    var conn = s >= gateS
-      ? { x: main.x, y: main.y + slot.side * LANE }
-      : connectorAt(slot, s, gateS, gatePos);
+  function tangentOn(road, dist) {
+    var a = pointOn(road, Math.max(0, dist - 1.2));
+    var b = pointOn(road, Math.min(road.len, dist + 1.2));
+    var len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+    return { x: (b.x - a.x) / len, y: (b.y - a.y) / len };
+  }
+
+  function cr(p0, p1, p2, p3, t) {
+    var t2 = t * t;
+    var t3 = t2 * t;
     return {
-      x: main.x + (conn.x - main.x) * frac,
-      y: main.y + (conn.y - main.y) * frac
+      x: 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+      y: 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3)
     };
   }
 
-  function accelCenter(slot, gateS, gatePos) {
+  function smooth(pts, step) {
+    var p = [pts[0]].concat(pts, [pts[pts.length - 1]]);
+    var out = [];
+    for (var i = 1; i < p.length - 2; i++) {
+      var seg = Math.hypot(p[i + 1].x - p[i].x, p[i + 1].y - p[i].y);
+      var n = Math.max(2, Math.round(seg / step));
+      for (var s = 0; s < n; s++) out.push(cr(p[i - 1], p[i], p[i + 1], p[i + 2], s / n));
+    }
+    out.push(pts[pts.length - 1]);
+    return roadOf(out);
+  }
+
+  function quad(p0, p1, p2) {
     var pts = [];
-    var n = 14;
-    var tail = Math.min(8, gateS - 1);
+    var n = 28;
     for (var i = 0; i <= n; i++) {
-      pts.push(pointAt(slot, tail + (gateS - tail) * (i / n), LANE, gateS, gatePos));
+      var t = i / n;
+      var u = 1 - t;
+      pts.push({
+        x: u * u * p0.x + 2 * u * t * p1.x + t * t * p2.x,
+        y: u * u * p0.y + 2 * u * t * p1.y + t * t * p2.y
+      });
     }
-    var m = 6;
-    for (var k = 1; k <= m; k++) {
-      pts.push(pointAt(slot, gateS + TAPER * (k / m), LANE * (1 - k / m), gateS, gatePos));
+    return roadOf(pts);
+  }
+
+  function cubic(p0, p1, p2, p3) {
+    var pts = [];
+    var n = 32;
+    for (var i = 0; i <= n; i++) {
+      var t = i / n;
+      var u = 1 - t;
+      pts.push({
+        x: u * u * u * p0.x + 3 * u * u * t * p1.x + 3 * u * t * t * p2.x + t * t * t * p3.x,
+        y: u * u * u * p0.y + 3 * u * u * t * p1.y + 3 * u * t * t * p2.y + t * t * t * p3.y
+      });
     }
     return pts;
   }
 
-  function offsetPts(pts, dist) {
-    var out = [];
-    for (var i = 0; i < pts.length; i++) {
-      var prev = pts[Math.max(0, i - 1)];
-      var next = pts[Math.min(pts.length - 1, i + 1)];
-      var dx = next.x - prev.x;
-      var dy = next.y - prev.y;
-      var len = Math.hypot(dx, dy) || 1;
-      out.push({ x: pts[i].x + (-dy / len) * dist, y: pts[i].y + (dx / len) * dist });
+  function arcNearX(road, x) {
+    var best = 0;
+    var bestD = 1e9;
+    for (var d = 0; d <= road.len; d += 2) {
+      var dx = Math.abs(pointOn(road, d).x - x);
+      if (dx < bestD) { bestD = dx; best = d; }
     }
-    return out;
+    return best;
   }
 
-  var centers = [];
-  var edges = [];
-  for (var yi = 0; yi < N_ROADS; yi++) {
-    centers.push([{ x: 0, y: yi * SPACING }, { x: WIDTH, y: yi * SPACING }]);
+  function spanOf(flow) { return flow.home_s_m - S0; }
+
+  // Through road, a shorter north road, a south road that falls away.
+  // Curves, not a repeated kink.
+  var spine = smooth([
+    { x: 0, y: 116 }, { x: 100, y: 106 }, { x: 200, y: 126 },
+    { x: 300, y: 108 }, { x: 400, y: 118 }
+  ], 4);
+  var north = smooth([
+    { x: 18, y: 26 }, { x: 140, y: 46 }, { x: 270, y: 20 }, { x: 370, y: 38 }
+  ], 4);
+  var south = smooth([
+    { x: 55, y: 198 }, { x: 170, y: 184 }, { x: 290, y: 222 }, { x: 410, y: 248 }
+  ], 4);
+
+  var gap = 22;
+  var westAt = 14;
+  var dinnerAt = westAt + spanOf(flows[0]) + gap;
+  var eastAt = dinnerAt + (data.home_s_m - S0) + gap;
+  var gateArc = dinnerAt + (data.gate_s_m - S0);
+  var gatePt = pointOn(spine, gateArc);
+  var gateDir = tangentOn(spine, gateArc);
+  var rampStart = pointOn(north, 10);
+  var pull = 24;
+  var ramp = roadOf(cubic(
+    rampStart,
+    {
+      x: rampStart.x + (gatePt.x - rampStart.x) * 0.36,
+      y: rampStart.y + (gatePt.y - rampStart.y) * 0.16
+    },
+    { x: gatePt.x - gateDir.x * pull, y: gatePt.y - gateDir.y * pull },
+    gatePt
+  ));
+
+  var linkAt = dinnerAt + (data.home_s_m - S0) + 8;
+  var linkFrom = pointOn(spine, linkAt);
+  var linkTo = pointOn(south, 12);
+  var link = quad(
+    linkFrom,
+    {
+      x: (linkFrom.x + linkTo.x) / 2 - 14,
+      y: (linkFrom.y + linkTo.y) / 2
+    },
+    linkTo
+  );
+
+  var slipTo = pointOn(spine, Math.min(spine.len - 6, eastAt + spanOf(flows[1]) + 18));
+  var slipFrom = pointOn(north, arcNearX(north, slipTo.x));
+  var slip = quad(
+    slipFrom,
+    {
+      x: (slipFrom.x + slipTo.x) / 2 + 10,
+      y: (slipFrom.y + slipTo.y) / 2
+    },
+    slipTo
+  );
+
+  var roads = [spine, north, south, ramp, link, slip];
+  var sites = [
+    { road: spine, origin: westAt, frames: flows[0].frames, mainOnly: true },
+    { road: spine, origin: eastAt, frames: flows[1].frames, mainOnly: true },
+    { road: north, origin: 36, frames: flows[2].frames, mainOnly: true },
+    { road: south, origin: 58, frames: flows[3].frames, mainOnly: true },
+    { road: link, origin: 0, frames: flows[4].frames, mainOnly: true },
+    { road: slip, origin: 0, frames: flows[5].frames, mainOnly: true }
+  ];
+  var dinnerSite = { dinner: true };
+
+  function pointFromEnd(road, dist) {
+    return pointOn(road, road.len - dist);
   }
 
-  function pushEdges(pts) {
-    edges.push(offsetPts(pts, LANE / 2));
-    edges.push(offsetPts(pts, -LANE / 2));
+  function dinnerLoc(s, lane) {
+    if ((lane || 0) > 0.2 && s < data.gate_s_m) return pointFromEnd(ramp, data.gate_s_m - s);
+    return pointOn(spine, dinnerAt + (s - S0));
   }
-  centers.forEach(pushEdges);
 
-  var flows = data.flows || [];
-  var sites = [];
-  for (var f = 0; f < FLOW_SLOTS.length && f < flows.length; f++) {
-    var slot = FLOW_SLOTS[f];
-    var gateS = flows[f].gate_s_m;
-    var homeS = flows[f].home_s_m;
-    var gatePos = gatePosFor(slot, gateS, homeS);
-    var accel = accelCenter(slot, gateS, gatePos);
-    centers.push(accel);
-    pushEdges(accel);
-    sites.push({
-      slot: slot, gateS: gateS, homeS: homeS, gatePos: gatePos,
-      frames: flows[f].frames, dinner: false
-    });
+  function carLoc(site, s, lane) {
+    if (site.dinner) return dinnerLoc(s, lane);
+    return pointOn(site.road, site.origin + (s - S0));
   }
-  var dinnerGate = gatePosFor(DINNER_SLOT, data.gate_s_m, data.home_s_m);
-  var dinnerAccel = accelCenter(DINNER_SLOT, data.gate_s_m, dinnerGate);
-  centers.push(dinnerAccel);
-  pushEdges(dinnerAccel);
-  var dinnerSite = {
-    slot: DINNER_SLOT, gateS: data.gate_s_m, homeS: data.home_s_m,
-    gatePos: dinnerGate, dinner: true
-  };
 
   var bounds = { minX: 1e9, minY: 1e9, maxX: -1e9, maxY: -1e9 };
   function take(p) {
@@ -649,8 +692,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     if (p.x > bounds.maxX) bounds.maxX = p.x;
     if (p.y > bounds.maxY) bounds.maxY = p.y;
   }
-  centers.forEach(function (pts) { pts.forEach(take); });
-  edges.forEach(function (pts) { pts.forEach(take); });
+  roads.forEach(function (road) { road.pts.forEach(take); });
 
   function fit(canvas) {
     var rect = canvas.getBoundingClientRect();
@@ -698,12 +740,9 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
   function drawRoads(ctx, view) {
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
-    ctx.strokeStyle = "#d4d4d0";
-    ctx.lineWidth = Math.max(3, LANE * view.sc);
-    centers.forEach(function (pts) { tracePts(ctx, view, pts); ctx.stroke(); });
-    ctx.strokeStyle = "#2b2b2b";
+    ctx.strokeStyle = "#5e5e5e";
     ctx.lineWidth = 1.35;
-    edges.forEach(function (pts) { tracePts(ctx, view, pts); ctx.stroke(); });
+    roads.forEach(function (road) { tracePts(ctx, view, road.pts); ctx.stroke(); });
   }
 
   function roundRect(ctx, x, y, w, h, r) {
@@ -718,8 +757,8 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
   }
 
   function carPose(view, site, car) {
-    var front = pointAt(site.slot, car.s, car.lane, site.gateS, site.gatePos);
-    var rear = pointAt(site.slot, car.s - (car.length || 4.5), car.lane, site.gateS, site.gatePos);
+    var front = carLoc(site, car.s, car.lane);
+    var rear = carLoc(site, car.s - (car.length || 4.5), car.lane);
     var a = toScreen(view, front);
     var b = toScreen(view, rear);
     return {
@@ -742,15 +781,26 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     ctx.restore();
   }
 
-  function drawCue(ctx, view, site, role, pose) {
-    var roadY = view.oy + site.slot.y * view.sc;
-    var y = roadY - LANE * view.sc * 0.5 - 8;
+  function cueAnchor() {
+    var p = pointOn(spine, gateArc);
+    var dir = tangentOn(spine, gateArc);
+    var n = { x: -dir.y, y: dir.x };
+    var back = pointFromEnd(ramp, 14);
+    if (n.x * (back.x - p.x) + n.y * (back.y - p.y) > 0) {
+      n.x = -n.x;
+      n.y = -n.y;
+    }
+    return { x: p.x + n.x * 11, y: p.y + n.y * 11 };
+  }
+
+  function drawCue(ctx, view, role) {
+    var at = toScreen(view, cueAnchor());
     ctx.save();
-    ctx.font = "12px ui-sans-serif, system-ui, sans-serif";
+    ctx.font = "11px ui-sans-serif, system-ui, sans-serif";
     ctx.textAlign = "center";
-    ctx.textBaseline = "bottom";
-    ctx.fillStyle = "#1c1c1c";
-    ctx.fillText(role, pose.x, y);
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#222";
+    ctx.fillText(role, at.x, at.y);
     ctx.restore();
   }
 
@@ -758,14 +808,15 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     var posed = sample(frames, simT);
     if (!posed.a) return null;
     var cars = blend(posed);
-    var cuePose = null;
+    var show = false;
     cars.forEach(function (car) {
       if (car.home) return;
+      if (site.mainOnly && car.approach === "ramp") return;
       var pose = carPose(view, site, car);
       drawCar(ctx, pose, car);
-      if (cue && cue.id === car.id) cuePose = pose;
+      if (cue && cue.id === car.id) show = true;
     });
-    return cuePose;
+    return show;
   }
 
   function paint(now) {
@@ -785,8 +836,8 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     var strip = data.strips[active];
     if (!strip) return;
     var cue = oneCue(strip.frames, simT);
-    var cuePose = drawSite(ctx, view, dinnerSite, strip.frames, simT, cue);
-    if (cue && cuePose) drawCue(ctx, view, dinnerSite, cue.role, cuePose);
+    var showCue = drawSite(ctx, view, dinnerSite, strip.frames, simT, cue);
+    if (cue && showCue) drawCue(ctx, view, cue.role);
   }
 
   function loop(now) {

@@ -77,10 +77,7 @@ fn board_dinner_is_red_red_green() {
         yield_ && merge && speakers.len() >= 2
     }));
 
-    assert!(
-        board.flows.len() >= 12,
-        "the network keeps several merges in motion"
-    );
+    assert!(board.flows.len() >= 4, "background roads keep moving");
     for flow in &board.flows {
         let start = flow.frames.first().expect("flow start");
         let end = flow.frames.last().expect("flow end");
