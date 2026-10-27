@@ -54,6 +54,8 @@ pub struct BoardStrip {
     pub story: String,
     pub verdict: String,
     pub score: String,
+    /// Short card line: home count, collisions, fairness.
+    pub summary: String,
     /// First agreed yield / merge, kept on the strip so the exchange stays readable.
     pub caption: String,
     /// Sticky scoreboard lines are the original three. Negotiate stays off that row.
@@ -118,6 +120,7 @@ fn strip(name: &str, mode: &ModeRun, scoreboard: bool) -> BoardStrip {
         story: story_of(&mode.score).to_string(),
         verdict: mode.score.verdict.to_string(),
         score: mode.score.to_string(),
+        summary: summary_of(&mode.score),
         caption: exchange_caption(mode),
         scoreboard,
         frames: mode.states.iter().map(frame_of).collect(),
@@ -137,12 +140,25 @@ fn exchange_caption(mode: &ModeRun) -> String {
             accepts.sort_by_key(|talk| talk.from);
             return accepts
                 .iter()
-                .map(|talk| format!("{} {}", talk.from, talk.role))
+                .map(|talk| format!("car {} {}s", talk.from, talk.role))
                 .collect::<Vec<_>>()
                 .join(" · ");
         }
     }
     String::new()
+}
+
+/// The card line: what a stranger needs, without the judge's key=value dump.
+fn summary_of(score: &Score) -> String {
+    let crashes = match score.collisions {
+        0 => "no collisions".to_string(),
+        1 => "1 collision".to_string(),
+        n => format!("{n} collisions"),
+    };
+    format!(
+        "final: home {}/{} · {crashes} · fairness {:.2}",
+        score.cars_home, score.cars, score.fairness
+    )
 }
 
 fn story_of(score: &Score) -> &'static str {
@@ -204,7 +220,6 @@ fn road_marks(run: &DinnerRun) -> (f64, f64) {
 pub fn render_board_html(board: &DinnerBoard) -> String {
     let json = serde_json::to_string(board).unwrap_or_else(|_| "{}".to_string());
     let json = json.replace('<', "\\u003c");
-    let mut pills = String::new();
     let mut cards = String::new();
     for (index, strip) in board.strips.iter().enumerate() {
         let kind = if strip.verdict == "GREEN" {
@@ -212,13 +227,6 @@ pub fn render_board_html(board: &DinnerBoard) -> String {
         } else {
             "red"
         };
-        if strip.scoreboard {
-            pills.push_str(&format!(
-                "<div class=\"pill {kind}\">{} {}</div>",
-                esc(&strip.name),
-                esc(&strip.verdict)
-            ));
-        }
         let talks = if strip.caption.is_empty() {
             String::new()
         } else {
@@ -232,7 +240,7 @@ pub fn render_board_html(board: &DinnerBoard) -> String {
 <span class=\"story\">{story}</span>\
 <span class=\"pill {kind}\">{verdict}</span>\
 </div>\
-<div class=\"scoreline\">{score}</div>\
+<div class=\"scoreline\" title=\"{score}\">{summary}</div>\
 {talks}\
 <div class=\"meta\" id=\"meta-{index}\"></div>\
 </button>",
@@ -243,6 +251,7 @@ pub fn render_board_html(board: &DinnerBoard) -> String {
             story = esc(&strip.story),
             verdict = esc(&strip.verdict),
             score = esc(&strip.score),
+            summary = esc(&strip.summary),
             talks = talks,
         ));
     }
@@ -255,7 +264,6 @@ pub fn render_board_html(board: &DinnerBoard) -> String {
     );
     PAGE_TEMPLATE
         .replace("__SUB__", &sub)
-        .replace("__PILLS__", &pills)
         .replace("__CARDS__", &cards)
         .replace("__BOARD_JSON__", &json)
 }
@@ -284,6 +292,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
   .title { font-size: 18px; font-weight: 800; letter-spacing: 0.02em; }
   .sub { margin: 2px 0 0; color: #b7c0d0; font-size: 13px; }
   .legend { display: flex; gap: 12px; margin-top: 4px; color: #c5cedb; font-size: 12px; flex-wrap: wrap; }
+  .legend .muted { color: #8b97a8; }
   .swatch { display: inline-block; width: 18px; height: 10px; border-radius: 6px; margin-right: 4px; vertical-align: -1px; }
   .swatch.main { background: #4ea1ff; }
   .swatch.ramp { background: #ffb020; }
@@ -308,7 +317,6 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
   #score { flex: 0 0 300px; overflow: auto; background: #0c0f15; border-left: 1px solid #2a3142;
            padding: 12px; display: flex; flex-direction: column; gap: 8px; }
   .scorehead { font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #9aa6b8; }
-  #pills { display: flex; flex-direction: column; gap: 6px; }
   .pill { color: #fff; font-weight: 800; letter-spacing: 0.04em; border-radius: 8px;
           padding: 6px 10px; font-size: 15px; white-space: nowrap; text-align: center; }
   .pill.red { background: #e10600; }
@@ -338,9 +346,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
         <span><i class="swatch main"></i>main</span>
         <span><i class="swatch ramp"></i>ramp</span>
         <span><i class="swatch hit"></i>wreck</span>
-        <span>birds-eye road network</span>
-        <span>arterial · ramp merge · cross street</span>
-        <span>yield / merge on the cars</span>
+        <span class="muted">birds-eye: arterial, ramp merge, cross street</span>
       </div>
     </div>
     <div class="livewrap">
@@ -355,7 +361,6 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     </div>
     <aside id="score">
       <div class="scorehead">scoreboard</div>
-      <div id="pills">__PILLS__</div>
       <p class="hint">Click a run. The map follows that trajectory.</p>
       __CARDS__
     </aside>
@@ -758,8 +763,8 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
           y: gateP.y + nGate.y * ppm * (laneW + 4.8)
         },
         home: {
-          x: homeP.x - endTan.x * ppm * 1.2 + nH.x * ppm * 2.6,
-          y: homeP.y - endTan.y * ppm * 1.2 + nH.y * ppm * 2.6
+          x: homeP.x - endTan.x * ppm * 1.2 - nH.x * ppm * 2.6,
+          y: homeP.y - endTan.y * ppm * 1.2 - nH.y * ppm * 2.6
         }
       }
     };
@@ -1117,23 +1122,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
       var fleet = blend(row);
       var homeN = 0;
       fleet.forEach(function (car) { if (car.home) homeN++; });
-      var line = "t=" + Math.round(row.tick) + "s  home " + homeN + "/" + frame.cars;
-      if (index === active) {
-        var speech = standingTalks(item.frames, simT);
-        var parts = [];
-        var seen = {};
-        fleet.forEach(function (car) {
-          if (car.home) return;
-          var talk = speech[car.id];
-          if (!talk || talk.role === "hold") return;
-          var key = car.id + " " + talk.role;
-          if (seen[key]) return;
-          seen[key] = true;
-          parts.push(key);
-        });
-        if (parts.length) line += "  " + parts.join(" · ");
-      }
-      metas[index].textContent = line;
+      metas[index].textContent = "now: t=" + Math.round(row.tick) + "s · home " + homeN + "/" + frame.cars;
     });
 
     var now = document.getElementById("now");
