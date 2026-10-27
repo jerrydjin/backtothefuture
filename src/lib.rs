@@ -9,6 +9,7 @@
 pub const DINNER_SENTENCE: &str = "You say what matters in plain English — the traffic bends. Muse plans the merge; the cars just drive. Dumb equal stays jammed; the scoreboard goes green.";
 
 pub mod agents;
+pub mod board;
 pub mod episode;
 pub mod error;
 mod judge;
@@ -18,7 +19,10 @@ pub mod schema;
 pub mod world;
 
 pub use agents::{DumbEqual, FollowPlan, Selfish};
-pub use episode::{default_horizon, rollout, run_episode, EpisodeOpts, EpisodeReport};
+pub use board::{board_from_run, dinner_board, present_board, render_board_html, DinnerBoard};
+pub use episode::{
+    default_horizon, rollout, run_dinner, run_episode, DinnerRun, EpisodeOpts, EpisodeReport,
+};
 pub use error::MuseError;
 pub use judge::{judge, Trajectory, FAIRNESS_MAX};
 pub use muse::{render_prompt, FakeEcho, HttpMuse, MuseClient, MuseKind};

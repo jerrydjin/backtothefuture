@@ -10,20 +10,23 @@ ChemStation is not this product.
 
 ```bash
 cargo test
+cargo run -- --board
 cargo run -- --cars 6 --jam symmetric --prefs "Zipper fairly so both approaches get home."
 cargo run -- --cars 8 --jam ramp-surge --prefs "Zipper fairly so both approaches get home." --show
 cargo run -- --cars 6 --jam symmetric --prefs "Main has priority. Main first."
 ```
 
-Fair prefs: selfish and dumb-equal print `RED`, Muse/FakeEcho prints `GREEN`, process exits 0.
+`cargo run -- --board` opens the live top-down window: car blobs on the merge, selfish wreck, dumb-equal jam, scripted clear, scoreboard RED / RED / GREEN. `--show` prints that same dinner path in the terminal.
+
+Fair prefs: selfish and dumb-equal print `RED`, the scripted plan prints `GREEN`, process exits 0.
 
 ```text
 selfish     RED time_home=inf collisions=1 fairness=1.00 home=0/6 (collision, not all home)
 dumb-equal  RED time_home=inf collisions=0 fairness=1.00 home=0/6 (not all home)
-muse        GREEN time_home=69 collisions=0 fairness=0.00 home=6/6
+scripted    GREEN time_home=69 collisions=0 fairness=0.00 home=6/6
 ```
 
-That board is N=6, symmetric, FakeEcho, no API key.
+That path is N=6, symmetric, scripted, no API key.
 `Main has priority` still clears the cars and stays `RED` on fairness. The baseline stays red either way.
 A fair run that fails to go green exits 1.
 
@@ -53,16 +56,17 @@ Fairness is the share of contested gate passages that repeated the same approach
 | `--cars` | N, from 2 to 64. Default 6. |
 | `--jam` | `symmetric`, `ramp-surge`, or `mainline-plug`. |
 | `--prefs` | Plain English. "Zipper fairly…" balances. "Main has priority. Main first." does not. |
-| `--rewrite-every` | New Muse call every N ticks. |
-| `--show` | Top-down trace. Dinner path: wreck stays, jam stays, fair road clears. |
+| `--rewrite-every` | New plan every N ticks. |
+| `--show` | Terminal trace. Dinner path: wreck stays, jam stays, fair road clears. |
+| `--board` | Open the live top-down window for that same dinner path. |
 
 Structured prefs are a `Bias` on `Prefs` (`balanced`, `favor_main`, `favor_ramp`). The prompt carries them. When set, they win over the sentence. The executor never reads prefs itself.
 
 ## Client
 
-`MODEL_API_KEY` selects an HTTP completion through `curl` (`MODEL_API_BASE`, `MODEL_API_MODEL`).
+`MODEL_API_KEY` selects an HTTP completion through `curl` (`MODEL_API_BASE`, `MODEL_API_MODEL`). With a key, the client label is `muse`.
 
-No key: FakeEcho, the ALLOW_CHEAT stub. It reads the state inside the prompt and writes a queue-feasible plan. It does not drive.
+No key: `scripted`, the ALLOW_CHEAT stub. It reads the state inside the prompt and writes a queue-feasible plan. It does not drive. The board uses this path and does not need a key.
 
 `ALLOW_CHEAT=0` with no key fails closed.
 

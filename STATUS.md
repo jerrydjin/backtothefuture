@@ -6,11 +6,11 @@ Dinner sentence: "You say what matters in plain English — the traffic bends. M
 
 The meter-scale ramp merge is on main. Closed ramp, N cars, neighbor view. Plain English or a structured bias in, one zone plan out. Locals execute. Locked judge.
 
-Sticky fail, N=6 symmetric, FakeEcho, no API key: selfish collides and stays RED. Dumb-equal waits and stays RED. A fair FakeEcho plan goes GREEN. A priority plan that starves one approach stays RED on fairness.
+Sticky fail, N=6 symmetric, scripted, no API key: selfish collides and stays RED. Dumb-equal waits and stays RED. A fair scripted plan goes GREEN. A priority plan that starves one approach stays RED on fairness.
 
-FakeEcho runs until `MODEL_API_KEY` is set. Curl does the HTTP. `ALLOW_CHEAT=0` with no key fails closed.
+The scripted stub runs until `MODEL_API_KEY` is set. Curl does the HTTP. With a key, the client label is `muse`. `ALLOW_CHEAT=0` with no key fails closed.
 
-`--show` on the symmetric dinner path draws the gore wreck, the held jam, and the cleared road. Each frame carries a home count. The three score lines stay the sticky board.
+`--show` on the symmetric dinner path draws the gore wreck, the held jam, and the cleared road in the terminal. `cargo run -- --board` opens that same path as a live window: car blobs, wreck → jam → clear, scoreboard RED / RED / GREEN. Each frame carries a home count. The three score lines stay the sticky board.
 
 ## Hardened
 
@@ -38,14 +38,17 @@ Schemas stayed. Muse still emits only a `ZonePlan`. Locals still execute. The ju
 
 ```bash
 cargo test
+cargo run -- --board
 cargo run -- --cars 6 --jam symmetric --prefs "Zipper fairly so both approaches get home."
 cargo run -- --cars 6 --jam symmetric --prefs "Zipper fairly so both approaches get home." --show
 ```
 
-Knobs: `--cars`, `--jam symmetric|ramp-surge|mainline-plug`, `--prefs`, `--show`, `--rewrite-every`.
+`--board` opens the window. `--show` stays the terminal trace.
+
+Knobs: `--cars`, `--jam symmetric|ramp-surge|mainline-plug`, `--prefs`, `--show`, `--board`, `--rewrite-every`.
 
 ## Blocker
 
 Real completions need `MODEL_API_KEY` (optional `MODEL_API_BASE`, `MODEL_API_MODEL`). Curl does the HTTP. The key is not logged.
 
-Unset key uses FakeEcho (`ALLOW_CHEAT`, default on) so the red/green loop still runs. `ALLOW_CHEAT=0` with no key fails closed.
+Unset key uses the scripted stub (`ALLOW_CHEAT`, default on) so the red/green loop still runs. `ALLOW_CHEAT=0` with no key fails closed. The board does not need a key.

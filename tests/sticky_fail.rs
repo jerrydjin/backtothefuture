@@ -34,7 +34,7 @@ fn sticky_fail_baseline_red_and_muse_green() {
             let report = run_episode(
                 &fair(cars, jam),
                 &FakeEcho,
-                "FakeEcho (ALLOW_CHEAT)",
+                "scripted",
                 &EpisodeOpts::default(),
             )
             .unwrap_or_else(|error| panic!("{cars} {jam}: {error}"));
@@ -98,13 +98,7 @@ fn selfish_ignores_a_broadcast_plan() {
 fn priority_plan_gets_home_and_stays_unfair() {
     let scenario = Scenario::new(6, JamType::Symmetric, "Main has priority. Main first.");
     assert_eq!(interpret_english(&scenario.prefs.english), Bias::FavorMain);
-    let report = run_episode(
-        &scenario,
-        &FakeEcho,
-        "FakeEcho (ALLOW_CHEAT)",
-        &EpisodeOpts::default(),
-    )
-    .unwrap();
+    let report = run_episode(&scenario, &FakeEcho, "scripted", &EpisodeOpts::default()).unwrap();
     assert_eq!(report.selfish.verdict, Verdict::Red);
     assert_eq!(report.muse.collisions, 0);
     assert_eq!(report.muse.cars_home, report.muse.cars);
@@ -117,13 +111,7 @@ fn priority_plan_gets_home_and_stays_unfair() {
 fn structured_bias_in_the_prompt_overrides_fair_english() {
     let mut scenario = fair(6, JamType::Symmetric);
     scenario.prefs = Prefs::with_bias(FAIR, Bias::FavorRamp);
-    let report = run_episode(
-        &scenario,
-        &FakeEcho,
-        "FakeEcho (ALLOW_CHEAT)",
-        &EpisodeOpts::default(),
-    )
-    .unwrap();
+    let report = run_episode(&scenario, &FakeEcho, "scripted", &EpisodeOpts::default()).unwrap();
     assert_eq!(report.muse.verdict, Verdict::Red);
     assert_eq!(report.muse.reasons, vec!["unfair".to_string()]);
     let plan = ZonePlan::parse(&report.plan_json).unwrap();
@@ -137,7 +125,7 @@ fn mid_run_rewrite_stays_green() {
     let report = run_episode(
         &fair(6, JamType::Symmetric),
         &client,
-        "FakeEcho (ALLOW_CHEAT)",
+        "scripted",
         &EpisodeOpts {
             rewrite_every: Some(3),
             ..EpisodeOpts::default()
@@ -191,7 +179,7 @@ fn show_dinner_path_reads_wreck_jam_and_clear() {
     let report = run_episode(
         &fair(6, JamType::Symmetric),
         &FakeEcho,
-        "FakeEcho (ALLOW_CHEAT)",
+        "scripted",
         &EpisodeOpts {
             show: true,
             ..EpisodeOpts::default()
@@ -244,7 +232,7 @@ fn show_unfair_clear_does_not_print_green() {
     let report = run_episode(
         &scenario,
         &FakeEcho,
-        "FakeEcho (ALLOW_CHEAT)",
+        "scripted",
         &EpisodeOpts {
             show: true,
             ..EpisodeOpts::default()

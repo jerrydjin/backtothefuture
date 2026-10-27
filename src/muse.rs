@@ -11,8 +11,9 @@ pub trait MuseClient {
 
 /// ALLOW_CHEAT stub used when `MODEL_API_KEY` is missing.
 ///
-/// It reads the symbolic state already written into the prompt and emits one
-/// queue-feasible zone plan. It does not tick cars and does not emit controls.
+/// The user-facing label is `scripted`. It reads the symbolic state already
+/// written into the prompt and emits one queue-feasible zone plan. It does not
+/// tick cars and does not emit controls.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct FakeEcho;
 
@@ -292,8 +293,8 @@ impl MuseKind {
 
     pub fn label(&self) -> &'static str {
         match self {
-            MuseKind::FakeEcho(_) => "FakeEcho (ALLOW_CHEAT)",
-            MuseKind::Http(_) => "HTTP model",
+            MuseKind::FakeEcho(_) => "scripted",
+            MuseKind::Http(_) => "muse",
         }
     }
 }
@@ -320,14 +321,12 @@ mod tests {
 
     #[test]
     fn client_selection_follows_the_key() {
-        assert!(matches!(
-            MuseKind::from_key(None, true).unwrap(),
-            MuseKind::FakeEcho(_)
-        ));
+        let scripted = MuseKind::from_key(None, true).unwrap();
+        assert!(matches!(scripted, MuseKind::FakeEcho(_)));
+        assert_eq!(scripted.label(), "scripted");
         assert!(MuseKind::from_key(None, false).is_err());
-        assert!(matches!(
-            MuseKind::from_key(Some("test-key"), false).unwrap(),
-            MuseKind::Http(_)
-        ));
+        let live = MuseKind::from_key(Some("test-key"), false).unwrap();
+        assert!(matches!(live, MuseKind::Http(_)));
+        assert_eq!(live.label(), "muse");
     }
 }
