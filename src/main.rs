@@ -60,6 +60,7 @@ fn main() -> ExitCode {
     println!("selfish     {}", report.selfish);
     println!("dumb-equal  {}", report.dumb_equal);
     println!("{:<12}{}", report.client, report.muse);
+    println!("{:<12}{}", "negotiate", dinner.negotiate.score);
     println!("plan: {}", report.plan_json);
     println!("plan calls: {}", report.muse_calls);
     if let Some(trace) = &report.selfish_trace {
@@ -167,7 +168,7 @@ Knobs:
   --prefs SENTENCE         plain English merge preference
   --rewrite-every N        ask for a new plan every N ticks
   --show                   print the ramp merge in the terminal: wreck, held jam, and cleared road
-  --board                  open the live top-down window for that same dinner path
+  --board                  open the live top-down window: wreck, jam, clear, and the negotiate strip
   --help
 
 Score:

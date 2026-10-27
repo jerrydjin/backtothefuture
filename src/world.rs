@@ -1,7 +1,7 @@
 use crate::error::MuseError;
 use crate::schema::{
-    AgentState, Approach, Cell, LaneIntent, NeighborView, OccupiedCell, VisibleNeighbor,
-    WorldState, ZonePlan,
+    AgentState, Approach, Cell, LaneIntent, NeighborView, OccupiedCell, TalkPhase, VisibleNeighbor,
+    WorldState, YieldRole, YieldTalk, ZonePlan,
 };
 
 /// How far a local car can see, in meters. The other mouth is in range; a long queue's tail is not.
@@ -149,12 +149,24 @@ impl Agent {
 pub enum StubMessage {
     ZonePlan(ZonePlan),
     PeerPing { from: u32 },
+    YieldTalk(YieldTalk),
+}
+
+/// Remembered when a yield/merge pair agrees. The turn advances only if that merge enters.
+#[derive(Clone, Debug)]
+struct PendingYield {
+    merger: u32,
+    yielder: u32,
+    basis: u32,
 }
 
 /// Local policy. A claim asks for the gore this tick. It is not a brake or a speed.
 /// The world turns one claim into a gap-accepted entry, and two claims into an overlap.
 pub trait Executor {
     fn claim_gate(&self, agent_id: u32, world: &World) -> bool;
+
+    /// Inbox exchange before claims. Zone-plan and baseline policies stay silent.
+    fn prepare(&self, _world: &mut World) {}
 }
 
 /// Closed ramp merge. Mainline and an accel lane meet at one gore, then a through lane runs home.
@@ -170,6 +182,8 @@ pub struct World {
     agents: Vec<Agent>,
     mailboxes: Vec<Vec<StubMessage>>,
     neighbor_views: Vec<NeighborView>,
+    talks_this_tick: Vec<YieldTalk>,
+    pending_yield: Option<PendingYield>,
 }
 
 impl World {
@@ -201,6 +215,8 @@ impl World {
             agents,
             mailboxes: Vec::new(),
             neighbor_views: Vec::new(),
+            talks_this_tick: Vec::new(),
+            pending_yield: None,
         };
         world.mailboxes = vec![Vec::new(); world.agents.len()];
         world.rebuild_views();
@@ -225,6 +241,7 @@ impl World {
             collisions: self.collisions,
             agents: self.agents.iter().map(Agent::to_state).collect(),
             neighbor_views: self.neighbor_views.clone(),
+            talks: self.talks_this_tick.clone(),
             occupied: self
                 .agents
                 .iter()
@@ -282,8 +299,100 @@ impl World {
         let mailbox = self.mailboxes.get(agent_id as usize)?;
         mailbox.iter().rev().find_map(|message| match message {
             StubMessage::ZonePlan(plan) => Some(plan),
-            StubMessage::PeerPing { .. } => None,
+            StubMessage::PeerPing { .. } | StubMessage::YieldTalk(_) => None,
         })
+    }
+
+    pub(crate) fn mouth_agents(&self) -> Vec<(u32, Approach)> {
+        self.agents
+            .iter()
+            .filter(|agent| at_mouth(agent, self.gate_s))
+            .map(|agent| (agent.id, agent.approach))
+            .collect()
+    }
+
+    pub(crate) fn approach_of(&self, id: u32) -> Option<Approach> {
+        self.agents
+            .iter()
+            .find(|agent| agent.id == id)
+            .map(|agent| agent.approach)
+    }
+
+    pub(crate) fn neighbors_of(&self, id: u32) -> Vec<VisibleNeighbor> {
+        self.neighbor_views
+            .iter()
+            .find(|view| view.agent_id == id)
+            .map(|view| view.visible.clone())
+            .unwrap_or_default()
+    }
+
+    pub(crate) fn heard_talks(&self, id: u32) -> Vec<YieldTalk> {
+        self.mailboxes
+            .get(id as usize)
+            .map(|mailbox| {
+                mailbox
+                    .iter()
+                    .filter_map(|message| match message {
+                        StubMessage::YieldTalk(talk) => Some(talk.clone()),
+                        StubMessage::ZonePlan(_) | StubMessage::PeerPing { .. } => None,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    pub(crate) fn tick_talks(&self) -> &[YieldTalk] {
+        &self.talks_this_tick
+    }
+
+    pub(crate) fn deliver_talks(&mut self, talks: &[YieldTalk]) {
+        for talk in talks {
+            self.talks_this_tick.push(talk.clone());
+            self.push_mail(talk.from, talk);
+            if talk.to != talk.from {
+                self.push_mail(talk.to, talk);
+            }
+        }
+    }
+
+    pub(crate) fn set_pending_yield(&mut self, merger: u32, yielder: u32, basis: u32) {
+        self.pending_yield = Some(PendingYield {
+            merger,
+            yielder,
+            basis,
+        });
+    }
+
+    fn push_mail(&mut self, id: u32, talk: &YieldTalk) {
+        if let Some(mailbox) = self.mailboxes.get_mut(id as usize) {
+            mailbox.push(StubMessage::YieldTalk(talk.clone()));
+        }
+    }
+
+    fn commit_yield_turn(&mut self, enter_ids: &[u32]) {
+        let Some(pending) = self.pending_yield.take() else {
+            return;
+        };
+        if !enter_ids.contains(&pending.merger) {
+            return;
+        }
+        let passed = self
+            .agents
+            .iter()
+            .any(|agent| agent.id == pending.merger && agent.passed_gate);
+        if !passed {
+            return;
+        }
+        // Mailbox only. The spoken yield / merge lines already sit on this tick's snapshot.
+        let talk = YieldTalk {
+            from: pending.merger,
+            to: pending.yielder,
+            phase: TalkPhase::Accept,
+            role: YieldRole::Merge,
+            turn: pending.basis.saturating_add(1),
+        };
+        self.push_mail(pending.merger, &talk);
+        self.push_mail(pending.yielder, &talk);
     }
 
     pub fn is_at_mouth(&self, agent_id: u32) -> bool {
@@ -315,7 +424,10 @@ impl World {
     /// One second of driving. Policies may only claim the gore; speed and gap checks stay here.
     pub fn step(&mut self, policy: &dyn Executor) {
         self.tick = self.tick.saturating_add(1);
+        self.talks_this_tick.clear();
+        self.pending_yield = None;
         self.rebuild_views();
+        policy.prepare(self);
 
         let ids: Vec<u32> = self.agents.iter().map(|agent| agent.id).collect();
         let claimants: Vec<u32> = if self.gate_blocked {
@@ -376,6 +488,7 @@ impl World {
                     }
                 }
             }
+            self.commit_yield_turn(&enter_ids);
         }
 
         self.note_overlaps();

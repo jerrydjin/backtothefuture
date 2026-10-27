@@ -97,6 +97,58 @@ pub struct WorldState {
     pub agents: Vec<AgentState>,
     pub neighbor_views: Vec<NeighborView>,
     pub occupied: Vec<OccupiedCell>,
+    /// Yield / merge lines spoken this tick. Empty on the zone-plan path.
+    #[serde(default)]
+    pub talks: Vec<YieldTalk>,
+}
+
+/// What a mouth car says to the car it can see across the gore.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum YieldRole {
+    /// Stay at the mouth this agreement.
+    Yield,
+    /// Take the gore this agreement.
+    Merge,
+    /// No agreement, or the other approach is still in view. Nobody enters.
+    Hold,
+}
+
+impl std::fmt::Display for YieldRole {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            YieldRole::Yield => "yield",
+            YieldRole::Merge => "merge",
+            YieldRole::Hold => "hold",
+        })
+    }
+}
+
+/// Propose is the first word. Accept is the word after the peer has been heard.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TalkPhase {
+    Propose,
+    Accept,
+}
+
+impl std::fmt::Display for TalkPhase {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            TalkPhase::Propose => "propose",
+            TalkPhase::Accept => "accept",
+        })
+    }
+}
+
+/// One yield / merge line on the local stub mailbox.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct YieldTalk {
+    pub from: u32,
+    pub to: u32,
+    pub phase: TalkPhase,
+    pub role: YieldRole,
+    pub turn: u32,
 }
 
 /// Lane intent inside a zone plan. This is not a steering or brake command.
