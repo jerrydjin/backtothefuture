@@ -8,12 +8,12 @@ use std::time::Duration;
 
 use serde::Serialize;
 
-use crate::episode::{default_horizon, rollout, DinnerRun, EpisodeOpts, ModeRun};
+use crate::episode::{DinnerRun, EpisodeOpts, ModeRun};
 use crate::error::MuseError;
 use crate::muse::MuseClient;
-use crate::negotiate::LocalNegotiate;
+use crate::network::{run_town, NetworkRun, DINNER_HOME};
 use crate::schema::{Score, TalkPhase, WorldState, YieldRole};
-use crate::world::{JamType, Scenario, World, CAR_LENGTH_M, CAR_WIDTH_M, LANE_WIDTH_M, TAPER_M};
+use crate::world::{CAR_LENGTH_M, CAR_WIDTH_M, LANE_WIDTH_M, TAPER_M};
 
 /// One flat car. `s` is the front bumper in meters, the same station the sim uses.
 #[derive(Clone, Debug, Serialize)]
@@ -48,37 +48,14 @@ pub struct BoardFrame {
     pub talks: Vec<BoardTalk>,
 }
 
-/// One car on a background merge. Same meters as [`BoardCar`], without the talk row.
+/// Where the dinner merge sits in the town. Same meters as the sim; `main_s0` is the
+/// station at the start of the main polyline. The ramp ends at the gore.
 #[derive(Clone, Debug, Serialize)]
-pub struct FlowCar {
-    pub id: u32,
-    pub approach: String,
-    pub s: f64,
-    pub lane: f64,
-    pub length: f64,
-    #[serde(skip_serializing_if = "is_false")]
-    pub home: bool,
-    #[serde(skip_serializing_if = "is_false")]
-    pub collided: bool,
-}
-
-/// One tick of a background merge.
-#[derive(Clone, Debug, Serialize)]
-pub struct FlowFrame {
-    pub tick: u32,
-    pub vehicles: Vec<FlowCar>,
-}
-
-/// A merge rolled with the local negotiator, drawn on another street of the network.
-#[derive(Clone, Debug, Serialize)]
-pub struct NetworkFlow {
-    pub gate_s_m: f64,
-    pub home_s_m: f64,
-    pub frames: Vec<FlowFrame>,
-}
-
-fn is_false(value: &bool) -> bool {
-    !*value
+pub struct DinnerRoad {
+    pub main: Vec<[f64; 2]>,
+    pub ramp: Vec<[f64; 2]>,
+    pub main_s0: f64,
+    pub home: [f64; 2],
 }
 
 /// One scored run. The side panel lists these. The map plays one at a time.
@@ -109,8 +86,10 @@ pub struct DinnerBoard {
     pub car_length_m: f64,
     pub car_width_m: f64,
     pub strips: Vec<BoardStrip>,
-    /// Platoons on the other roads. Same world, not the sticky score.
-    pub flows: Vec<NetworkFlow>,
+    /// The dinner merge's place in the town.
+    pub dinner_road: DinnerRoad,
+    /// Background traffic on the town around it. Its own local sim, never scored.
+    pub town: NetworkRun,
 }
 
 /// Run the dinner path and shape it for the window.
@@ -145,59 +124,48 @@ pub fn board_from_run(run: &DinnerRun, client_label: &str) -> DinnerBoard {
             strip(client_label, &run.plan, true),
             strip("negotiate", &run.negotiate, false),
         ],
-        flows: network_flows(),
+        dinner_road: dinner_road(run, gate_s_m, home_s_m),
+        town: run_town(TOWN_SEED),
     }
 }
 
-/// Background roads. Local negotiate only, so this path never calls a model.
-fn network_flows() -> Vec<NetworkFlow> {
-    // Page order: spine west, spine east, north, south, link, slip.
-    // Mainline-heavy, so each platoon sits on one centerline.
-    // The scored dinner merge is a strip, not one of these.
-    [
-        (14, JamType::MainlinePlug),
-        (12, JamType::MainlinePlug),
-        (16, JamType::MainlinePlug),
-        (14, JamType::MainlinePlug),
-        (18, JamType::MainlinePlug),
-        (10, JamType::MainlinePlug),
-    ]
-    .into_iter()
-    .map(|(cars, jam)| flow_run(cars, jam))
-    .collect()
-}
+/// Fixed so the board and its tests see the same rush hour.
+const TOWN_SEED: u64 = 7;
 
-fn flow_run(cars: u32, jam: JamType) -> NetworkFlow {
-    let scenario = Scenario::new(cars, jam, "Zipper fairly so both approaches get home.");
-    let world = World::spawn(&scenario).expect("network flow");
-    let traj = rollout(world, &LocalNegotiate, default_horizon(cars));
-    let first = traj
-        .states
-        .first()
-        .expect("a flow starts with the spawn frame");
-    NetworkFlow {
-        gate_s_m: first.gate_s_m,
-        home_s_m: first.home_s_m,
-        frames: traj.states.iter().map(flow_frame).collect(),
-    }
-}
-
-fn flow_frame(state: &WorldState) -> FlowFrame {
-    FlowFrame {
-        tick: state.tick,
-        vehicles: state
-            .agents
-            .iter()
-            .map(|agent| FlowCar {
-                id: agent.id,
-                approach: agent.approach.to_string(),
-                s: (agent.s_m * 100.0).round() / 100.0,
-                lane: (agent.lane_m * 100.0).round() / 100.0,
-                length: agent.length_m,
-                home: agent.home,
-                collided: agent.collided,
-            })
-            .collect(),
+/// Lay the dinner merge in its block: main runs east to home, the ramp joins at the gore.
+fn dinner_road(run: &DinnerRun, gate_s: f64, home_s: f64) -> DinnerRoad {
+    let tail = [&run.plan, &run.selfish, &run.dumb_equal, &run.negotiate]
+        .iter()
+        .filter_map(|mode| mode.states.first())
+        .flat_map(|state| state.agents.iter().map(|agent| agent.s_m - agent.length_m))
+        .fold(f64::INFINITY, f64::min);
+    let main_s0 = if tail.is_finite() { tail - 2.0 } else { 0.0 };
+    let [hx, hy] = DINNER_HOME;
+    let start_x = hx - (home_s - main_s0);
+    let gore = [hx - (home_s - gate_s), hy];
+    let reach = gate_s - main_s0;
+    let curve = |t: f64| {
+        let p0 = [gore[0] - reach - 10.0, gore[1] + 26.0];
+        let p1 = [gore[0] - reach * 0.4, gore[1] + 26.0];
+        let p2 = [gore[0] - 14.0, gore[1] + LANE_WIDTH_M];
+        let u = 1.0 - t;
+        let mut p = [0.0; 2];
+        for axis in 0..2 {
+            p[axis] = u * u * u * p0[axis]
+                + 3.0 * u * u * t * p1[axis]
+                + 3.0 * u * t * t * p2[axis]
+                + t * t * t * gore[axis];
+        }
+        [
+            (p[0] * 100.0).round() / 100.0,
+            (p[1] * 100.0).round() / 100.0,
+        ]
+    };
+    DinnerRoad {
+        main: vec![[start_x, hy], [hx + 3.0, hy]],
+        ramp: (0..=24).map(|i| curve(f64::from(i) / 24.0)).collect(),
+        main_s0,
+        home: [hx + 3.0, hy],
     }
 }
 
@@ -424,13 +392,12 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     return local * speed;
   }
 
-  function flowTime(now, frames) {
-    if (!frames || !frames.length) return 0;
-    var last = frames[frames.length - 1].tick;
+  // The town loops on its own clock, one frame per sim second.
+  function townTime(now) {
+    var last = (data.town && data.town.frames.length) ? data.town.frames.length - 1 : 0;
     if (last < 1) return 0;
     var t = seekTo != null ? Math.max(0, seekTo) : elapsedSec(now) * speed;
-    if (t <= last) return t;
-    return t % last;
+    return t <= last ? t : t % last;
   }
 
   function sample(frames, simT) {
@@ -500,11 +467,12 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     return null;
   }
 
-  // One network, in meters. Spine is the through road. The ramp joins it once.
-  // Link and slip are the only other connectors. Nothing here is a repeated cell.
+  // The town, in meters, straight from the sim: every lane and junction path is a link.
+  // Background cars drive routes across those links. The dinner road sits in one block.
   var CAR_W = data.car_width_m || 1.8;
-  var S0 = 8;
-  var flows = data.flows || [];
+  var LANE_W = data.lane_width_m || 3.7;
+  var town = data.town || { links: [], routes: [], frames: [] };
+  var road = data.dinner_road;
 
   function measures(pts) {
     var cum = [0];
@@ -514,175 +482,66 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     return cum;
   }
 
-  function roadOf(pts) {
+  function roadOf(raw) {
+    var pts = raw.map(function (p) { return { x: p[0], y: p[1] }; });
     var cum = measures(pts);
     return { pts: pts, cum: cum, len: cum[cum.length - 1] };
   }
 
-  function pointOn(road, dist) {
-    var pts = road.pts;
-    var cum = road.cum;
+  function pointOn(r, dist) {
+    var pts = r.pts;
+    var cum = r.cum;
     if (dist <= 0) return { x: pts[0].x, y: pts[0].y };
-    if (dist >= road.len) {
+    if (dist >= r.len) {
       var last = pts[pts.length - 1];
       return { x: last.x, y: last.y };
     }
-    var i = 1;
-    while (i < cum.length && cum[i] < dist) i++;
-    var span = (cum[i] - cum[i - 1]) || 1;
-    var u = (dist - cum[i - 1]) / span;
+    var lo = 0;
+    var hi = cum.length - 1;
+    while (hi - lo > 1) {
+      var mid = (lo + hi) >> 1;
+      if (cum[mid] < dist) lo = mid; else hi = mid;
+    }
+    var span = (cum[hi] - cum[lo]) || 1;
+    var u = (dist - cum[lo]) / span;
     return {
-      x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * u,
-      y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * u
+      x: pts[lo].x + (pts[hi].x - pts[lo].x) * u,
+      y: pts[lo].y + (pts[hi].y - pts[lo].y) * u
     };
   }
 
-  function tangentOn(road, dist) {
-    var a = pointOn(road, Math.max(0, dist - 1.2));
-    var b = pointOn(road, Math.min(road.len, dist + 1.2));
-    var len = Math.hypot(b.x - a.x, b.y - a.y) || 1;
-    return { x: (b.x - a.x) / len, y: (b.y - a.y) / len };
-  }
+  var links = town.links.map(function (link) {
+    var r = roadOf(link.pts);
+    r.cls = link.class;
+    r.level = link.level;
+    return r;
+  });
+  var routes = town.routes.map(function (ids) {
+    var start = [];
+    var total = 0;
+    ids.forEach(function (id) { start.push(total); total += links[id].len; });
+    return { ids: ids, start: start, total: total };
+  });
 
-  function cr(p0, p1, p2, p3, t) {
-    var t2 = t * t;
-    var t3 = t2 * t;
-    return {
-      x: 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
-      y: 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3)
-    };
-  }
-
-  function smooth(pts, step) {
-    var p = [pts[0]].concat(pts, [pts[pts.length - 1]]);
-    var out = [];
-    for (var i = 1; i < p.length - 2; i++) {
-      var seg = Math.hypot(p[i + 1].x - p[i].x, p[i + 1].y - p[i].y);
-      var n = Math.max(2, Math.round(seg / step));
-      for (var s = 0; s < n; s++) out.push(cr(p[i - 1], p[i], p[i + 1], p[i + 2], s / n));
+  function routeLoc(route, d) {
+    var ids = route.ids;
+    var lo = 0;
+    var hi = ids.length - 1;
+    while (lo < hi) {
+      var mid = (lo + hi + 1) >> 1;
+      if (route.start[mid] <= d) lo = mid; else hi = mid - 1;
     }
-    out.push(pts[pts.length - 1]);
-    return roadOf(out);
+    return pointOn(links[ids[lo]], d - route.start[lo]);
   }
 
-  function quad(p0, p1, p2) {
-    var pts = [];
-    var n = 28;
-    for (var i = 0; i <= n; i++) {
-      var t = i / n;
-      var u = 1 - t;
-      pts.push({
-        x: u * u * p0.x + 2 * u * t * p1.x + t * t * p2.x,
-        y: u * u * p0.y + 2 * u * t * p1.y + t * t * p2.y
-      });
-    }
-    return roadOf(pts);
-  }
-
-  function cubic(p0, p1, p2, p3) {
-    var pts = [];
-    var n = 32;
-    for (var i = 0; i <= n; i++) {
-      var t = i / n;
-      var u = 1 - t;
-      pts.push({
-        x: u * u * u * p0.x + 3 * u * u * t * p1.x + 3 * u * t * t * p2.x + t * t * t * p3.x,
-        y: u * u * u * p0.y + 3 * u * u * t * p1.y + 3 * u * t * t * p2.y + t * t * t * p3.y
-      });
-    }
-    return pts;
-  }
-
-  function arcNearX(road, x) {
-    var best = 0;
-    var bestD = 1e9;
-    for (var d = 0; d <= road.len; d += 2) {
-      var dx = Math.abs(pointOn(road, d).x - x);
-      if (dx < bestD) { bestD = dx; best = d; }
-    }
-    return best;
-  }
-
-  function spanOf(flow) { return flow.home_s_m - S0; }
-
-  // Through road, a shorter north road, a south road that falls away.
-  // Curves, not a repeated kink.
-  var spine = smooth([
-    { x: 0, y: 116 }, { x: 100, y: 106 }, { x: 200, y: 126 },
-    { x: 300, y: 108 }, { x: 400, y: 118 }
-  ], 4);
-  var north = smooth([
-    { x: 18, y: 26 }, { x: 140, y: 46 }, { x: 270, y: 20 }, { x: 370, y: 38 }
-  ], 4);
-  var south = smooth([
-    { x: 55, y: 198 }, { x: 170, y: 184 }, { x: 290, y: 222 }, { x: 410, y: 248 }
-  ], 4);
-
-  var gap = 22;
-  var westAt = 14;
-  var dinnerAt = westAt + spanOf(flows[0]) + gap;
-  var eastAt = dinnerAt + (data.home_s_m - S0) + gap;
-  var gateArc = dinnerAt + (data.gate_s_m - S0);
-  var gatePt = pointOn(spine, gateArc);
-  var gateDir = tangentOn(spine, gateArc);
-  var rampStart = pointOn(north, 10);
-  var pull = 24;
-  var ramp = roadOf(cubic(
-    rampStart,
-    {
-      x: rampStart.x + (gatePt.x - rampStart.x) * 0.36,
-      y: rampStart.y + (gatePt.y - rampStart.y) * 0.16
-    },
-    { x: gatePt.x - gateDir.x * pull, y: gatePt.y - gateDir.y * pull },
-    gatePt
-  ));
-
-  var linkAt = dinnerAt + (data.home_s_m - S0) + 8;
-  var linkFrom = pointOn(spine, linkAt);
-  var linkTo = pointOn(south, 12);
-  var link = quad(
-    linkFrom,
-    {
-      x: (linkFrom.x + linkTo.x) / 2 - 14,
-      y: (linkFrom.y + linkTo.y) / 2
-    },
-    linkTo
-  );
-
-  var slipTo = pointOn(spine, Math.min(spine.len - 6, eastAt + spanOf(flows[1]) + 18));
-  var slipFrom = pointOn(north, arcNearX(north, slipTo.x));
-  var slip = quad(
-    slipFrom,
-    {
-      x: (slipFrom.x + slipTo.x) / 2 + 10,
-      y: (slipFrom.y + slipTo.y) / 2
-    },
-    slipTo
-  );
-
-  var roads = [spine, north, south, ramp, link, slip];
-  var sites = [
-    { road: spine, origin: westAt, frames: flows[0].frames, mainOnly: true },
-    { road: spine, origin: eastAt, frames: flows[1].frames, mainOnly: true },
-    { road: north, origin: 36, frames: flows[2].frames, mainOnly: true },
-    { road: south, origin: 58, frames: flows[3].frames, mainOnly: true },
-    { road: link, origin: 0, frames: flows[4].frames, mainOnly: true },
-    { road: slip, origin: 0, frames: flows[5].frames, mainOnly: true }
-  ];
-  var dinnerSite = { dinner: true };
-
-  function pointFromEnd(road, dist) {
-    return pointOn(road, road.len - dist);
-  }
+  var dinnerMain = roadOf(road.main);
+  var dinnerRamp = roadOf(road.ramp);
 
   function dinnerLoc(s, lane) {
-    if ((lane || 0) > 0.2 && s < data.gate_s_m) return pointFromEnd(ramp, data.gate_s_m - s);
-    return pointOn(spine, dinnerAt + (s - S0));
-  }
-
-  function carLoc(site, s, lane) {
-    if (site.dinner) return dinnerLoc(s, lane);
-    return pointOn(site.road, site.origin + (s - S0));
+    if ((lane || 0) > 0.2 && s < data.gate_s_m) {
+      return pointOn(dinnerRamp, dinnerRamp.len - (data.gate_s_m - s));
+    }
+    return pointOn(dinnerMain, s - road.main_s0);
   }
 
   var bounds = { minX: 1e9, minY: 1e9, maxX: -1e9, maxY: -1e9 };
@@ -692,7 +551,9 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     if (p.x > bounds.maxX) bounds.maxX = p.x;
     if (p.y > bounds.maxY) bounds.maxY = p.y;
   }
-  roads.forEach(function (road) { road.pts.forEach(take); });
+  links.forEach(function (r) { r.pts.forEach(take); });
+  dinnerMain.pts.forEach(take);
+  dinnerRamp.pts.forEach(take);
 
   function fit(canvas) {
     var rect = canvas.getBoundingClientRect();
@@ -737,12 +598,38 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     }
   }
 
+  // Motorway level first, then streets on top with a white casing, so bridges read as bridges.
   function drawRoads(ctx, view) {
     ctx.lineJoin = "round";
-    ctx.lineCap = "round";
-    ctx.strokeStyle = "#5e5e5e";
-    ctx.lineWidth = 1.35;
-    roads.forEach(function (road) { tracePts(ctx, view, road.pts); ctx.stroke(); });
+    ctx.lineCap = "butt";
+    var lane = LANE_W * view.sc;
+    function stroke(list, color, width) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      list.forEach(function (r) { tracePts(ctx, view, r.pts); ctx.stroke(); });
+    }
+    var low = links.filter(function (r) { return r.level === 0; });
+    var high = links.filter(function (r) { return r.level !== 0; });
+    stroke(low, "#e2e2e2", lane + 0.6);
+    stroke(high.filter(function (r) { return r.cls !== "connector"; }), "#fff", lane + 1.6 * view.sc);
+    stroke(high, "#e2e2e2", lane + 0.6);
+    stroke([dinnerMain, dinnerRamp], "#e2e2e2", lane + 0.6);
+  }
+
+  function drawHome(ctx, view) {
+    var at = toScreen(view, { x: road.home[0], y: road.home[1] });
+    var s = Math.max(5, 2.4 * view.sc);
+    ctx.save();
+    ctx.translate(at.x + s * 1.6, at.y);
+    ctx.fillStyle = "#3a3a3a";
+    ctx.beginPath();
+    ctx.moveTo(-s, -s * 0.1);
+    ctx.lineTo(0, -s);
+    ctx.lineTo(s, -s * 0.1);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillRect(-s * 0.7, -s * 0.1, s * 1.4, s * 0.9);
+    ctx.restore();
   }
 
   function roundRect(ctx, x, y, w, h, r) {
@@ -756,41 +643,32 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     ctx.closePath();
   }
 
-  function carPose(view, site, car) {
-    var front = carLoc(site, car.s, car.lane);
-    var rear = carLoc(site, car.s - (car.length || 4.5), car.lane);
+  function pose(view, front, rear, length) {
     var a = toScreen(view, front);
     var b = toScreen(view, rear);
     return {
       x: a.x,
       y: a.y,
       ang: Math.atan2(a.y - b.y, a.x - b.x),
-      len: Math.max(2.5, (car.length || 4.5) * view.sc),
+      len: Math.max(2.5, length * view.sc),
       wid: Math.max(2, CAR_W * view.sc)
     };
   }
 
-  function drawCar(ctx, pose, car) {
+  function drawCar(ctx, p, color) {
     ctx.save();
-    ctx.translate(pose.x, pose.y);
-    ctx.rotate(pose.ang);
-    var r = Math.min(1.05, pose.wid / 4);
-    roundRect(ctx, -pose.len, -pose.wid / 2, pose.len, pose.wid, r);
-    ctx.fillStyle = car.collided ? "#d23b3b" : (car.approach === "ramp" ? "#2f6fdb" : "#242424");
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.ang);
+    var r = Math.min(1.05, p.wid / 4);
+    roundRect(ctx, -p.len, -p.wid / 2, p.len, p.wid, r);
+    ctx.fillStyle = color;
     ctx.fill();
     ctx.restore();
   }
 
   function cueAnchor() {
-    var p = pointOn(spine, gateArc);
-    var dir = tangentOn(spine, gateArc);
-    var n = { x: -dir.y, y: dir.x };
-    var back = pointFromEnd(ramp, 14);
-    if (n.x * (back.x - p.x) + n.y * (back.y - p.y) > 0) {
-      n.x = -n.x;
-      n.y = -n.y;
-    }
-    return { x: p.x + n.x * 11, y: p.y + n.y * 11 };
+    var p = pointOn(dinnerMain, data.gate_s_m - road.main_s0);
+    return { x: p.x, y: p.y - 9 };
   }
 
   function drawCue(ctx, view, role) {
@@ -804,19 +682,41 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     ctx.restore();
   }
 
-  function drawSite(ctx, view, site, frames, simT, cue) {
+  function drawDinner(ctx, view, frames, simT, cue) {
     var posed = sample(frames, simT);
-    if (!posed.a) return null;
-    var cars = blend(posed);
+    if (!posed.a) return false;
     var show = false;
-    cars.forEach(function (car) {
+    blend(posed).forEach(function (car) {
       if (car.home) return;
-      if (site.mainOnly && car.approach === "ramp") return;
-      var pose = carPose(view, site, car);
-      drawCar(ctx, pose, car);
+      var length = car.length || 4.5;
+      var p = pose(view, dinnerLoc(car.s, car.lane), dinnerLoc(car.s - length, car.lane), length);
+      var color = car.collided ? "#d23b3b" : (car.approach === "ramp" ? "#2f6fdb" : "#242424");
+      drawCar(ctx, p, color);
       if (cue && cue.id === car.id) show = true;
     });
     return show;
+  }
+
+  // Town cars blend between one-second frames by id. A car leaving the map keeps rolling.
+  function drawTown(ctx, view, t) {
+    var frames = town.frames;
+    if (!frames.length) return;
+    var i = Math.max(0, Math.min(frames.length - 1, Math.floor(t)));
+    var u = Math.max(0, Math.min(1, t - i));
+    var a = frames[i];
+    var b = frames[Math.min(i + 1, frames.length - 1)];
+    var next = {};
+    b.cars.forEach(function (car) { next[car[0]] = car; });
+    a.cars.forEach(function (car) {
+      var route = routes[car[1]];
+      if (!route) return;
+      var later = next[car[0]];
+      var d = later ? car[2] + (later[2] - car[2]) * u : car[2] + car[3] * u;
+      var v = later ? car[3] + (later[3] - car[3]) * u : car[3];
+      if (d >= route.total) return;
+      var p = pose(view, routeLoc(route, d), routeLoc(route, d - 4.5), 4.5);
+      drawCar(ctx, p, v < 2.5 ? "#d08a2a" : "#7a7a7a");
+    });
   }
 
   function paint(now) {
@@ -829,17 +729,15 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     ctx.fillRect(0, 0, fitted.w, fitted.h);
     var view = makeView(fitted.w, fitted.h);
     drawRoads(ctx, view);
+    drawHome(ctx, view);
+    drawTown(ctx, view, townTime(now));
     var simT = simTime(now);
-    sites.forEach(function (site) {
-      drawSite(ctx, view, site, site.frames, flowTime(now, site.frames), null);
-    });
     var strip = data.strips[active];
     if (!strip) return;
     var cue = oneCue(strip.frames, simT);
-    var showCue = drawSite(ctx, view, dinnerSite, strip.frames, simT, cue);
+    var showCue = drawDinner(ctx, view, strip.frames, simT, cue);
     if (cue && showCue) drawCue(ctx, view, cue.role);
   }
-
   function loop(now) {
     paint(now);
     requestAnimationFrame(loop);

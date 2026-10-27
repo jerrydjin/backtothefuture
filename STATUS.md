@@ -28,9 +28,19 @@ The board is a road, in meters.
 - A collision is body overlap: same-lane length, or two noses in the single-file gore. A shared toy cell is not the rule.
 - Neighbor fog is 16 m. The other mouth is visible. The tail of a long queue is not.
 - `--show` is a top-down trace: two approaches, the gore, speeds at the mouths. A wreck, a held jam, and a cleared road are labeled. Rectangles only.
-- `--board` lays those same meters on one white birds-eye network: arterials, a few connectors, one merge. The other roads use the same world physics. Flat cars follow the trajectories. One yield or merge cue. Three tiny sticky pills.
+- `--board` lays those same meters in one block of a small town. The dinner road runs to a home marker. Flat cars follow the trajectories. One yield or merge cue. Three tiny sticky pills.
 
 Schemas stayed. Muse still emits only a `ZonePlan`. Locals still execute. The judge is still a pure read of the trajectory.
+
+## Town
+
+The board's background is now a real network sim (`src/network.rs`), not replayed platoons.
+
+- Map: a motorway with two interchanges (a full diamond and a half diamond), two arterials, three cross streets, one crossroads. Every lane and every junction path is a link in meters. Streets bridge the motorway.
+- Cars spawn at the map edges, pick a destination, and drive the fastest route across links. Car-following is IDM under the dinner caps. Step is 0.25 s; the board gets one frame a second.
+- Junctions have no lights. A car asks for its path through a junction a short stopping distance out. Crossing paths never hold two cars. Minor roads give way to a priority car inside a 3 s gap. Motorway merges zipper, and ramp terminals take turns. Nobody enters a junction whose exit is full.
+- Demand rises to a rush and falls again. Queues build at the merges and off-ramps, spill back, then drain before the loop. Queued cars draw amber.
+- The town never feeds the judge or Muse. The sticky path is unchanged: selfish RED, dumb-equal RED, scripted GREEN.
 
 ## Still cut
 
