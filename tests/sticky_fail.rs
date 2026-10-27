@@ -187,6 +187,85 @@ fn reversed_queue_is_rejected_and_brakes_are_rejected() {
 }
 
 #[test]
+fn show_dinner_path_reads_wreck_jam_and_clear() {
+    let report = run_episode(
+        &fair(6, JamType::Symmetric),
+        &FakeEcho,
+        "FakeEcho (ALLOW_CHEAT)",
+        &EpisodeOpts {
+            show: true,
+            ..EpisodeOpts::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        report.selfish.to_string(),
+        "RED time_home=inf collisions=1 fairness=1.00 home=0/6 (collision, not all home)"
+    );
+    assert_eq!(
+        report.dumb_equal.to_string(),
+        "RED time_home=inf collisions=0 fairness=1.00 home=0/6 (not all home)"
+    );
+    assert_eq!(
+        report.muse.to_string(),
+        "GREEN time_home=69 collisions=0 fairness=0.00 home=6/6"
+    );
+
+    let selfish = report.selfish_trace.expect("selfish trace");
+    assert!(
+        selfish.starts_with("wreck stays in the gore — RED "),
+        "{selfish}"
+    );
+    assert!(selfish.contains("GATE WRECK"), "{selfish}");
+    assert!(selfish.contains("WRECK:"), "{selfish}");
+    assert!(selfish.contains('X'), "{selfish}");
+
+    let dumb = report.dumb_trace.expect("dumb trace");
+    assert!(
+        dumb.starts_with("jam stays stopped at the gore — RED "),
+        "{dumb}"
+    );
+    assert!(dumb.contains("jam holds for 64s"), "{dumb}");
+    assert!(dumb.contains("JAM: both mouths stopped"), "{dumb}");
+    assert!(dumb.contains("0/6 home"), "{dumb}");
+
+    let muse = report.muse_trace.expect("muse trace");
+    assert!(
+        muse.starts_with("road clears; every car is home — GREEN "),
+        "{muse}"
+    );
+    assert!(muse.contains("CLEAR: every car is home (6/6)"), "{muse}");
+    assert!(muse.contains("home=6/6"), "{muse}");
+}
+
+#[test]
+fn show_unfair_clear_does_not_print_green() {
+    let scenario = Scenario::new(6, JamType::Symmetric, "Main has priority. Main first.");
+    let report = run_episode(
+        &scenario,
+        &FakeEcho,
+        "FakeEcho (ALLOW_CHEAT)",
+        &EpisodeOpts {
+            show: true,
+            ..EpisodeOpts::default()
+        },
+    )
+    .unwrap();
+    assert_eq!(report.muse.verdict, Verdict::Red);
+    assert_eq!(report.muse.reasons, vec!["unfair".to_string()]);
+    let muse = report.muse_trace.expect("muse trace");
+    assert!(
+        muse.starts_with("cars reach home; fairness keeps the board red — RED "),
+        "{muse}"
+    );
+    assert!(muse.contains("CLEAR: every car is home (6/6)"), "{muse}");
+    assert!(
+        !muse.contains("road clears; every car is home — GREEN"),
+        "{muse}"
+    );
+}
+
+#[test]
 fn follow_plan_without_a_broadcast_does_not_clear_the_jam() {
     let scenario = fair(4, JamType::Symmetric);
     let world = World::spawn(&scenario).unwrap();

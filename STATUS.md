@@ -2,13 +2,15 @@
 
 Dinner sentence: "You say what matters in plain English — the traffic bends. Muse plans the merge; the cars just drive. Dumb equal stays jammed; the scoreboard goes green."
 
-## Day-1
+## On main
 
-Closed ramp merge, N cars, neighbor view. Plain English or a structured bias in, one zone plan out. Locals execute. Locked judge.
+The meter-scale ramp merge is on main. Closed ramp, N cars, neighbor view. Plain English or a structured bias in, one zone plan out. Locals execute. Locked judge.
 
-Sticky fail: selfish collides and stays RED. Dumb-equal waits forever and stays RED. A fair FakeEcho plan can go GREEN. A priority plan that starves one approach stays RED on fairness.
+Sticky fail, N=6 symmetric, FakeEcho, no API key: selfish collides and stays RED. Dumb-equal waits and stays RED. A fair FakeEcho plan goes GREEN. A priority plan that starves one approach stays RED on fairness.
 
-Landed ahead of the Oct 27 official window. The PR targets main.
+FakeEcho runs until `MODEL_API_KEY` is set. Curl does the HTTP. `ALLOW_CHEAT=0` with no key fails closed.
+
+`--show` on the symmetric dinner path draws the gore wreck, the held jam, and the cleared road. Each frame carries a home count. The three score lines stay the sticky board.
 
 ## Hardened
 
@@ -19,7 +21,7 @@ The board is a road, in meters.
 - A single claim waits for a gap (one car length plus the stopped gap) before it enters. Two claims at once both enter and overlap.
 - A collision is body overlap: same-lane length, or two noses in the single-file gore. A shared toy cell is not the rule.
 - Neighbor fog is 16 m. The other mouth is visible. The tail of a long queue is not.
-- `--show` is a top-down trace: two approaches, the gore, speeds at the mouths, jam or wreck. Rectangles only.
+- `--show` is a top-down trace: two approaches, the gore, speeds at the mouths. A wreck, a held jam, and a cleared road are labeled. Rectangles only.
 
 Schemas stayed. Muse still emits only a `ZonePlan`. Locals still execute. The judge is still a pure read of the trajectory.
 
