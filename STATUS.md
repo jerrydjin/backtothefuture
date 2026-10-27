@@ -10,7 +10,7 @@ Sticky fail, N=6 symmetric, scripted, no API key: selfish collides and stays RED
 
 The scripted stub runs until `MODEL_API_KEY` is set. Curl does the HTTP. With a key, the client label is `muse`. `ALLOW_CHEAT=0` with no key fails closed.
 
-`--show` on the symmetric dinner path draws the gore wreck, the held jam, and the cleared road in the terminal. `cargo run -- --board` opens that same path as a live window. The window is a quiet birds-eye: thin roads and car rectangles. One yield or merge cue sits on the relevant car. Sticky RED / RED / GREEN is three tiny pills. Each frame still carries a home count.
+`--show` on the symmetric dinner path draws the gore wreck, the held jam, and the cleared road in the terminal. `cargo run -- --board` opens that same path as a live window. The window is a quiet birds-eye: a white diagram of the road network and small flat cars. One yield or merge cue sits on the relevant car. Sticky RED / RED / GREEN is three tiny pills. Each frame still carries a home count.
 
 ## Step 2
 
@@ -28,7 +28,7 @@ The board is a road, in meters.
 - A collision is body overlap: same-lane length, or two noses in the single-file gore. A shared toy cell is not the rule.
 - Neighbor fog is 16 m. The other mouth is visible. The tail of a long queue is not.
 - `--show` is a top-down trace: two approaches, the gore, speeds at the mouths. A wreck, a held jam, and a cleared road are labeled. Rectangles only.
-- `--board` lays those same meters on a birds-eye merge: thin arterial, ramp, and exit. Car rectangles follow the trajectories. One yield or merge cue. Three tiny sticky pills.
+- `--board` lays those same meters on a white birds-eye network. Other merges on that map are the same world physics, so the roads stay busy. Flat cars follow the trajectories. One yield or merge cue. Three tiny sticky pills.
 
 Schemas stayed. Muse still emits only a `ZonePlan`. Locals still execute. The judge is still a pure read of the trajectory.
 
@@ -50,7 +50,7 @@ cargo run -- --cars 6 --jam symmetric --prefs "Zipper fairly so both approaches 
 cargo run -- --cars 6 --jam symmetric --prefs "Zipper fairly so both approaches get home." --show
 ```
 
-`--board` opens the birds-eye window. `--show` stays the terminal trace. One yield or merge cue sits on the relevant car. The sticky pills are selfish RED, dumb-equal RED, scripted GREEN.
+`--board` opens the white birds-eye network. `--show` stays the terminal trace. One yield or merge cue sits on the relevant car. The sticky pills are selfish RED, dumb-equal RED, scripted GREEN.
 
 Knobs: `--cars`, `--jam symmetric|ramp-surge|mainline-plug`, `--prefs`, `--show`, `--board`, `--rewrite-every`.
 

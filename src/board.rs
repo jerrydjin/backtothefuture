@@ -1,6 +1,6 @@
 //! Birds-eye dinner board. A view of [`DinnerRun`](crate::episode::DinnerRun):
-//! the same frames the terminal `--show` path already scores, drawn on one
-//! road network. No second physics.
+//! the same frames the terminal `--show` path already scores, plus other merges
+//! rolled by that same world. No second physics. Schemas and the judge stay out.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -8,13 +8,14 @@ use std::time::Duration;
 
 use serde::Serialize;
 
-use crate::episode::{DinnerRun, EpisodeOpts, ModeRun};
+use crate::episode::{default_horizon, rollout, DinnerRun, EpisodeOpts, ModeRun};
 use crate::error::MuseError;
 use crate::muse::MuseClient;
+use crate::negotiate::LocalNegotiate;
 use crate::schema::{Score, TalkPhase, WorldState, YieldRole};
-use crate::world::{CAR_LENGTH_M, CAR_WIDTH_M, LANE_WIDTH_M, TAPER_M};
+use crate::world::{JamType, Scenario, World, CAR_LENGTH_M, CAR_WIDTH_M, LANE_WIDTH_M, TAPER_M};
 
-/// One car blob. `s` is the front bumper in meters, the same station the sim uses.
+/// One flat car. `s` is the front bumper in meters, the same station the sim uses.
 #[derive(Clone, Debug, Serialize)]
 pub struct BoardCar {
     pub id: u32,
@@ -47,6 +48,39 @@ pub struct BoardFrame {
     pub talks: Vec<BoardTalk>,
 }
 
+/// One car on a background merge. Same meters as [`BoardCar`], without the talk row.
+#[derive(Clone, Debug, Serialize)]
+pub struct FlowCar {
+    pub id: u32,
+    pub approach: String,
+    pub s: f64,
+    pub lane: f64,
+    pub length: f64,
+    #[serde(skip_serializing_if = "is_false")]
+    pub home: bool,
+    #[serde(skip_serializing_if = "is_false")]
+    pub collided: bool,
+}
+
+/// One tick of a background merge.
+#[derive(Clone, Debug, Serialize)]
+pub struct FlowFrame {
+    pub tick: u32,
+    pub vehicles: Vec<FlowCar>,
+}
+
+/// A merge rolled with the local negotiator, drawn on another street of the network.
+#[derive(Clone, Debug, Serialize)]
+pub struct NetworkFlow {
+    pub gate_s_m: f64,
+    pub home_s_m: f64,
+    pub frames: Vec<FlowFrame>,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+
 /// One scored run. The side panel lists these. The map plays one at a time.
 #[derive(Clone, Debug, Serialize)]
 pub struct BoardStrip {
@@ -75,6 +109,8 @@ pub struct DinnerBoard {
     pub car_length_m: f64,
     pub car_width_m: f64,
     pub strips: Vec<BoardStrip>,
+    /// Other merges on the diagram. Same world, not the sticky score.
+    pub flows: Vec<NetworkFlow>,
 }
 
 /// Run the dinner path and shape it for the window.
@@ -109,6 +145,66 @@ pub fn board_from_run(run: &DinnerRun, client_label: &str) -> DinnerBoard {
             strip(client_label, &run.plan, true),
             strip("negotiate", &run.negotiate, false),
         ],
+        flows: network_flows(),
+    }
+}
+
+/// Background streets. Local negotiate only, so this path never calls a model.
+fn network_flows() -> Vec<NetworkFlow> {
+    // Order matches the page: horizontal blocks, skipping the dinner cell,
+    // then the cross-street blocks. Counts fit inside those blocks.
+    // 14 arterials, 5 merges each, minus the dinner cell. Matches the page.
+    let mut counts = Vec::with_capacity(69);
+    for line in 0..14 {
+        for block in 0..5 {
+            if line == 6 && block == 2 {
+                continue;
+            }
+            counts.push(match (line + block) % 3 {
+                0 => 12,
+                1 => 10,
+                _ => 8,
+            });
+        }
+    }
+    counts.into_iter().map(flow_run).collect()
+}
+
+fn flow_run(cars: u32) -> NetworkFlow {
+    let scenario = Scenario::new(
+        cars,
+        JamType::Symmetric,
+        "Zipper fairly so both approaches get home.",
+    );
+    let world = World::spawn(&scenario).expect("network flow");
+    let traj = rollout(world, &LocalNegotiate, default_horizon(cars));
+    let first = traj
+        .states
+        .first()
+        .expect("a flow starts with the spawn frame");
+    NetworkFlow {
+        gate_s_m: first.gate_s_m,
+        home_s_m: first.home_s_m,
+        frames: traj.states.iter().map(flow_frame).collect(),
+    }
+}
+
+fn flow_frame(state: &WorldState) -> FlowFrame {
+    FlowFrame {
+        tick: state.tick,
+        vehicles: state
+            .agents
+            .iter()
+            .map(|agent| FlowCar {
+                id: agent.id,
+                approach: agent.approach.to_string(),
+                s: (agent.s_m * 100.0).round() / 100.0,
+                lane: (agent.lane_m * 100.0).round() / 100.0,
+                length: agent.length_m,
+                home: agent.home,
+                collided: agent.collided,
+            })
+            .collect(),
     }
 }
 
@@ -200,7 +296,7 @@ fn road_marks(run: &DinnerRun) -> (f64, f64) {
 }
 
 /// Self-contained page. Three mute pills carry the sticky RED / RED / GREEN.
-/// The script only moves the cars and one yield or merge cue.
+/// The script draws a white network and moves flat cars. One yield or merge cue.
 pub fn render_board_html(board: &DinnerBoard) -> String {
     let json = serde_json::to_string(board).unwrap_or_else(|_| "{}".to_string());
     let json = json.replace('<', "\\u003c");
@@ -242,16 +338,16 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
 <meta http-equiv="Cache-Control" content="no-store">
 <title>dinner board</title>
 <style>
-  :root { color-scheme: dark; }
-  html, body { margin: 0; height: 100%; background: #12161e; }
-  #network { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
-  #pills { position: fixed; top: 10px; left: 10px; z-index: 2; display: flex; gap: 4px; }
+  :root { color-scheme: light; }
+  html, body { margin: 0; height: 100%; background: #fff; }
+  #network { position: fixed; inset: 0; width: 100%; height: 100%; display: block; background: #fff; }
+  #pills { position: fixed; top: 12px; left: 12px; z-index: 2; display: flex; gap: 4px; }
   .pill { appearance: none; font: 10px/1 ui-sans-serif, system-ui, sans-serif; letter-spacing: 0.08em;
-          color: rgba(244,246,251,0.4); background: transparent; border: 1px solid rgba(244,246,251,0.14);
+          color: #8d8d8d; background: transparent; border: 1px solid #d5d5d5;
           border-radius: 999px; padding: 2px 6px; cursor: pointer; }
-  .pill.red { color: rgba(255,170,170,0.55); border-color: rgba(225,80,80,0.28); }
-  .pill.green { color: rgba(170,230,190,0.6); border-color: rgba(0,178,72,0.28); }
-  .pill.on { color: rgba(244,246,251,0.88); border-color: rgba(244,246,251,0.45); }
+  .pill.red { color: #a94444; border-color: #e7cccc; }
+  .pill.green { color: #2f7a4a; border-color: #c9e0d0; }
+  .pill.on { color: #1c1c1c; border-color: #1c1c1c; }
 </style>
 </head>
 <body>
@@ -267,8 +363,8 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     if (last && last.tick > maxTick) maxTick = last.tick;
   });
   if (maxTick < 1) maxTick = 1;
-  var speed = 3;
-  var hold = 2.4;
+  var speed = 2.4;
+  var hold = 2.0;
   var origin = performance.now();
   var paused = false;
   var pausedAt = origin;
@@ -322,15 +418,26 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     }
   }
 
+  function elapsedSec(now) {
+    var elapsed = ((paused ? pausedAt : now) - origin) / 1000;
+    return elapsed < 0 ? 0 : elapsed;
+  }
+
   function simTime(now) {
     if (seekTo != null) return Math.max(0, Math.min(maxTick, seekTo));
-    var elapsed = ((paused ? pausedAt : now) - origin) / 1000;
-    if (elapsed < 0) elapsed = 0;
     var play = maxTick / speed;
-    var cycle = play + hold;
-    var local = elapsed % cycle;
+    var local = elapsedSec(now) % (play + hold);
     if (local >= play) return maxTick;
     return local * speed;
+  }
+
+  function flowTime(now, frames) {
+    if (!frames || !frames.length) return 0;
+    var last = frames[frames.length - 1].tick;
+    if (last < 1) return 0;
+    var t = seekTo != null ? Math.max(0, seekTo) : elapsedSec(now) * speed;
+    if (t <= last) return t;
+    return t % last;
   }
 
   function sample(frames, simT) {
@@ -360,10 +467,10 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
         id: car.id,
         approach: car.approach,
         s: car.s + (nxt.s - car.s) * posed.u,
-        lane: car.lane + (nxt.lane - car.lane) * posed.u,
+        lane: (car.lane || 0) + ((nxt.lane || 0) - (car.lane || 0)) * posed.u,
         length: car.length,
-        home: flag.home,
-        collided: flag.collided
+        home: !!flag.home,
+        collided: !!flag.collided
       };
     });
   }
@@ -400,34 +507,150 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     return null;
   }
 
-  function arrivalOrder(frames, simT) {
-    var order = [];
-    var seen = {};
-    for (var i = 0; i < frames.length; i++) {
-      var frame = frames[i];
-      if (frame.tick > simT) break;
-      var vehicles = frame.vehicles || [];
-      for (var v = 0; v < vehicles.length; v++) {
-        var car = vehicles[v];
-        if (car.home && !seen[car.id]) {
-          seen[car.id] = true;
-          order.push(car.id);
-        }
-      }
-    }
-    return order;
+  // Arterials stacked close enough that each ramp queue fills the gap between them.
+  var SPACING = 16;
+  var H_BLOCK = 68;
+  var N_ROADS = 14;
+  var N_BLOCKS = 5;
+  var WIDTH = N_BLOCKS * H_BLOCK;
+  var LANE = data.lane_width_m || 3.7;
+  var TAPER = data.taper_m || 12;
+  var CAR_W = data.car_width_m || 1.8;
+  var REACH = SPACING - 4.6;
+
+  function hSlot(line, block, dir) {
+    return {
+      axis: "h",
+      y: line * SPACING,
+      x0: block * H_BLOCK,
+      x1: (block + 1) * H_BLOCK,
+      side: 1,
+      dir: dir
+    };
   }
 
-  function roundRect(ctx, x, y, w, h, r) {
-    var radius = Math.max(0, Math.min(r, w / 2, h / 2));
-    ctx.beginPath();
-    ctx.moveTo(x + radius, y);
-    ctx.arcTo(x + w, y, x + w, y + h, radius);
-    ctx.arcTo(x + w, y + h, x, y + h, radius);
-    ctx.arcTo(x, y + h, x, y, radius);
-    ctx.arcTo(x, y, x + w, y, radius);
-    ctx.closePath();
+  // Same order as the flows baked by the board. Dinner is the middle arterial.
+  var FLOW_SLOTS = [];
+  var DINNER_SLOT = null;
+  for (var line = 0; line < N_ROADS; line++) {
+    for (var block = 0; block < N_BLOCKS; block++) {
+      var slot = hSlot(line, block, line % 2 === 0 ? 1 : -1);
+      if (line === 6 && block === 2) DINNER_SLOT = slot;
+      else FLOW_SLOTS.push(slot);
+    }
   }
+
+  function gatePosFor(slot, gateS, homeS) {
+    var tail = Math.max(0, gateS - 8);
+    var ahead = Math.max(0, homeS - gateS);
+    var need = tail + ahead;
+    var start = slot.axis === "h" ? slot.x0 : slot.y0;
+    var end = slot.axis === "h" ? slot.x1 : slot.y1;
+    var margin = Math.max(1.5, (end - start - need) / 2);
+    if (slot.dir > 0) return start + margin + tail;
+    return end - margin - tail;
+  }
+
+  function mainAt(slot, s, gateS, gatePos) {
+    return { x: gatePos + (s - gateS) * slot.dir, y: slot.y };
+  }
+
+  // Ramp queue sits in the gap, then turns onto the arterial. Length stays in meters.
+  function connectorAt(slot, s, gateS, gatePos) {
+    var dist = Math.max(0, gateS - s);
+    var climb = Math.min(dist, Math.max(0, REACH - LANE));
+    var extra = dist - climb;
+    return {
+      x: gatePos - slot.dir * extra,
+      y: slot.y + slot.side * (LANE + climb)
+    };
+  }
+
+  function pointAt(slot, s, lane, gateS, gatePos) {
+    var main = mainAt(slot, s, gateS, gatePos);
+    var frac = Math.max(0, Math.min(1, (lane || 0) / LANE));
+    if (frac < 0.02) return main;
+    var conn = s >= gateS
+      ? { x: main.x, y: main.y + slot.side * LANE }
+      : connectorAt(slot, s, gateS, gatePos);
+    return {
+      x: main.x + (conn.x - main.x) * frac,
+      y: main.y + (conn.y - main.y) * frac
+    };
+  }
+
+  function accelCenter(slot, gateS, gatePos) {
+    var pts = [];
+    var n = 14;
+    var tail = Math.min(8, gateS - 1);
+    for (var i = 0; i <= n; i++) {
+      pts.push(pointAt(slot, tail + (gateS - tail) * (i / n), LANE, gateS, gatePos));
+    }
+    var m = 6;
+    for (var k = 1; k <= m; k++) {
+      pts.push(pointAt(slot, gateS + TAPER * (k / m), LANE * (1 - k / m), gateS, gatePos));
+    }
+    return pts;
+  }
+
+  function offsetPts(pts, dist) {
+    var out = [];
+    for (var i = 0; i < pts.length; i++) {
+      var prev = pts[Math.max(0, i - 1)];
+      var next = pts[Math.min(pts.length - 1, i + 1)];
+      var dx = next.x - prev.x;
+      var dy = next.y - prev.y;
+      var len = Math.hypot(dx, dy) || 1;
+      out.push({ x: pts[i].x + (-dy / len) * dist, y: pts[i].y + (dx / len) * dist });
+    }
+    return out;
+  }
+
+  var centers = [];
+  var edges = [];
+  for (var yi = 0; yi < N_ROADS; yi++) {
+    centers.push([{ x: 0, y: yi * SPACING }, { x: WIDTH, y: yi * SPACING }]);
+  }
+
+  function pushEdges(pts) {
+    edges.push(offsetPts(pts, LANE / 2));
+    edges.push(offsetPts(pts, -LANE / 2));
+  }
+  centers.forEach(pushEdges);
+
+  var flows = data.flows || [];
+  var sites = [];
+  for (var f = 0; f < FLOW_SLOTS.length && f < flows.length; f++) {
+    var slot = FLOW_SLOTS[f];
+    var gateS = flows[f].gate_s_m;
+    var homeS = flows[f].home_s_m;
+    var gatePos = gatePosFor(slot, gateS, homeS);
+    var accel = accelCenter(slot, gateS, gatePos);
+    centers.push(accel);
+    pushEdges(accel);
+    sites.push({
+      slot: slot, gateS: gateS, homeS: homeS, gatePos: gatePos,
+      frames: flows[f].frames, dinner: false
+    });
+  }
+  var dinnerGate = gatePosFor(DINNER_SLOT, data.gate_s_m, data.home_s_m);
+  var dinnerAccel = accelCenter(DINNER_SLOT, data.gate_s_m, dinnerGate);
+  centers.push(dinnerAccel);
+  pushEdges(dinnerAccel);
+  var dinnerSite = {
+    slot: DINNER_SLOT, gateS: data.gate_s_m, homeS: data.home_s_m,
+    gatePos: dinnerGate, dinner: true
+  };
+
+  var bounds = { minX: 1e9, minY: 1e9, maxX: -1e9, maxY: -1e9 };
+  function take(p) {
+    if (p.x < bounds.minX) bounds.minX = p.x;
+    if (p.y < bounds.minY) bounds.minY = p.y;
+    if (p.x > bounds.maxX) bounds.maxX = p.x;
+    if (p.y > bounds.maxY) bounds.maxY = p.y;
+  }
+  centers.forEach(function (pts) { pts.forEach(take); });
+  edges.forEach(function (pts) { pts.forEach(take); });
 
   function fit(canvas) {
     var rect = canvas.getBoundingClientRect();
@@ -445,365 +668,133 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     return { ctx: ctx, w: w, h: h };
   }
 
-  function hypot(a, b) { return Math.sqrt(a * a + b * b); }
-
-  function polylineLength(pts) {
-    var n = 0;
-    for (var i = 1; i < pts.length; i++) n += hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
-    return n;
-  }
-
-  function resample(pts, n) {
-    var seg = [];
-    var total = 0;
-    for (var i = 1; i < pts.length; i++) {
-      var d = hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
-      seg.push(d);
-      total += d;
-    }
-    var out = [];
-    if (total < 1e-6) {
-      for (var k0 = 0; k0 <= n; k0++) out.push({ x: pts[0].x, y: pts[0].y });
-      return out;
-    }
-    for (var k = 0; k <= n; k++) {
-      var target = total * (k / n);
-      var acc = 0;
-      var placed = false;
-      for (var i = 1; i < pts.length; i++) {
-        if (acc + seg[i - 1] >= target - 1e-6 || i === pts.length - 1) {
-          var span = seg[i - 1] || 1;
-          var u = (target - acc) / span;
-          if (u < 0) u = 0;
-          if (u > 1) u = 1;
-          out.push({
-            x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * u,
-            y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * u
-          });
-          placed = true;
-          break;
-        }
-        acc += seg[i - 1];
-      }
-      if (!placed) out.push({ x: pts[pts.length - 1].x, y: pts[pts.length - 1].y });
-    }
-    return out;
-  }
-
-  function withS(pts, sStart, sEnd) {
-    var samples = resample(pts, 96);
-    var last = samples.length - 1;
-    var out = [];
-    for (var i = 0; i < samples.length; i++) {
-      var t = last === 0 ? 0 : i / last;
-      out.push({ x: samples[i].x, y: samples[i].y, s: sStart + (sEnd - sStart) * t });
-    }
-    return out;
-  }
-
-  function stretchTo(pts, targetLen) {
-    var samples = resample(pts, 64);
-    var len = polylineLength(samples);
-    if (samples.length < 2 || len + 1 >= targetLen) return samples;
-    var dx = samples[0].x - samples[1].x;
-    var dy = samples[0].y - samples[1].y;
-    var d = hypot(dx, dy) || 1;
-    var extra = targetLen - len;
-    return [{ x: samples[0].x + (dx / d) * extra, y: samples[0].y + (dy / d) * extra }].concat(samples);
-  }
-
-  function sampleS(samples, s) {
-    if (!samples.length) return { x: 0, y: 0, s: s };
-    if (s <= samples[0].s) return samples[0];
-    var last = samples[samples.length - 1];
-    if (s >= last.s) return last;
-    var i = 0;
-    while (i + 1 < samples.length && samples[i + 1].s < s) i++;
-    var a = samples[i];
-    var b = samples[i + 1];
-    var span = b.s - a.s;
-    var u = span <= 0 ? 0 : (s - a.s) / span;
-    return { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u, s: s };
-  }
-
-  function tangentS(samples, s) {
-    var a = sampleS(samples, s - 1.2);
-    var b = sampleS(samples, s + 1.2);
-    var dx = b.x - a.x;
-    var dy = b.y - a.y;
-    var len = hypot(dx, dy);
-    if (len < 1e-3) {
-      dx = samples[samples.length - 1].x - samples[0].x;
-      dy = samples[samples.length - 1].y - samples[0].y;
-      len = hypot(dx, dy) || 1;
-    }
-    return { x: dx / len, y: dy / len };
-  }
-
-  function continuousNormals(art, toward) {
-    var out = [];
-    var prev = null;
-    for (var i = 0; i < art.length; i++) {
-      var t = tangentS(art, art[i].s);
-      var n = { x: -t.y, y: t.x, s: art[i].s };
-      if (prev) {
-        if (n.x * prev.x + n.y * prev.y < 0) { n.x = -n.x; n.y = -n.y; }
-      } else {
-        var vx = toward.x - art[i].x;
-        var vy = toward.y - art[i].y;
-        if (n.x * vx + n.y * vy < 0) { n.x = -n.x; n.y = -n.y; }
-      }
-      out.push(n);
-      prev = n;
-    }
-    return out;
-  }
-
-  function buildGeom(data) {
-    var s0 = 6;
-    var gate = data.gate_s_m;
-    var home = data.home_s_m;
-    var taper = data.taper_m || 12;
-    var laneW = data.lane_width_m || 3.7;
-    if (!(home > s0 + 1)) home = s0 + 30;
-    if (!(gate > s0)) gate = s0 + 8;
-    if (gate >= home) gate = s0 + (home - s0) * 0.45;
-    var artPts = [
-      { x: 70, y: 250 },
-      { x: 210, y: 230 },
-      { x: 350, y: 245 },
-      { x: 480, y: 300 },
-      { x: 600, y: 390 },
-      { x: 720, y: 490 },
-      { x: 860, y: 555 },
-      { x: 1020, y: 575 }
-    ];
-    var art = withS(artPts, s0, home);
-    var ppm = polylineLength(art) / (home - s0);
-    var joinS = Math.min(home - 1, gate + taper);
-    if (joinS <= gate) joinS = Math.min(home - 0.5, gate + 4);
-    var rampAnchor = { x: 160, y: 30 };
-    var normals = continuousNormals(art, rampAnchor);
-    function normalAt(s) {
-      var n = sampleS(normals, s);
-      var len = hypot(n.x, n.y) || 1;
-      return { x: n.x / len, y: n.y / len };
-    }
-    var gateP = sampleS(art, gate);
-    var nGate = normalAt(gate);
-    var lanePx = ppm * laneW;
-    var rampEnd = { x: gateP.x + nGate.x * lanePx, y: gateP.y + nGate.y * lanePx };
-    var rampPts = [
-      { x: 90, y: 28 },
-      { x: 230, y: 42 },
-      { x: 360, y: 70 },
-      { x: 450, y: 130 },
-      rampEnd
-    ];
-    var ramp = withS(stretchTo(rampPts, Math.max(40, (gate - s0) * ppm)), s0, gate);
-    ramp[ramp.length - 1] = { x: rampEnd.x, y: rampEnd.y, s: gate };
-
-    var homeP = sampleS(art, home);
-    var nH = normalAt(home);
-    var endTan = tangentS(art, home);
-    var away = (nH.x * (rampAnchor.x - homeP.x) + nH.y * (rampAnchor.y - homeP.y)) < 0 ? 1 : -1;
-    var elbow = { x: homeP.x + endTan.x * ppm * 8, y: homeP.y + endTan.y * ppm * 8 };
-    var tip = { x: elbow.x + nH.x * away * ppm * 22, y: elbow.y + nH.y * away * ppm * 22 };
-    var exit = withS([homeP, elbow, tip], 0, 38);
-    return {
-      s0: s0, gate: gate, home: home, joinS: joinS, ppm: ppm, laneW: laneW,
-      art: art, artDraw: art, ramp: ramp, exit: exit, normals: normals
-    };
-  }
-
-  var geom = buildGeom(data);
-
-  function normalAt(s) {
-    var n = sampleS(geom.normals, s);
-    var len = hypot(n.x, n.y) || 1;
-    return { x: n.x / len, y: n.y / len };
-  }
-
-  function offsetAt(s) {
-    if (s <= geom.gate) return sampleS(geom.ramp, s);
-    var a = sampleS(geom.art, s);
-    var n = normalAt(s);
-    var off = geom.ppm * geom.laneW;
-    return { x: a.x + n.x * off, y: a.y + n.y * off };
-  }
-
-  function pointFor(s, lane) {
-    var amt = lane / geom.laneW;
-    if (amt < 0) amt = 0;
-    if (amt > 1) amt = 1;
-    var a = sampleS(geom.art, s);
-    if (amt <= 0.001) return a;
-    var r = offsetAt(Math.min(Math.max(s, geom.s0), geom.joinS));
-    return { x: a.x + (r.x - a.x) * amt, y: a.y + (r.y - a.y) * amt };
-  }
-
-  function boundsOf(lists) {
-    var b = { minX: 1e9, minY: 1e9, maxX: -1e9, maxY: -1e9 };
-    lists.forEach(function (pts) {
-      pts.forEach(function (p) {
-        if (p.x < b.minX) b.minX = p.x;
-        if (p.y < b.minY) b.minY = p.y;
-        if (p.x > b.maxX) b.maxX = p.x;
-        if (p.y > b.maxY) b.maxY = p.y;
-      });
-    });
-    var pad = geom.ppm * 3.2;
-    b.minX -= pad; b.minY -= pad; b.maxX += pad; b.maxY += pad;
-    return b;
-  }
-
-  function projectGeom(w, h) {
-    var lists = [geom.artDraw, geom.ramp, geom.exit];
-    var b = boundsOf(lists);
-    var pad = 36;
-    var bw = Math.max(1, b.maxX - b.minX);
-    var bh = Math.max(1, b.maxY - b.minY);
+  function makeView(w, h) {
+    var pad = 28;
+    var bw = Math.max(1, bounds.maxX - bounds.minX);
+    var bh = Math.max(1, bounds.maxY - bounds.minY);
     var sc = Math.min((w - pad * 2) / bw, (h - pad * 2) / bh);
-    var ox = (w - bw * sc) / 2 - b.minX * sc;
-    var oy = (h - bh * sc) / 2 - b.minY * sc;
-    function proj(p) { return { x: ox + p.x * sc, y: oy + p.y * sc }; }
-    function projList(pts) { return pts.map(proj); }
-    var ppm = geom.ppm * sc;
     return {
-      proj: proj,
-      ppm: ppm,
-      roadW: Math.max(2, Math.min(4, ppm * 0.16)),
-      art: projList(geom.artDraw),
-      ramp: projList(geom.ramp),
-      exit: projList(geom.exit)
+      sc: sc,
+      ox: (w - bw * sc) / 2 - bounds.minX * sc,
+      oy: (h - bh * sc) / 2 - bounds.minY * sc
     };
   }
 
-  function trace(ctx, pts) {
-    ctx.beginPath();
-    ctx.moveTo(pts[0].x, pts[0].y);
-    for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  function toScreen(view, p) {
+    return { x: view.ox + p.x * view.sc, y: view.oy + p.y * view.sc };
   }
 
-  function drawRoad(ctx, pts, width) {
+  function tracePts(ctx, view, pts) {
     if (!pts || pts.length < 2) return;
-    ctx.lineCap = "round";
+    var p0 = toScreen(view, pts[0]);
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    for (var i = 1; i < pts.length; i++) {
+      var p = toScreen(view, pts[i]);
+      ctx.lineTo(p.x, p.y);
+    }
+  }
+
+  function drawRoads(ctx, view) {
     ctx.lineJoin = "round";
-    ctx.strokeStyle = "#3c4658";
-    ctx.lineWidth = width;
-    trace(ctx, pts);
-    ctx.stroke();
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#d4d4d0";
+    ctx.lineWidth = Math.max(3, LANE * view.sc);
+    centers.forEach(function (pts) { tracePts(ctx, view, pts); ctx.stroke(); });
+    ctx.strokeStyle = "#2b2b2b";
+    ctx.lineWidth = 1.35;
+    edges.forEach(function (pts) { tracePts(ctx, view, pts); ctx.stroke(); });
   }
 
-  function mergeLane(proj) {
-    var pts = [];
-    var steps = 12;
-    var span = geom.joinS - geom.gate;
-    for (var i = 0; i <= steps; i++) pts.push(proj(offsetAt(geom.gate + span * (i / steps))));
-    return pts;
+  function roundRect(ctx, x, y, w, h, r) {
+    var radius = Math.max(0, Math.min(r, w / 2, h / 2));
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.arcTo(x + w, y, x + w, y + h, radius);
+    ctx.arcTo(x + w, y + h, x, y + h, radius);
+    ctx.arcTo(x, y + h, x, y, radius);
+    ctx.arcTo(x, y, x + w, y, radius);
+    ctx.closePath();
   }
 
-  function drawBlob(ctx, x, y, ang, len, wid, car) {
+  function carPose(view, site, car) {
+    var front = pointAt(site.slot, car.s, car.lane, site.gateS, site.gatePos);
+    var rear = pointAt(site.slot, car.s - (car.length || 4.5), car.lane, site.gateS, site.gatePos);
+    var a = toScreen(view, front);
+    var b = toScreen(view, rear);
+    return {
+      x: a.x,
+      y: a.y,
+      ang: Math.atan2(a.y - b.y, a.x - b.x),
+      len: Math.max(2.5, (car.length || 4.5) * view.sc),
+      wid: Math.max(2, CAR_W * view.sc)
+    };
+  }
+
+  function drawCar(ctx, pose, car) {
     ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(ang);
-    ctx.globalAlpha = car.home ? 0.9 : 1;
-    roundRect(ctx, -len, -wid / 2, len, wid, Math.min(5, wid / 2));
-    ctx.fillStyle = car.collided ? "#ff2d2d" : (car.approach === "ramp" ? "#ffb020" : "#4ea1ff");
+    ctx.translate(pose.x, pose.y);
+    ctx.rotate(pose.ang);
+    var r = Math.min(1.05, pose.wid / 4);
+    roundRect(ctx, -pose.len, -pose.wid / 2, pose.len, pose.wid, r);
+    ctx.fillStyle = car.collided ? "#d23b3b" : (car.approach === "ramp" ? "#2f6fdb" : "#242424");
     ctx.fill();
-    var nose = Math.max(2, len * 0.16);
-    ctx.fillStyle = "rgba(255,255,255,0.4)";
-    ctx.fillRect(-nose, -wid / 2 + 1.5, Math.max(2, nose - 2), wid - 3);
     ctx.restore();
   }
 
-  function drawCue(ctx, role, pose) {
-    var cx = pose.x - Math.cos(pose.ang) * pose.len * 0.5;
-    var cy = pose.y - Math.sin(pose.ang) * pose.len * 0.5;
-    var up = Math.abs(Math.sin(pose.ang)) * pose.len * 0.5 + Math.abs(Math.cos(pose.ang)) * pose.wid * 0.5;
+  function drawCue(ctx, view, site, role, pose) {
+    var roadY = view.oy + site.slot.y * view.sc;
+    var y = roadY - LANE * view.sc * 0.5 - 8;
     ctx.save();
-    ctx.font = "600 12px ui-sans-serif, system-ui, sans-serif";
+    ctx.font = "12px ui-sans-serif, system-ui, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "bottom";
-    ctx.fillStyle = "rgba(244,246,251,0.78)";
-    ctx.fillText(role, cx, cy - up - 5);
+    ctx.fillStyle = "#1c1c1c";
+    ctx.fillText(role, pose.x, y);
     ctx.restore();
   }
 
-  function carPose(view, car) {
-    var frontD = pointFor(car.s, car.lane);
-    var rearD = pointFor(car.s - car.length, car.lane);
-    var front = view.proj(frontD);
-    var rear = view.proj(rearD);
-    var dx = front.x - rear.x;
-    var dy = front.y - rear.y;
-    var natural = hypot(dx, dy);
-    var len = Math.max(18, Math.min(natural || view.ppm * car.length, view.ppm * 5.2));
-    var wid = Math.max(10, Math.min(len * 0.42, 16));
-    var ang = Math.atan2(dy, dx);
-    return { x: front.x, y: front.y, ang: ang, len: len, wid: wid };
+  function drawSite(ctx, view, site, frames, simT, cue) {
+    var posed = sample(frames, simT);
+    if (!posed.a) return null;
+    var cars = blend(posed);
+    var cuePose = null;
+    cars.forEach(function (car) {
+      if (car.home) return;
+      var pose = carPose(view, site, car);
+      drawCar(ctx, pose, car);
+      if (cue && cue.id === car.id) cuePose = pose;
+    });
+    return cuePose;
   }
 
-  function paint(simT) {
+  function paint(now) {
     var canvas = document.getElementById("network");
     if (!canvas) return;
     var fitted = fit(canvas);
     var ctx = fitted.ctx;
-    var w = fitted.w;
-    var h = fitted.h;
-    ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = "#12161e";
-    ctx.fillRect(0, 0, w, h);
-    var view = projectGeom(w, h);
-
-    drawRoad(ctx, view.exit, view.roadW);
-    drawRoad(ctx, view.ramp, view.roadW);
-    drawRoad(ctx, mergeLane(view.proj), view.roadW);
-    drawRoad(ctx, view.art, view.roadW);
-
+    ctx.clearRect(0, 0, fitted.w, fitted.h);
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, fitted.w, fitted.h);
+    var view = makeView(fitted.w, fitted.h);
+    drawRoads(ctx, view);
+    var simT = simTime(now);
+    sites.forEach(function (site) {
+      drawSite(ctx, view, site, site.frames, flowTime(now, site.frames), null);
+    });
     var strip = data.strips[active];
     if (!strip) return;
-    var posed = sample(strip.frames, simT);
-    if (posed.a) {
-      var cars = blend(posed);
-      cars.sort(function (a, b) { return a.s - b.s; });
-      var cue = oneCue(strip.frames, simT);
-      var cuePose = null;
-      cars.forEach(function (car) {
-        if (car.home) return;
-        var pose = carPose(view, car);
-        drawBlob(ctx, pose.x, pose.y, pose.ang, pose.len, pose.wid, car);
-        if (cue && cue.id === car.id) cuePose = pose;
-      });
-      var order = arrivalOrder(strip.frames, simT);
-      var nHome = order.length;
-      var leg0 = 9;
-      var leg1 = 36;
-      var step = (leg1 - leg0) / Math.max(1, nHome);
-      order.forEach(function (id, index) {
-        var car = null;
-        cars.forEach(function (item) { if (item.id === id) car = item; });
-        if (!car) return;
-        var along = leg0 + step * (index + 0.5);
-        var len = Math.max(16, Math.min(view.ppm * 4.5, view.ppm * step * 0.78));
-        var wid = Math.max(9, Math.min(len * 0.42, 16));
-        var here = sampleS(geom.exit, along);
-        var ahead = sampleS(geom.exit, Math.min(37.5, along + 1.4));
-        var p = view.proj(here);
-        var q = view.proj(ahead);
-        var ang = Math.atan2(q.y - p.y, q.x - p.x);
-        drawBlob(ctx, p.x, p.y, ang, len, wid, car);
-      });
-      if (cue && cuePose) drawCue(ctx, cue.role, cuePose);
-    }
+    var cue = oneCue(strip.frames, simT);
+    var cuePose = drawSite(ctx, view, dinnerSite, strip.frames, simT, cue);
+    if (cue && cuePose) drawCue(ctx, view, dinnerSite, cue.role, cuePose);
   }
 
   function loop(now) {
-    paint(simTime(now));
+    paint(now);
     requestAnimationFrame(loop);
   }
   setActive(active);
-  paint(simTime(performance.now()));
+  paint(performance.now());
   if (seekTo == null) requestAnimationFrame(loop);
 })();
 </script>

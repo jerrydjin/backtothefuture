@@ -168,7 +168,7 @@ Knobs:
   --prefs SENTENCE         plain English merge preference
   --rewrite-every N        ask for a new plan every N ticks
   --show                   print the ramp merge in the terminal: wreck, held jam, and cleared road
-  --board                  open the live birds-eye window: thin roads, cars, one yield or merge cue
+  --board                  open the live birds-eye window: white network, flat cars, one yield or merge cue
   --help
 
 Score:

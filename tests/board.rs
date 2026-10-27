@@ -77,6 +77,24 @@ fn board_dinner_is_red_red_green() {
         yield_ && merge && speakers.len() >= 2
     }));
 
+    assert!(
+        board.flows.len() >= 12,
+        "the network keeps several merges in motion"
+    );
+    for flow in &board.flows {
+        let start = flow.frames.first().expect("flow start");
+        let end = flow.frames.last().expect("flow end");
+        assert!(end.tick > start.tick);
+        assert!(
+            start.vehicles.iter().any(|car| {
+                end.vehicles
+                    .iter()
+                    .any(|later| later.id == car.id && (later.s - car.s).abs() > 8.0)
+            }),
+            "a background merge should roll"
+        );
+    }
+
     let wreck = selfish.frames.last().expect("wreck frame");
     assert!(wreck.gate_blocked, "selfish gore stays wrecked");
     assert!(wreck.vehicles.iter().any(|car| car.collided));
@@ -147,6 +165,13 @@ fn board_dinner_is_red_red_green() {
     assert!(!html.contains("FakeEcho"), "{html}");
     assert!(!html.contains("Gemini"));
     assert!(!html.contains("Muse"));
+    assert!(html.contains("background: #fff"));
+    assert!(html.contains("\"flows\""));
+    assert!(!html.contains("#12161e"), "dark board should be gone");
+    assert!(
+        !html.contains("rgba(255,255,255,0.4)"),
+        "car nose highlight should be gone"
+    );
 }
 
 #[test]
