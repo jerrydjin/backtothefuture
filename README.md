@@ -16,7 +16,7 @@ cargo run -- --cars 8 --jam ramp-surge --prefs "Zipper fairly so both approaches
 cargo run -- --cars 6 --jam symmetric --prefs "Main has priority. Main first."
 ```
 
-`cargo run -- --board` opens the live birds-eye window: a white diagram of the road network, small flat cars moving through it, one yield or merge cue, and three tiny RED / RED / GREEN pills. `--show` prints that same dinner path in the terminal.
+`cargo run -- --board` opens the live birds-eye window: the dinner merge in one block of a small town, one yield or merge cue, and three tiny RED / RED / GREEN pills. Around it, background cars drive routes through a motorway, ramps, and streets, and queue at the merges in a rush hour. That town is its own local sim and never touches the score. `--show` prints that same dinner path in the terminal.
 
 Fair prefs: selfish and dumb-equal print `RED`, the scripted plan prints `GREEN`, process exits 0.
 
@@ -80,4 +80,4 @@ No key: `scripted`, the ALLOW_CHEAT stub. It reads the state inside the prompt a
 
 ## Layout
 
-`src/world.rs` meters, gore, and fog, `src/agents.rs` executors, `src/muse.rs` client, `src/judge.rs` score, `src/episode.rs` the loop. `STATUS.md` is the day-1 board.
+`src/world.rs` meters, gore, and fog, `src/agents.rs` executors, `src/muse.rs` client, `src/judge.rs` score, `src/episode.rs` the loop, `src/network.rs` the background town, `src/board.rs` the window. `STATUS.md` is the day-1 board.

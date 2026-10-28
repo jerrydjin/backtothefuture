@@ -15,6 +15,7 @@ pub mod error;
 mod judge;
 pub mod muse;
 pub mod negotiate;
+pub mod network;
 pub mod prefs;
 pub mod schema;
 pub mod world;
@@ -30,6 +31,7 @@ pub use muse::{render_prompt, FakeEcho, HttpMuse, MuseClient, MuseKind};
 pub use negotiate::{
     exchange, negotiated_claim, DecideCtx, Decision, LocalNegotiate, NegotiateAgent,
 };
+pub use network::{run_town, Network, NetworkRun, TownSim};
 pub use prefs::{bias_from_prefs_block, interpret_english, Bias, Prefs};
 pub use schema::{
     AgentState, Approach, Cell, LaneIntent, OrderIntent, Score, TalkPhase, Verdict, WorldState,

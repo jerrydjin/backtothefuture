@@ -77,20 +77,34 @@ fn board_dinner_is_red_red_green() {
         yield_ && merge && speakers.len() >= 2
     }));
 
-    assert!(board.flows.len() >= 4, "background roads keep moving");
-    for flow in &board.flows {
-        let start = flow.frames.first().expect("flow start");
-        let end = flow.frames.last().expect("flow end");
-        assert!(end.tick > start.tick);
-        assert!(
-            start.vehicles.iter().any(|car| {
-                end.vehicles
-                    .iter()
-                    .any(|later| later.id == car.id && (later.s - car.s).abs() > 8.0)
-            }),
-            "a background merge should roll"
-        );
+    let town = &board.town;
+    assert!(town.links.len() > 60, "the town is a real network");
+    assert!(town.frames.len() > 300, "a full rush hour is recorded");
+    assert_eq!(town.stats.overlaps, 0, "town cars never share a lane spot");
+    assert!(
+        town.stats.peak_queued >= 15,
+        "a rush should queue somewhere: {:?}",
+        town.stats
+    );
+    let last = town.frames.last().expect("town end");
+    let queued_at_end = last.cars.iter().filter(|car| car.3 < 1.0).count() as u32;
+    assert!(
+        queued_at_end * 2 < town.stats.peak_queued,
+        "queues drain before the loop: {queued_at_end} vs {:?}",
+        town.stats
+    );
+    for frame in &town.frames {
+        for car in &frame.cars {
+            let route = &town.routes[car.1 as usize];
+            let total: f64 = route.iter().map(|&link| town.links[link].len).sum();
+            assert!(
+                car.2 >= 0.0 && car.2 <= total + 1e-6,
+                "car stays on its route"
+            );
+        }
     }
+    assert!(board.dinner_road.ramp.len() > 2);
+    assert!(board.dinner_road.main_s0 < 12.5);
 
     let wreck = selfish.frames.last().expect("wreck frame");
     assert!(wreck.gate_blocked, "selfish gore stays wrecked");
@@ -163,7 +177,8 @@ fn board_dinner_is_red_red_green() {
     assert!(!html.contains("Gemini"));
     assert!(!html.contains("Muse"));
     assert!(html.contains("background: #fff"));
-    assert!(html.contains("\"flows\""));
+    assert!(html.contains("\"town\""));
+    assert!(html.contains("\"dinner_road\""));
     assert!(!html.contains("#12161e"), "dark board should be gone");
     assert!(
         !html.contains("rgba(255,255,255,0.4)"),
