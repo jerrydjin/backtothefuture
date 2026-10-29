@@ -177,10 +177,11 @@ Knobs:
   --help
 
 Negotiation:
-  MERGE_API_KEY            one town merge speaks through the model. GEMINI_API_KEY is an alias.
-  MODEL_API_BASE           completion host. Unset uses Gemini. Set it for another OpenAI-compatible host.
-  MODEL_API_MODEL          model name when MODEL_API_BASE is set.
-  A missing key, timeout, or a bad reply prints source=fallback and a short reason. The reason is not the key.
+  BASETEN_API_KEY          one town merge speaks through Baseten. This key wins.
+  GEMINI_API_KEY           the same merge through Gemini when BASETEN_API_KEY is unset.
+  MERGE_API_KEY            generic key. MODEL_API_BASE selects that host.
+  MODEL_API_MODEL          optional model override.
+  A missing key, timeout, or a bad reply prints source=fallback and a short reason. A live call prints provider=baseten or provider=gemini. The reason is not the key.
 
 Score:
   GREEN requires zero collisions, every car home, fairness <= 0.15, and time-home inside budget.

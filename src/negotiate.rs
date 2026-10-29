@@ -5,14 +5,15 @@
 //! says merge and the other says yield. A double claim holds.
 //!
 //! [`LocalNegotiate::decide`] is the policy body. The town board asks
-//! [`negotiator_from_env`] once at one merge. `MERGE_API_KEY` selects the HTTP
-//! call (`GEMINI_API_KEY` is an alias). No key, a timeout, or a reply that is
-//! not the strict JSON falls back to this decision. [`LocalNegotiate`] itself
-//! does not read a key.
+//! [`negotiator_from_env`] once at one merge. `BASETEN_API_KEY` selects the
+//! hackathon host. `GEMINI_API_KEY` is the Gemini path. `MERGE_API_KEY` is a
+//! generic key that follows `MODEL_API_BASE`. No key, a timeout, or a reply
+//! that is not the strict JSON falls back to this decision.
+//! [`LocalNegotiate`] itself does not read a key.
 
 use serde::Serialize;
 
-use crate::muse::{negotiate_reason, GeminiChat};
+use crate::muse::{negotiate_reason, select_talk, GeminiChat, TalkKeys};
 use crate::schema::{Approach, TalkPhase, VisibleNeighbor, YieldRole, YieldTalk};
 use crate::world::{Executor, World};
 
@@ -48,6 +49,7 @@ pub struct MergeLine {
 
 /// Who waits, who goes, and the two lines. `source` is `model` or `fallback`.
 /// `reason` is a short token on the fallback path (`no_key`, `http_400`, `parse`).
+/// `provider` is `baseten` or `gemini` when a live call was selected.
 #[derive(Clone, Debug, PartialEq)]
 pub struct MergeChoice {
     pub yields: u32,
@@ -55,6 +57,7 @@ pub struct MergeChoice {
     pub lines: Vec<MergeLine>,
     pub source: String,
     pub reason: String,
+    pub provider: String,
 }
 
 /// `agree` picks who yields. The town sim moves the cars.
@@ -90,45 +93,67 @@ impl Completer for GeminiChat {
 /// Live or scripted negotiator. The client is called once per agreement.
 pub struct MergeAgent {
     client: Box<dyn Completer>,
+    provider: String,
 }
 
 impl MergeAgent {
     pub fn new(client: Box<dyn Completer>) -> Self {
-        Self { client }
+        Self::with_provider(client, "")
+    }
+
+    pub fn with_provider(client: Box<dyn Completer>, provider: impl Into<String>) -> Self {
+        Self {
+            client,
+            provider: provider.into(),
+        }
     }
 }
 
 impl MergeTalk for MergeAgent {
     fn agree(&self, snap: &MergeSnap) -> MergeChoice {
         let prompt = render_merge_prompt(snap);
-        match self.client.complete(&prompt) {
+        let mut choice = match self.client.complete(&prompt) {
             Ok(text) => choice_from_reply(snap, Ok(&text)),
             Err(error) => choice_from_reply(snap, Err(error.as_str())),
-        }
+        };
+        choice.provider = self.provider.clone();
+        choice
     }
 }
 
-/// `MERGE_API_KEY` selects the live call. `GEMINI_API_KEY` is the alias.
-/// An empty or missing key stays scripted. `MODEL_API_BASE` and `MODEL_API_MODEL`
-/// are read by the chat client when a key is present.
+/// `BASETEN_API_KEY` wins. Then `MERGE_API_KEY`, then `GEMINI_API_KEY`.
+/// An empty or missing key stays scripted.
 pub fn negotiator_from_env() -> Box<dyn MergeTalk> {
+    let baseten = std::env::var("BASETEN_API_KEY").ok();
     let merge = std::env::var("MERGE_API_KEY").ok();
     let gemini = std::env::var("GEMINI_API_KEY").ok();
-    let key = negotiation_key(merge.as_deref(), gemini.as_deref());
-    negotiator_from_key(key.as_deref())
-}
-
-/// `MERGE_API_KEY` wins when it is non-empty. Otherwise `GEMINI_API_KEY`.
-pub fn negotiation_key(merge: Option<&str>, gemini: Option<&str>) -> Option<String> {
-    [merge, gemini]
-        .into_iter()
-        .find_map(|value| value.map(str::trim).filter(|value| !value.is_empty()))
-        .map(str::to_string)
+    let base = std::env::var("MODEL_API_BASE").ok();
+    let model = std::env::var("MODEL_API_MODEL").ok();
+    match select_talk(TalkKeys {
+        baseten: baseten.as_deref(),
+        merge: merge.as_deref(),
+        gemini: gemini.as_deref(),
+        base: base.as_deref(),
+        model: model.as_deref(),
+    }) {
+        Some(endpoint) => {
+            let provider = endpoint.provider.clone();
+            Box::new(MergeAgent::with_provider(
+                Box::new(GeminiChat::from_endpoint(endpoint)),
+                provider,
+            ))
+        }
+        None => Box::new(ScriptedTalk),
+    }
 }
 
 pub fn negotiator_from_key(key: Option<&str>) -> Box<dyn MergeTalk> {
     match key.map(str::trim).filter(|value| !value.is_empty()) {
-        Some(key) => Box::new(MergeAgent::new(Box::new(GeminiChat::from_key(key)))),
+        Some(key) => {
+            let chat = GeminiChat::from_key(key);
+            let provider = chat.provider().to_string();
+            Box::new(MergeAgent::with_provider(Box::new(chat), provider))
+        }
         None => Box::new(ScriptedTalk),
     }
 }
@@ -174,7 +199,7 @@ pub fn render_merge_prompt(snap: &MergeSnap) -> String {
     format!(
         "Two cars meet at one merge. You do not drive or brake. Distances are meters.\n\
 Reply with one JSON object and nothing else.\n\
-Schema: {{\"lines\":[{{\"id\":{id0},\"say\":\"<1-6 words in this car's voice>\"}},{{\"id\":{id1},\"say\":\"<1-6 words in this car's voice>\"}}],\"yields\":<id of the car that waits>}}\n\
+Schema: {{\"lines\":[{{\"id\":{id0},\"say\":\"<1-6 words, in this car's voice, reflecting its pref>\"}},{{\"id\":{id1},\"say\":\"<1-6 words, in this car's voice, reflecting its pref>\"}}],\"yields\":<id of the car that waits>}}\n\
 Rules:\n\
 - lines has exactly these two ids: {id0} and {id1}\n\
 - each say is one to six words in that car's own voice\n\
@@ -257,6 +282,7 @@ fn parse_model_exchange(text: &str, snap: &MergeSnap) -> Result<MergeChoice, Str
         lines,
         source: "model".into(),
         reason: String::new(),
+        provider: String::new(),
     })
 }
 
@@ -308,6 +334,7 @@ fn scripted_choice(snap: &MergeSnap, reason: &str) -> MergeChoice {
         lines,
         source: "fallback".into(),
         reason: negotiate_reason(reason),
+        provider: String::new(),
     }
 }
 
@@ -619,9 +646,10 @@ mod tests {
             }
         }
         let probe = std::rc::Rc::clone(&seen);
-        let agent = MergeAgent::new(Box::new(Watch { seen }));
+        let agent = MergeAgent::with_provider(Box::new(Watch { seen }), "baseten");
         let choice = agent.agree(&snap(2, 5));
         assert_eq!(choice.source, "model");
+        assert_eq!(choice.provider, "baseten");
         assert_eq!(choice.yields, 2);
         let prompt = probe.borrow().clone();
         assert!(prompt.contains("\"pref\":\"Take your turn\""), "{prompt}");
@@ -633,7 +661,7 @@ mod tests {
         assert!(!prompt.contains("you go first"), "{prompt}");
         assert!(!prompt.contains("merging now"), "{prompt}");
         assert!(
-            prompt.contains("<1-6 words in this car's voice>"),
+            prompt.contains("<1-6 words, in this car's voice, reflecting its pref>"),
             "{prompt}"
         );
         assert!(prompt.contains("English pref"), "{prompt}");
@@ -641,17 +669,22 @@ mod tests {
     }
 
     #[test]
-    fn merge_key_wins_and_gemini_is_the_alias() {
-        assert_eq!(
-            negotiation_key(Some(" merge-key "), Some("gemini-key")).as_deref(),
-            Some("merge-key")
+    fn prompt_contains_no_canned_example_sentence() {
+        let prompt = render_merge_prompt(&snap(2, 5));
+        for canned in [
+            "you go first",
+            "merging now",
+            "I'll merge, thanks",
+            "you merge, I yield",
+            "go ahead, I'll wait",
+        ] {
+            assert!(!prompt.contains(canned), "{canned} in {prompt}");
+        }
+        assert!(
+            prompt.contains("\"say\":\"<1-6 words, in this car's voice, reflecting its pref>\"")
         );
-        assert_eq!(
-            negotiation_key(Some("  "), Some(" gemini-key ")).as_deref(),
-            Some("gemini-key")
-        );
-        assert_eq!(negotiation_key(None, Some("")), None);
-        assert_eq!(negotiation_key(None, None), None);
+        assert!(prompt.contains("English pref"));
+        assert!(prompt.contains("situation"));
     }
 
     #[test]
@@ -679,7 +712,7 @@ mod tests {
             ),
             Ok(""),
             Ok(
-                r#"{"lines":[{"id":2,"say":"<1-6 words in this car's voice>"},{"id":5,"say":"I go"}],"yields":2}"#,
+                r#"{"lines":[{"id":2,"say":"<1-6 words, in this car's voice, reflecting its pref>"},{"id":5,"say":"I go"}],"yields":2}"#,
             ),
         ];
         let reasons = [

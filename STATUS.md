@@ -16,10 +16,10 @@ The scripted stub runs until `MODEL_API_KEY` is set. Curl does the HTTP. With a 
 
 Started. Negotiate sits beside the zone plan, on the same board. Two cars at the gore read the symbolic neighbor view and exchange yield / merge on the local stub. Agreement lets one in. Both demanding the gore holds. Cooperating cars clear it with no collision. `decide` is the local policy body. The live window draws that exchange on the cars at the gore.
 
-One motorway merge on the town board speaks once. `MERGE_API_KEY` calls the model through the curl adapter (`GEMINI_API_KEY` is an alias). `MODEL_API_BASE` and `MODEL_API_MODEL` select the host and the model. A missing key, timeout, HTTP error, or unparseable reply uses the same local decision and a fixed two-line exchange (`source=fallback`) and prints a short reason such as `no_key` or `http_400`. The reason is not the key. The lines sit over those two cars and fade after the yield. The judge still does not read them. The sticky path is still selfish RED, dumb-equal RED, scripted GREEN.
+One motorway merge on the town board speaks once. `BASETEN_API_KEY` calls the hackathon model through the curl adapter and wins over `GEMINI_API_KEY`. A live reply prints `provider=baseten`. `MODEL_API_MODEL` can override the model. A missing key, timeout, HTTP error, or unparseable reply uses the same local decision and a fixed two-line exchange (`source=fallback`) and prints a short reason such as `no_key` or `http_400`. The reason is not the key. The lines sit over those two cars and fade after the yield. The judge still does not read them. The sticky path is still selfish RED, dumb-equal RED, scripted GREEN.
 
 ```bash
-MERGE_API_KEY=... MODEL_API_BASE=https://inference.baseten.co/v1 MODEL_API_MODEL=meta-models/muse-spark-open-1026 cargo run -- --board
+BASETEN_API_KEY=... cargo run -- --board
 GEMINI_API_KEY=... cargo run -- --board
 ```
 
@@ -75,7 +75,7 @@ Knobs: `--cars`, `--jam symmetric|ramp-surge|mainline-plug`, `--prefs`, `--show`
 
 Real completions need `MODEL_API_KEY` (optional `MODEL_API_BASE`, `MODEL_API_MODEL`). Curl does the HTTP. The key is not logged.
 
-Unset key uses the scripted stub (`ALLOW_CHEAT`, default on) so the red/green loop still runs. `ALLOW_CHEAT=0` with no key fails closed. The board does not need a key. The one town-merge exchange uses `MERGE_API_KEY` (`GEMINI_API_KEY` is an alias) when it is set, and prints `source=fallback` plus a short reason when it is not.
+Unset key uses the scripted stub (`ALLOW_CHEAT`, default on) so the red/green loop still runs. `ALLOW_CHEAT=0` with no key fails closed. The board does not need a key. The one town-merge exchange uses `BASETEN_API_KEY` when it is set (`GEMINI_API_KEY` otherwise), and prints `source=fallback` plus a short reason when it is not.
 
 ## Handoffs
 

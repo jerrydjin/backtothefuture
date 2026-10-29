@@ -209,18 +209,67 @@ impl HttpMuse {
     }
 }
 
+/// Hackathon host. `BASETEN_API_KEY` selects this without a base override.
+pub const BASETEN_BASE: &str = "https://inference.baseten.co/v1";
+/// Default model on [`BASETEN_BASE`]. `MODEL_API_MODEL` may replace it.
+pub const BASETEN_MODEL: &str = "meta-models/muse-spark-open-1026";
+
 /// One chat completion for the town-merge negotiator. Same curl adapter as [`HttpMuse`].
 ///
-/// The negotiator passes `MERGE_API_KEY`, or `GEMINI_API_KEY` when that is the
-/// one set. `MODEL_API_BASE` selects the host. Unset, the host is Gemini. Any
-/// other host uses the OpenAI chat-completions shape. `MODEL_API_MODEL` is the
-/// model on that host.
+/// [`select_talk`] chooses the key. `BASETEN_API_KEY` wins and uses [`BASETEN_BASE`]
+/// in OpenAI mode. `GEMINI_API_KEY` keeps the Gemini host unless `MODEL_API_BASE`
+/// points somewhere else. `MODEL_API_MODEL` overrides the model name.
 #[derive(Clone, Debug)]
 pub struct GeminiChat {
     api_key: String,
     base: String,
     model: String,
     openai: bool,
+    provider: String,
+}
+
+/// Env values that pick the negotiator host. Empty strings count as unset.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct TalkKeys<'a> {
+    pub baseten: Option<&'a str>,
+    pub merge: Option<&'a str>,
+    pub gemini: Option<&'a str>,
+    pub base: Option<&'a str>,
+    pub model: Option<&'a str>,
+}
+
+/// Resolved negotiator call. `provider` is `baseten`, `gemini`, or `openai`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TalkEndpoint {
+    pub provider: String,
+    pub key: String,
+    pub base: String,
+    pub model: String,
+    pub openai: bool,
+}
+
+/// `BASETEN_API_KEY` first, then `MERGE_API_KEY`, then `GEMINI_API_KEY`.
+pub fn select_talk(keys: TalkKeys<'_>) -> Option<TalkEndpoint> {
+    if let Some(key) = non_empty(keys.baseten) {
+        let model = non_empty(keys.model).unwrap_or(BASETEN_MODEL).to_string();
+        return Some(TalkEndpoint {
+            provider: "baseten".into(),
+            key: key.to_string(),
+            base: BASETEN_BASE.into(),
+            model,
+            openai: true,
+        });
+    }
+    let key = non_empty(keys.merge).or_else(|| non_empty(keys.gemini))?;
+    let (base, model, openai) = chat_target(keys.base, keys.model);
+    let provider = provider_for(&base, openai).to_string();
+    Some(TalkEndpoint {
+        provider,
+        key: key.to_string(),
+        base,
+        model,
+        openai,
+    })
 }
 
 impl GeminiChat {
@@ -229,12 +278,28 @@ impl GeminiChat {
         let base_env = std::env::var("MODEL_API_BASE").ok();
         let model_env = std::env::var("MODEL_API_MODEL").ok();
         let (base, model, openai) = chat_target(base_env.as_deref(), model_env.as_deref());
+        let provider = provider_for(&base, openai).to_string();
         Self {
             api_key,
             base,
             model,
             openai,
+            provider,
         }
+    }
+
+    pub fn from_endpoint(endpoint: TalkEndpoint) -> Self {
+        Self {
+            api_key: endpoint.key,
+            base: endpoint.base,
+            model: endpoint.model,
+            openai: endpoint.openai,
+            provider: endpoint.provider,
+        }
+    }
+
+    pub fn provider(&self) -> &str {
+        &self.provider
     }
 
     /// Raw model text, or a short reason token. The token does not contain the key.
@@ -295,6 +360,16 @@ fn non_empty(value: Option<&str>) -> Option<&str> {
     value.map(str::trim).filter(|value| !value.is_empty())
 }
 
+fn provider_for(base: &str, openai: bool) -> &'static str {
+    if base.contains("baseten.co") {
+        "baseten"
+    } else if openai {
+        "openai"
+    } else {
+        "gemini"
+    }
+}
+
 fn openai_body(model: &str, system: &str, user: &str) -> String {
     serde_json::json!({
         "model": model,
@@ -308,6 +383,9 @@ fn openai_body(model: &str, system: &str, user: &str) -> String {
 }
 
 /// Pull the assistant text out of an OpenAI chat body or a Gemini `generateContent` body.
+///
+/// OpenAI `message.content` is the reply. `reasoning_content` is scratch space and is ignored,
+/// even when `content` is empty.
 pub fn completion_text(body: &str) -> Result<String, String> {
     let value: serde_json::Value = serde_json::from_str(body)
         .map_err(|_| format!("http: response was not JSON: {}", truncate(body)))?;
@@ -569,6 +647,68 @@ mod tests {
         assert_eq!(completion_text(gemini).unwrap(), "{\"lines\":[]}");
         let missing = completion_text(r#"{"error":{"message":"API key not valid"}}"#);
         assert!(missing.unwrap_err().contains("API key not valid"));
+    }
+
+    #[test]
+    fn completion_text_ignores_reasoning_content() {
+        let spark = r#"{"choices":[{"message":{"reasoning_content":"you go first merging now","content":"{\"lines\":[{\"id\":2,\"say\":\"after you\"}]}"}}]}"#;
+        let text = completion_text(spark).unwrap();
+        assert_eq!(text, r#"{"lines":[{"id":2,"say":"after you"}]}"#);
+        assert!(!text.contains("you go first"));
+        assert!(!text.contains("reasoning_content"));
+        let scratch_only =
+            r#"{"choices":[{"message":{"reasoning_content":"{\"lines\":[]}","content":""}}]}"#;
+        assert!(completion_text(scratch_only).is_err());
+        let null_content =
+            r#"{"choices":[{"message":{"reasoning_content":"{\"yields\":2}","content":null}}]}"#;
+        assert!(completion_text(null_content).is_err());
+    }
+
+    #[test]
+    fn baseten_api_key_selects_the_hackathon_model() {
+        let picked = select_talk(TalkKeys {
+            baseten: Some(" b-key "),
+            merge: Some("m-key"),
+            gemini: Some("g-key"),
+            base: Some("https://generativelanguage.googleapis.com/v1beta"),
+            model: None,
+        })
+        .expect("baseten");
+        assert_eq!(picked.provider, "baseten");
+        assert_eq!(picked.key, "b-key");
+        assert_eq!(picked.base, BASETEN_BASE);
+        assert_eq!(picked.model, BASETEN_MODEL);
+        assert!(picked.openai);
+        let chat = GeminiChat::from_endpoint(picked);
+        assert_eq!(chat.provider(), "baseten");
+        assert_eq!(chat.base, BASETEN_BASE);
+        assert_eq!(chat.model, BASETEN_MODEL);
+        assert!(chat.openai);
+
+        let overridden = select_talk(TalkKeys {
+            baseten: Some("b-key"),
+            model: Some("other-model"),
+            ..TalkKeys::default()
+        })
+        .expect("override");
+        assert_eq!(overridden.base, BASETEN_BASE);
+        assert_eq!(overridden.model, "other-model");
+        assert_eq!(overridden.provider, "baseten");
+
+        let gemini = select_talk(TalkKeys {
+            baseten: Some("  "),
+            gemini: Some("g-key"),
+            ..TalkKeys::default()
+        })
+        .expect("gemini");
+        assert_eq!(gemini.provider, "gemini");
+        assert_eq!(gemini.key, "g-key");
+        assert!(!gemini.openai);
+        assert!(gemini.base.contains("generativelanguage.googleapis.com"));
+        assert_eq!(gemini.model, "gemini-2.5-flash");
+        assert_ne!(gemini.model, BASETEN_MODEL);
+
+        assert!(select_talk(TalkKeys::default()).is_none());
     }
 
     #[test]

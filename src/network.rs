@@ -680,6 +680,8 @@ pub struct TownExchange {
     pub source: String,
     /// Short token when `source` is `fallback` (`no_key`, `http_400`, `parse`). Empty on the model path.
     pub reason: String,
+    /// `baseten` or `gemini` when a live call was selected. Empty on the scripted path.
+    pub provider: String,
     pub lines: Vec<MergeLine>,
 }
 
@@ -688,17 +690,14 @@ impl TownExchange {
     pub fn log(&self) -> String {
         let mut lines = self.lines.clone();
         lines.sort_by_key(|line| line.id);
-        let mut out = if self.source == "fallback" && !self.reason.is_empty() {
-            format!(
-                "negotiate source={} reason={} t={:.1} until={:.1}",
-                self.source, self.reason, self.t, self.until
-            )
-        } else {
-            format!(
-                "negotiate source={} t={:.1} until={:.1}",
-                self.source, self.t, self.until
-            )
-        };
+        let mut out = format!("negotiate source={}", self.source);
+        if self.source == "fallback" && !self.reason.is_empty() {
+            out.push_str(&format!(" reason={}", self.reason));
+        }
+        if !self.provider.is_empty() {
+            out.push_str(&format!(" provider={}", self.provider));
+        }
+        out.push_str(&format!(" t={:.1} until={:.1}", self.t, self.until));
         for line in &lines {
             out.push('\n');
             out.push_str(&format!("negotiate {}: {}", line.id, line.say));
@@ -731,6 +730,7 @@ struct Hold {
     lines: Vec<MergeLine>,
     source: String,
     reason: String,
+    provider: String,
     spoken_at: f64,
     line_d: f64,
     cleared_at: Option<f64>,
@@ -1347,6 +1347,7 @@ impl TownSim {
             lines: choice.lines,
             source: choice.source,
             reason: choice.reason,
+            provider: choice.provider,
             spoken_at: self.time,
             line_d,
             cleared_at: None,
@@ -1464,6 +1465,7 @@ impl TownSim {
             merges: hold.merges,
             source: hold.source.clone(),
             reason: hold.reason.clone(),
+            provider: hold.provider.clone(),
             lines: hold.lines.clone(),
         })
     }
@@ -1717,6 +1719,7 @@ mod tests {
             merges: 126,
             source: "fallback".into(),
             reason: "http_400".into(),
+            provider: String::new(),
             lines: vec![
                 MergeLine {
                     id: 126,
@@ -1736,12 +1739,13 @@ mod tests {
         assert!(!log.contains("sk-"), "{log}");
         let model = TownExchange {
             source: "model".into(),
-            reason: "http_400".into(),
+            reason: String::new(),
+            provider: "baseten".into(),
             ..exchange
         };
         let model_log = model.log();
         assert!(
-            model_log.starts_with("negotiate source=model t="),
+            model_log.starts_with("negotiate source=model provider=baseten t="),
             "{model_log}"
         );
         assert!(!model_log.contains("reason="), "{model_log}");
