@@ -327,7 +327,7 @@ impl GeminiChat {
             )
         };
         let text =
-            curl_negotiate(&url, &[header], &body, 15).map_err(|error| negotiate_reason(&error))?;
+            curl_negotiate(&url, &[header], &body, 45).map_err(|error| negotiate_reason(&error))?;
         completion_text(&text).map_err(|error| negotiate_reason(&error))
     }
 }
