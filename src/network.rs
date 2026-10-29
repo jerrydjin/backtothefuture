@@ -678,6 +678,8 @@ pub struct TownExchange {
     pub merges: u32,
     /// `model` or `fallback`.
     pub source: String,
+    /// Short token when `source` is `fallback` (`no_key`, `http_400`, `parse`). Empty on the model path.
+    pub reason: String,
     pub lines: Vec<MergeLine>,
 }
 
@@ -686,10 +688,17 @@ impl TownExchange {
     pub fn log(&self) -> String {
         let mut lines = self.lines.clone();
         lines.sort_by_key(|line| line.id);
-        let mut out = format!(
-            "negotiate source={} t={:.1} until={:.1}",
-            self.source, self.t, self.until
-        );
+        let mut out = if self.source == "fallback" && !self.reason.is_empty() {
+            format!(
+                "negotiate source={} reason={} t={:.1} until={:.1}",
+                self.source, self.reason, self.t, self.until
+            )
+        } else {
+            format!(
+                "negotiate source={} t={:.1} until={:.1}",
+                self.source, self.t, self.until
+            )
+        };
         for line in &lines {
             out.push('\n');
             out.push_str(&format!("negotiate {}: {}", line.id, line.say));
@@ -721,6 +730,7 @@ struct Hold {
     merges: u32,
     lines: Vec<MergeLine>,
     source: String,
+    reason: String,
     spoken_at: f64,
     line_d: f64,
     cleared_at: Option<f64>,
@@ -1336,6 +1346,7 @@ impl TownSim {
             merges: choice.merges,
             lines: choice.lines,
             source: choice.source,
+            reason: choice.reason,
             spoken_at: self.time,
             line_d,
             cleared_at: None,
@@ -1452,6 +1463,7 @@ impl TownSim {
             yields: hold.yields,
             merges: hold.merges,
             source: hold.source.clone(),
+            reason: hold.reason.clone(),
             lines: hold.lines.clone(),
         })
     }
@@ -1694,6 +1706,46 @@ fn polyline_gap(a: &[[f64; 2]], b: &[[f64; 2]]) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fallback_log_prints_the_reason_token() {
+        let exchange = TownExchange {
+            t: 201.8,
+            until: 205.0,
+            fade_s: 2.5,
+            yields: 226,
+            merges: 126,
+            source: "fallback".into(),
+            reason: "http_400".into(),
+            lines: vec![
+                MergeLine {
+                    id: 126,
+                    say: "I'll merge, thanks".into(),
+                },
+                MergeLine {
+                    id: 226,
+                    say: "you merge, I yield".into(),
+                },
+            ],
+        };
+        let log = exchange.log();
+        assert!(
+            log.starts_with("negotiate source=fallback reason=http_400 "),
+            "{log}"
+        );
+        assert!(!log.contains("sk-"), "{log}");
+        let model = TownExchange {
+            source: "model".into(),
+            reason: "http_400".into(),
+            ..exchange
+        };
+        let model_log = model.log();
+        assert!(
+            model_log.starts_with("negotiate source=model t="),
+            "{model_log}"
+        );
+        assert!(!model_log.contains("reason="), "{model_log}");
+    }
 
     #[test]
     fn town_has_junctions_and_trips() {

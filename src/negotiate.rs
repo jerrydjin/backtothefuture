@@ -5,14 +5,14 @@
 //! says merge and the other says yield. A double claim holds.
 //!
 //! [`LocalNegotiate::decide`] is the policy body. The town board asks
-//! [`negotiator_from_env`] once at one merge. That call uses `GEMINI_API_KEY`
-//! through the same curl adapter as Muse. No key, a timeout, or a reply that
-//! is not the strict JSON falls back to this decision. [`LocalNegotiate`]
-//! itself does not read a key.
+//! [`negotiator_from_env`] once at one merge. `MERGE_API_KEY` selects the HTTP
+//! call (`GEMINI_API_KEY` is an alias). No key, a timeout, or a reply that is
+//! not the strict JSON falls back to this decision. [`LocalNegotiate`] itself
+//! does not read a key.
 
 use serde::Serialize;
 
-use crate::muse::GeminiChat;
+use crate::muse::{negotiate_reason, GeminiChat};
 use crate::schema::{Approach, TalkPhase, VisibleNeighbor, YieldRole, YieldTalk};
 use crate::world::{Executor, World};
 
@@ -47,12 +47,14 @@ pub struct MergeLine {
 }
 
 /// Who waits, who goes, and the two lines. `source` is `model` or `fallback`.
+/// `reason` is a short token on the fallback path (`no_key`, `http_400`, `parse`).
 #[derive(Clone, Debug, PartialEq)]
 pub struct MergeChoice {
     pub yields: u32,
     pub merges: u32,
     pub lines: Vec<MergeLine>,
     pub source: String,
+    pub reason: String,
 }
 
 /// `agree` picks who yields. The town sim moves the cars.
@@ -66,7 +68,7 @@ pub struct ScriptedTalk;
 
 impl MergeTalk for ScriptedTalk {
     fn agree(&self, snap: &MergeSnap) -> MergeChoice {
-        scripted_choice(snap)
+        scripted_choice(snap, "no_key")
     }
 }
 
@@ -101,15 +103,27 @@ impl MergeTalk for MergeAgent {
         let prompt = render_merge_prompt(snap);
         match self.client.complete(&prompt) {
             Ok(text) => choice_from_reply(snap, Ok(&text)),
-            Err(_) => choice_from_reply(snap, Err("transport")),
+            Err(error) => choice_from_reply(snap, Err(error.as_str())),
         }
     }
 }
 
-/// `GEMINI_API_KEY` selects the live call. An empty or missing key stays scripted.
+/// `MERGE_API_KEY` selects the live call. `GEMINI_API_KEY` is the alias.
+/// An empty or missing key stays scripted. `MODEL_API_BASE` and `MODEL_API_MODEL`
+/// are read by the chat client when a key is present.
 pub fn negotiator_from_env() -> Box<dyn MergeTalk> {
-    let key = std::env::var("GEMINI_API_KEY").ok();
+    let merge = std::env::var("MERGE_API_KEY").ok();
+    let gemini = std::env::var("GEMINI_API_KEY").ok();
+    let key = negotiation_key(merge.as_deref(), gemini.as_deref());
     negotiator_from_key(key.as_deref())
+}
+
+/// `MERGE_API_KEY` wins when it is non-empty. Otherwise `GEMINI_API_KEY`.
+pub fn negotiation_key(merge: Option<&str>, gemini: Option<&str>) -> Option<String> {
+    [merge, gemini]
+        .into_iter()
+        .find_map(|value| value.map(str::trim).filter(|value| !value.is_empty()))
+        .map(str::to_string)
 }
 
 pub fn negotiator_from_key(key: Option<&str>) -> Box<dyn MergeTalk> {
@@ -133,8 +147,10 @@ pub fn car_pref(id: u32) -> &'static str {
 /// Parse a model reply into a choice. Any miss falls back to [`scripted_choice`].
 pub fn choice_from_reply(snap: &MergeSnap, reply: Result<&str, &str>) -> MergeChoice {
     match reply {
-        Ok(text) => parse_model_exchange(text, snap).unwrap_or_else(|_| scripted_choice(snap)),
-        Err(_) => scripted_choice(snap),
+        Ok(text) => {
+            parse_model_exchange(text, snap).unwrap_or_else(|_| scripted_choice(snap, "parse"))
+        }
+        Err(error) => scripted_choice(snap, error),
     }
 }
 
@@ -158,13 +174,15 @@ pub fn render_merge_prompt(snap: &MergeSnap) -> String {
     format!(
         "Two cars meet at one merge. You do not drive or brake. Distances are meters.\n\
 Reply with one JSON object and nothing else.\n\
-Schema: {{\"lines\":[{{\"id\":{id0},\"say\":\"you go first\"}},{{\"id\":{id1},\"say\":\"merging now\"}}],\"yields\":{id0}}}\n\
+Schema: {{\"lines\":[{{\"id\":{id0},\"say\":\"<1-6 words in this car's voice>\"}},{{\"id\":{id1},\"say\":\"<1-6 words in this car's voice>\"}}],\"yields\":<id of the car that waits>}}\n\
 Rules:\n\
 - lines has exactly these two ids: {id0} and {id1}\n\
-- say is one to six words\n\
+- each say is one to six words in that car's own voice\n\
+- each line should reflect that car's English pref and the situation (gap, speed, distance to the line)\n\
 - yields is the id of the car that waits\n\
 - the other car merges\n\
 - no markdown and no extra keys\n\
+- do not copy the angle-bracket placeholders\n\
 \n\
 <merge>\n\
 {state}\n\
@@ -238,6 +256,7 @@ fn parse_model_exchange(text: &str, snap: &MergeSnap) -> Result<MergeChoice, Str
         merges,
         lines,
         source: "model".into(),
+        reason: String::new(),
     })
 }
 
@@ -247,9 +266,11 @@ fn valid_say(say: &str) -> bool {
     (1..=SAY_MAX_WORDS).contains(&words)
         && say.chars().count() <= 48
         && !say.chars().any(|ch| ch.is_control())
+        && !say.contains('<')
+        && !say.contains('>')
 }
 
-fn scripted_choice(snap: &MergeSnap) -> MergeChoice {
+fn scripted_choice(snap: &MergeSnap, reason: &str) -> MergeChoice {
     let a = &snap.cars[0];
     let b = &snap.cars[1];
     let decision = LocalNegotiate.decide(&DecideCtx {
@@ -286,6 +307,7 @@ fn scripted_choice(snap: &MergeSnap) -> MergeChoice {
         merges,
         lines,
         source: "fallback".into(),
+        reason: negotiate_reason(reason),
     }
 }
 
@@ -572,6 +594,7 @@ mod tests {
         assert_eq!(text, RECORDED);
         let choice = choice_from_reply(&snap(2, 5), Ok(&text));
         assert_eq!(choice.source, "model");
+        assert!(choice.reason.is_empty());
         assert_eq!(choice.yields, 2);
         assert_eq!(choice.merges, 5);
         assert_eq!(choice.lines.len(), 2);
@@ -607,6 +630,28 @@ mod tests {
         assert!(prompt.contains("v_mps"), "{prompt}");
         assert!(prompt.contains("gap_m"), "{prompt}");
         assert!(!prompt.to_lowercase().contains("pixel"), "{prompt}");
+        assert!(!prompt.contains("you go first"), "{prompt}");
+        assert!(!prompt.contains("merging now"), "{prompt}");
+        assert!(
+            prompt.contains("<1-6 words in this car's voice>"),
+            "{prompt}"
+        );
+        assert!(prompt.contains("English pref"), "{prompt}");
+        assert!(prompt.contains("situation"), "{prompt}");
+    }
+
+    #[test]
+    fn merge_key_wins_and_gemini_is_the_alias() {
+        assert_eq!(
+            negotiation_key(Some(" merge-key "), Some("gemini-key")).as_deref(),
+            Some("merge-key")
+        );
+        assert_eq!(
+            negotiation_key(Some("  "), Some(" gemini-key ")).as_deref(),
+            Some("gemini-key")
+        );
+        assert_eq!(negotiation_key(None, Some("")), None);
+        assert_eq!(negotiation_key(None, None), None);
     }
 
     #[test]
@@ -620,7 +665,7 @@ mod tests {
             heard: &[],
         });
         assert_eq!(local.role, YieldRole::Merge);
-        for reply in [
+        let replies: [Result<&str, &str>; 9] = [
             Err("no key"),
             Err("timeout"),
             Ok("sure, you go"),
@@ -633,11 +678,20 @@ mod tests {
                 r#"{"lines":[{"id":2,"say":"you go"},{"id":5,"say":"I go"}],"yields":2,"why":"gap"}"#,
             ),
             Ok(""),
-        ] {
+            Ok(
+                r#"{"lines":[{"id":2,"say":"<1-6 words in this car's voice>"},{"id":5,"say":"I go"}],"yields":2}"#,
+            ),
+        ];
+        let reasons = [
+            "no_key", "timeout", "parse", "parse", "parse", "parse", "parse", "parse", "parse",
+        ];
+        for (reply, reason) in replies.into_iter().zip(reasons) {
             let choice = choice_from_reply(&state, reply);
             assert_eq!(choice.source, "fallback", "{reply:?}");
+            assert_eq!(choice.reason, reason, "{reply:?}");
             assert_eq!(choice.merges, 2, "{reply:?}");
             assert_eq!(choice.yields, 5, "{reply:?}");
+            assert!(!choice.reason.contains("sk-"), "{}", choice.reason);
             assert_eq!(
                 choice.lines.iter().find(|line| line.id == 5).unwrap().say,
                 "you merge, I yield"
@@ -651,6 +705,7 @@ mod tests {
         let choice = choice_from_reply(&swapped, Err("no key"));
         assert_eq!(choice.yields, 5);
         assert_eq!(choice.merges, 2);
+        assert_eq!(choice.reason, "no_key");
     }
 
     #[test]
@@ -663,7 +718,23 @@ mod tests {
         }
         let choice = MergeAgent::new(Box::new(Down)).agree(&snap(4, 1));
         assert_eq!(choice.source, "fallback");
+        assert_eq!(choice.reason, "timeout");
         assert_eq!(choice.merges, 1);
         assert_eq!(choice.yields, 4);
+    }
+
+    #[test]
+    fn a_fallback_reason_is_a_token_and_does_not_carry_the_key() {
+        struct Leak;
+        impl Completer for Leak {
+            fn complete(&self, _prompt: &str) -> Result<String, String> {
+                Err("http_400 bearer sk-super-secret-key".into())
+            }
+        }
+        let choice = MergeAgent::new(Box::new(Leak)).agree(&snap(4, 1));
+        assert_eq!(choice.source, "fallback");
+        assert_eq!(choice.reason, "http_400");
+        assert!(!choice.reason.contains("sk-"));
+        assert!(choice.lines.iter().all(|line| !line.say.contains("sk-")));
     }
 }

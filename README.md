@@ -11,6 +11,7 @@ ChemStation is not this product.
 ```bash
 cargo test
 cargo run -- --board
+MERGE_API_KEY=... MODEL_API_BASE=https://inference.baseten.co/v1 MODEL_API_MODEL=meta-models/muse-spark-open-1026 cargo run -- --board
 GEMINI_API_KEY=... cargo run -- --board
 cargo run -- --cars 6 --jam symmetric --prefs "Zipper fairly so both approaches get home."
 cargo run -- --cars 8 --jam ramp-surge --prefs "Zipper fairly so both approaches get home." --show
@@ -22,10 +23,11 @@ cargo run -- --cars 6 --jam symmetric --prefs "Main has priority. Main first."
 One motorway merge on that board asks the two cars who yields. The input is their positions, speeds, gaps, and a short English preference. The reply is two lines, at most six words each, and which car waits. The lines draw over those cars and fade after the yield. The car that was told to yield waits; the other merges.
 
 ```bash
+MERGE_API_KEY=... MODEL_API_BASE=https://inference.baseten.co/v1 MODEL_API_MODEL=meta-models/muse-spark-open-1026 cargo run -- --board
 GEMINI_API_KEY=... cargo run -- --board
 ```
 
-That is the live call. `GEMINI_API_KEY` uses the same curl adapter as Muse (`MODEL_API_BASE` when set, otherwise Gemini). With the key unset, or when the reply is late or not the strict JSON, the same command prints `negotiate source=fallback` and still draws the exchange. The sticky line stays selfish `RED`, dumb-equal `RED`, scripted `GREEN`. The judge does not read the lines. Tests do not need a key.
+Those are the live calls. `MERGE_API_KEY` is the negotiator key. `GEMINI_API_KEY` is the same key when that is the name already set. `MODEL_API_BASE` and `MODEL_API_MODEL` select the host and the model. The first command is the hackathon model. The second is Gemini, which is the host when `MODEL_API_BASE` is unset. With the key unset, or when the call fails or the reply is not the strict JSON, the same command prints `negotiate source=fallback reason=no_key` (or `timeout`, `http_400`, `parse`) and still draws the exchange. The reason is a short token. It is not the key. The sticky line stays selfish `RED`, dumb-equal `RED`, scripted `GREEN`. The judge does not read the lines. Tests do not need a key.
 
 Fair prefs: selfish and dumb-equal print `RED`, the scripted plan prints `GREEN`, process exits 0.
 

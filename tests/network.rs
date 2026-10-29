@@ -88,11 +88,13 @@ fn one_merge_speaks_and_the_yielder_waits() {
     let run = run_town(7);
     let ex = run.exchange.as_ref().expect("one exchange at one merge");
     assert_eq!(ex.source, "fallback");
+    assert_eq!(ex.reason, "no_key");
     assert_eq!(ex.lines.len(), 2);
     assert_ne!(ex.yields, ex.merges);
     assert!(ex.until + 1e-6 >= ex.t);
     let log = ex.log();
-    assert!(log.contains("source=fallback"), "{log}");
+    assert!(log.contains("source=fallback reason=no_key"), "{log}");
+    assert!(!log.contains("sk-"), "{log}");
     assert!(log.contains(&format!("yields={}", ex.yields)), "{log}");
     assert!(log.contains(&format!("merges={}", ex.merges)), "{log}");
     for line in &ex.lines {

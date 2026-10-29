@@ -177,7 +177,10 @@ Knobs:
   --help
 
 Negotiation:
-  GEMINI_API_KEY           one town merge speaks through Gemini. Unset, timeout, or a bad reply prints source=fallback.
+  MERGE_API_KEY            one town merge speaks through the model. GEMINI_API_KEY is an alias.
+  MODEL_API_BASE           completion host. Unset uses Gemini. Set it for another OpenAI-compatible host.
+  MODEL_API_MODEL          model name when MODEL_API_BASE is set.
+  A missing key, timeout, or a bad reply prints source=fallback and a short reason. The reason is not the key.
 
 Score:
   GREEN requires zero collisions, every car home, fairness <= 0.15, and time-home inside budget.

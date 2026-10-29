@@ -209,11 +209,12 @@ impl HttpMuse {
     }
 }
 
-/// One Gemini chat for the town-merge negotiator. Same curl adapter as [`HttpMuse`].
+/// One chat completion for the town-merge negotiator. Same curl adapter as [`HttpMuse`].
 ///
-/// `GEMINI_API_KEY` is the credential. `MODEL_API_BASE` overrides the host when it
-/// is set. `MODEL_API_MODEL` overrides the model when the override is a Gemini
-/// model, or when `MODEL_API_BASE` points somewhere else.
+/// The negotiator passes `MERGE_API_KEY`, or `GEMINI_API_KEY` when that is the
+/// one set. `MODEL_API_BASE` selects the host. Unset, the host is Gemini. Any
+/// other host uses the OpenAI chat-completions shape. `MODEL_API_MODEL` is the
+/// model on that host.
 #[derive(Clone, Debug)]
 pub struct GeminiChat {
     api_key: String,
@@ -225,33 +226,9 @@ pub struct GeminiChat {
 impl GeminiChat {
     pub fn from_key(api_key: impl Into<String>) -> Self {
         let api_key = api_key.into();
-        let base_env = std::env::var("MODEL_API_BASE")
-            .ok()
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty());
-        let model_env = std::env::var("MODEL_API_MODEL")
-            .ok()
-            .map(|value| value.trim().to_string())
-            .filter(|value| !value.is_empty());
-        let (base, model, openai) = match base_env {
-            Some(base) => {
-                let openai =
-                    base.contains("/openai") || !base.contains("generativelanguage.googleapis.com");
-                let model = model_env.unwrap_or_else(|| "gemini-2.5-flash".to_string());
-                (base, model, openai)
-            }
-            None => {
-                let model = match model_env {
-                    Some(model) if model.starts_with("gemini") => model,
-                    _ => "gemini-2.5-flash".to_string(),
-                };
-                (
-                    "https://generativelanguage.googleapis.com/v1beta".to_string(),
-                    model,
-                    false,
-                )
-            }
-        };
+        let base_env = std::env::var("MODEL_API_BASE").ok();
+        let model_env = std::env::var("MODEL_API_MODEL").ok();
+        let (base, model, openai) = chat_target(base_env.as_deref(), model_env.as_deref());
         Self {
             api_key,
             base,
@@ -260,7 +237,7 @@ impl GeminiChat {
         }
     }
 
-    /// Raw model text, or an error. The key is redacted. Callers fall back.
+    /// Raw model text, or a short reason token. The token does not contain the key.
     pub fn complete(&self, system: &str, user: &str) -> Result<String, String> {
         let (url, body, header) = if self.openai {
             (
@@ -284,9 +261,38 @@ impl GeminiChat {
                 format!("x-goog-api-key: {}", self.api_key),
             )
         };
-        let text = curl_post(&url, &[header], &body, 15, &self.api_key)?;
-        completion_text(&text).map_err(|error| redact(&error, &self.api_key))
+        let text =
+            curl_negotiate(&url, &[header], &body, 15).map_err(|error| negotiate_reason(&error))?;
+        completion_text(&text).map_err(|error| negotiate_reason(&error))
     }
+}
+
+fn chat_target(base_env: Option<&str>, model_env: Option<&str>) -> (String, String, bool) {
+    let base_env = non_empty(base_env);
+    let model_env = non_empty(model_env);
+    match base_env {
+        Some(base) => {
+            let openai =
+                base.contains("/openai") || !base.contains("generativelanguage.googleapis.com");
+            let model = model_env.unwrap_or("gemini-2.5-flash").to_string();
+            (base.to_string(), model, openai)
+        }
+        None => {
+            let model = match model_env {
+                Some(model) if model.starts_with("gemini") => model.to_string(),
+                _ => "gemini-2.5-flash".to_string(),
+            };
+            (
+                "https://generativelanguage.googleapis.com/v1beta".to_string(),
+                model,
+                false,
+            )
+        }
+    }
+}
+
+fn non_empty(value: Option<&str>) -> Option<&str> {
+    value.map(str::trim).filter(|value| !value.is_empty())
 }
 
 fn openai_body(model: &str, system: &str, user: &str) -> String {
@@ -361,6 +367,116 @@ fn curl_post(
         ));
     }
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
+}
+
+/// POST for the negotiator. A failure is a short token (`timeout`, `http_400`,
+/// `transport`). The body and the key stay out of that token.
+fn curl_negotiate(
+    url: &str,
+    headers: &[String],
+    body: &str,
+    timeout_secs: u64,
+) -> Result<String, String> {
+    let timeout = timeout_secs.to_string();
+    let mut cmd = Command::new("curl");
+    cmd.args([
+        "-sS",
+        "-X",
+        "POST",
+        url,
+        "-H",
+        "content-type: application/json",
+        "-w",
+        "\n__MUSE_HTTP_%{http_code}",
+    ]);
+    for header in headers {
+        cmd.args(["-H", header]);
+    }
+    cmd.args(["-d", body, "--max-time", &timeout]);
+    let output = cmd.output().map_err(|_| "transport".to_string())?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let timed_out =
+            output.status.code() == Some(28) || stderr.to_ascii_lowercase().contains("timed out");
+        return Err(if timed_out { "timeout" } else { "transport" }.to_string());
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let (body, status) = split_http_marker(&stdout);
+    match status {
+        Some(code) if (200..300).contains(&code) => Ok(body),
+        Some(code) if code >= 400 => Err(format!("http_{code}")),
+        _ => Err("transport".into()),
+    }
+}
+
+const HTTP_MARK: &str = "\n__MUSE_HTTP_";
+
+fn split_http_marker(stdout: &str) -> (String, Option<u16>) {
+    let Some(index) = stdout.rfind(HTTP_MARK) else {
+        return (stdout.to_string(), None);
+    };
+    let code = stdout[index + HTTP_MARK.len()..].trim();
+    let status = if code.len() == 3 && code.bytes().all(|byte| byte.is_ascii_digit()) {
+        code.parse().ok()
+    } else {
+        None
+    };
+    (stdout[..index].to_string(), status)
+}
+
+/// A fallback reason the log can print. Known tokens pass through. Anything else
+/// becomes `timeout`, `http_NNN`, `no_key`, `bad_response`, or `transport`.
+/// The returned token is never a slice of `error`, so a key in the message stays out.
+pub fn negotiate_reason(error: &str) -> String {
+    let trimmed = error.trim();
+    if matches!(
+        trimmed,
+        "no_key" | "timeout" | "transport" | "bad_response" | "parse"
+    ) {
+        return trimmed.to_string();
+    }
+    if let Some(code) = http_status_in(trimmed) {
+        return format!("http_{code}");
+    }
+    let lower = trimmed.to_ascii_lowercase();
+    if lower.contains("timed out") || lower.contains("timeout") || lower.contains("status 28") {
+        return "timeout".into();
+    }
+    if lower.contains("no_key") || lower.contains("no key") {
+        return "no_key".into();
+    }
+    if lower.contains("not json") || lower.contains("missing completion") {
+        return "bad_response".into();
+    }
+    "transport".into()
+}
+
+fn http_status_in(text: &str) -> Option<u16> {
+    let bytes = text.as_bytes();
+    let mut index = 0;
+    while index < bytes.len() {
+        if let Some(code) = status_at(text, index, "http_") {
+            return Some(code);
+        }
+        if let Some(code) = status_at(text, index, "status ") {
+            return Some(code);
+        }
+        index += 1;
+    }
+    None
+}
+
+fn status_at(text: &str, index: usize, marker: &str) -> Option<u16> {
+    let rest = text.get(index..)?.strip_prefix(marker)?;
+    let digits: String = rest.chars().take(3).collect();
+    if digits.len() != 3 || !digits.chars().all(|ch| ch.is_ascii_digit()) {
+        return None;
+    }
+    if rest.chars().nth(3).is_some_and(|ch| ch.is_ascii_digit()) {
+        return None;
+    }
+    let code = digits.parse().ok()?;
+    (code >= 400).then_some(code)
 }
 
 fn redact(message: &str, key: &str) -> String {
@@ -453,5 +569,54 @@ mod tests {
         assert_eq!(completion_text(gemini).unwrap(), "{\"lines\":[]}");
         let missing = completion_text(r#"{"error":{"message":"API key not valid"}}"#);
         assert!(missing.unwrap_err().contains("API key not valid"));
+    }
+
+    #[test]
+    fn baseten_base_uses_the_openai_shape_and_the_named_model() {
+        let (base, model, openai) = chat_target(
+            Some("https://inference.baseten.co/v1"),
+            Some("meta-models/muse-spark-open-1026"),
+        );
+        assert_eq!(base, "https://inference.baseten.co/v1");
+        assert_eq!(model, "meta-models/muse-spark-open-1026");
+        assert!(openai);
+        let (base, model, openai) = chat_target(None, None);
+        assert!(base.contains("generativelanguage.googleapis.com"));
+        assert_eq!(model, "gemini-2.5-flash");
+        assert!(!openai);
+    }
+
+    #[test]
+    fn negotiate_reason_is_a_token_without_the_key() {
+        assert_eq!(negotiate_reason("no key"), "no_key");
+        assert_eq!(negotiate_reason("timeout"), "timeout");
+        assert_eq!(negotiate_reason("parse"), "parse");
+        assert_eq!(
+            negotiate_reason("http: curl status 28: Operation timed out"),
+            "timeout"
+        );
+        assert_eq!(
+            negotiate_reason("http_400 bearer sk-super-secret-key"),
+            "http_400"
+        );
+        assert_eq!(negotiate_reason("status 500: boom sk-secret"), "http_500");
+        assert_eq!(
+            negotiate_reason("http: response was not JSON: {\"error\":\"sk-abc\"}"),
+            "bad_response"
+        );
+        assert_eq!(negotiate_reason("http: missing completion"), "bad_response");
+        let transport = negotiate_reason("authorization: Bearer sk-super-secret-key failed");
+        assert_eq!(transport, "transport");
+        assert!(!transport.contains("sk-"));
+    }
+
+    #[test]
+    fn http_marker_keeps_the_status_and_drops_the_body() {
+        let (body, code) = split_http_marker("{\"error\":\"sk-secret\"}\n__MUSE_HTTP_400");
+        assert_eq!(body, "{\"error\":\"sk-secret\"}");
+        assert_eq!(code, Some(400));
+        let reason = negotiate_reason(&format!("http_{}", code.unwrap()));
+        assert_eq!(reason, "http_400");
+        assert!(!reason.contains("sk-"));
     }
 }

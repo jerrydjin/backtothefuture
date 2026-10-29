@@ -186,6 +186,7 @@ fn board_dinner_is_red_red_green() {
     );
     let exchange = board.town.exchange.as_ref().expect("one town exchange");
     assert_eq!(exchange.source, "fallback");
+    assert_eq!(exchange.reason, "no_key");
     assert_eq!(exchange.lines.len(), 2);
     assert_ne!(exchange.yields, exchange.merges);
     assert!(html.contains("drawExchange"));
