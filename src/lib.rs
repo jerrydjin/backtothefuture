@@ -10,6 +10,7 @@ pub const DINNER_SENTENCE: &str = "You say what matters in plain English — the
 
 pub mod agents;
 pub mod board;
+pub mod board_server;
 pub mod episode;
 pub mod error;
 mod judge;

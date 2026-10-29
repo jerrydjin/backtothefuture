@@ -86,3 +86,19 @@ GitHub is the shared channel between Jerry, the Grok bots and Claude. Product sc
 3. Schema or judge changes (`src/schema.rs`, `src/judge.rs`) start as an issue and wait for Michael's reply there.
 4. Every PR description ends with a **Handoff** line: what landed, and who picks up next.
 5. Jerry merges. Claude watches open PRs and issues, and replies, fixes and pushes on its own PRs without a relay.
+
+## Board timing (PR #11 follow-up)
+
+The negotiator timeout is 45 seconds. `--board` now starts a loopback session and
+opens the same network as one white SVG. It starts 28 seconds before the forecast
+encounter and sends the request 25 seconds before it, at real-time town playback.
+The reply is replayed through the same local physics from the same seed. Two
+readable lines lead the yield; leader lines identify their cars. Only a late
+reply holds the encounter with “negotiating…”. The key never enters the page.
+`--board --no-open` prints a URL for a headless host. Ctrl-C ends the session.
+
+Proof: 61 cargo tests pass. Browser checks cover offline, a 19.032-second mock
+reply (no pending cue), and a 30.027-second mock reply (pending cue, then exchange,
+yield, fade). Reversing the returned decision reverses the physical yield.
+No Baseten key is configured in the cloud environment, so live Baseten latency
+has not been measured here. Sticky remains RED / RED / GREEN time_home=69.

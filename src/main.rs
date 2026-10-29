@@ -5,8 +5,8 @@ use std::process::ExitCode;
 
 use muse::negotiate::negotiator_from_env;
 use muse::{
-    board_from_run_with, interpret_english, present_board, render_board_html, run_dinner, Bias,
-    EpisodeOpts, JamType, MuseKind, Scenario, Verdict, DINNER_SENTENCE,
+    board_from_run, interpret_english, run_dinner, Bias, EpisodeOpts, JamType, MuseKind, Scenario,
+    Verdict, DINNER_SENTENCE,
 };
 
 fn main() -> ExitCode {
@@ -73,21 +73,6 @@ fn main() -> ExitCode {
     if let Some(trace) = &report.muse_trace {
         println!("\n{} trace\n{trace}", report.client);
     }
-    if args.board {
-        let board = board_from_run_with(&dinner, muse.label(), negotiator_from_env());
-        if let Some(exchange) = &board.town.exchange {
-            println!("{}", exchange.log());
-        }
-        let html = render_board_html(&board);
-        match present_board(&html) {
-            Ok(path) => println!("board: {}", path.display()),
-            Err(error) => {
-                eprintln!("board: {error}");
-                return ExitCode::from(1);
-            }
-        }
-    }
-
     let baseline_red =
         report.selfish.verdict == Verdict::Red && report.dumb_equal.verdict == Verdict::Red;
     if !baseline_red {
@@ -98,6 +83,16 @@ fn main() -> ExitCode {
         eprintln!("fair prefs did not go green");
         return ExitCode::from(1);
     }
+    if args.board {
+        let board = board_from_run(&dinner, muse.label());
+        if let Err(error) =
+            muse::board_server::serve_board(&board, negotiator_from_env(), !args.no_open)
+        {
+            eprintln!("board: {error}");
+            return ExitCode::from(1);
+        }
+    }
+
     ExitCode::SUCCESS
 }
 
@@ -108,6 +103,7 @@ struct Args {
     prefs: String,
     show: bool,
     board: bool,
+    no_open: bool,
     rewrite_every: Option<u32>,
 }
 
@@ -120,6 +116,7 @@ impl Args {
             prefs: "Zipper fairly so both approaches get home.".to_string(),
             show: false,
             board: false,
+            no_open: false,
             rewrite_every: None,
         };
         let mut args = env::args().skip(1);
@@ -128,6 +125,7 @@ impl Args {
                 "-h" | "--help" => parsed.help = true,
                 "--show" => parsed.show = true,
                 "--board" => parsed.board = true,
+                "--no-open" => parsed.no_open = true,
                 "--cars" => {
                     let value = args.next().ok_or("--cars needs a number")?;
                     parsed.cars = value
@@ -174,6 +172,7 @@ Knobs:
   --rewrite-every N        ask for a new plan every N ticks
   --show                   print the ramp merge in the terminal: wreck, held jam, and cleared road
   --board                  open the live birds-eye window: white network, flat cars, one yield or merge cue
+  --no-open                print the board URL without opening a window (with --board)
   --help
 
 Negotiation:

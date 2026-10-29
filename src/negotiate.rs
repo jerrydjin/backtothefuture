@@ -23,7 +23,7 @@ const SAY_YIELD: &str = "you merge, I yield";
 const SAY_MERGE: &str = "I'll merge, thanks";
 
 /// One car at a merge, in meters. This is the model input. No pixels.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct MergeCar {
     pub id: u32,
     pub x: f64,
@@ -35,7 +35,7 @@ pub struct MergeCar {
 }
 
 /// The two cars at the one negotiated merge.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct MergeSnap {
     pub cars: [MergeCar; 2],
 }
@@ -61,7 +61,7 @@ pub struct MergeChoice {
 }
 
 /// `agree` picks who yields. The town sim moves the cars.
-pub trait MergeTalk {
+pub trait MergeTalk: Send {
     fn agree(&self, snap: &MergeSnap) -> MergeChoice;
 }
 
@@ -76,7 +76,7 @@ impl MergeTalk for ScriptedTalk {
 }
 
 /// Something that returns model text for a prompt. Tests pass a recorded body.
-pub trait Completer {
+pub trait Completer: Send {
     fn complete(&self, prompt: &str) -> Result<String, String>;
 }
 
@@ -635,23 +635,23 @@ mod tests {
 
     #[test]
     fn mock_prompt_is_symbolic_and_the_recorded_reply_is_obeyed() {
-        let seen = std::rc::Rc::new(std::cell::RefCell::new(String::new()));
+        let seen = std::sync::Arc::new(std::sync::Mutex::new(String::new()));
         struct Watch {
-            seen: std::rc::Rc<std::cell::RefCell<String>>,
+            seen: std::sync::Arc<std::sync::Mutex<String>>,
         }
         impl Completer for Watch {
             fn complete(&self, prompt: &str) -> Result<String, String> {
-                *self.seen.borrow_mut() = prompt.to_string();
+                *self.seen.lock().unwrap() = prompt.to_string();
                 Ok(RECORDED.to_string())
             }
         }
-        let probe = std::rc::Rc::clone(&seen);
+        let probe = std::sync::Arc::clone(&seen);
         let agent = MergeAgent::with_provider(Box::new(Watch { seen }), "baseten");
         let choice = agent.agree(&snap(2, 5));
         assert_eq!(choice.source, "model");
         assert_eq!(choice.provider, "baseten");
         assert_eq!(choice.yields, 2);
-        let prompt = probe.borrow().clone();
+        let prompt = probe.lock().unwrap().clone();
         assert!(prompt.contains("\"pref\":\"Take your turn\""), "{prompt}");
         assert!(prompt.contains("\"pref\":\"I'm in a hurry\""), "{prompt}");
         assert!(prompt.contains("s_to_line_m"), "{prompt}");

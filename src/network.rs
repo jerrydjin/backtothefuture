@@ -683,6 +683,8 @@ pub struct TownExchange {
     /// `baseten` or `gemini` when a live call was selected. Empty on the scripted path.
     pub provider: String,
     pub lines: Vec<MergeLine>,
+    /// Symbolic forecast at the encounter, used to ask ahead of playback.
+    pub forecast: MergeSnap,
 }
 
 impl TownExchange {
@@ -734,6 +736,7 @@ struct Hold {
     spoken_at: f64,
     line_d: f64,
     cleared_at: Option<f64>,
+    forecast: MergeSnap,
 }
 
 /// Small deterministic generator, so the board and the tests see the same town.
@@ -1351,6 +1354,7 @@ impl TownSim {
             spoken_at: self.time,
             line_d,
             cleared_at: None,
+            forecast: snap,
         });
     }
 
@@ -1467,6 +1471,7 @@ impl TownSim {
             reason: hold.reason.clone(),
             provider: hold.provider.clone(),
             lines: hold.lines.clone(),
+            forecast: hold.forecast.clone(),
         })
     }
 
@@ -1720,6 +1725,17 @@ mod tests {
             source: "fallback".into(),
             reason: "http_400".into(),
             provider: String::new(),
+            forecast: MergeSnap {
+                cars: [126, 226].map(|id| MergeCar {
+                    id,
+                    x: 0.0,
+                    y: 0.0,
+                    s_to_line_m: 5.0,
+                    v_mps: 1.0,
+                    gap_m: 6.0,
+                    pref: car_pref(id).into(),
+                }),
+            },
             lines: vec![
                 MergeLine {
                     id: 126,

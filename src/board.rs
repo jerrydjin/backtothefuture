@@ -140,7 +140,7 @@ pub fn board_from_run_with(
 }
 
 /// Fixed so the board and its tests see the same rush hour.
-const TOWN_SEED: u64 = 7;
+pub const TOWN_SEED: u64 = 7;
 
 /// Lay the dinner merge in its block: main runs east to home, the ramp joins at the gore.
 fn dinner_road(run: &DinnerRun, gate_s: f64, home_s: f64) -> DinnerRoad {
@@ -323,7 +323,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
 </style>
 </head>
 <body>
-<canvas id="network"></canvas>
+<svg id="network" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cars negotiate on a town road network"></svg>
 <div id="pills">__PILLS__</div>
 <script id="board-data" type="application/json">__BOARD_JSON__</script>
 <script>
@@ -403,11 +403,60 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     return local * speed;
   }
 
-  // The town loops on its own clock, one frame per sim second.
+  // Forecast once, ask 25 wall seconds before the encounter, then replay the
+  // returned agreement through the same local physics. Only a late reply holds time.
+  var live = seekTo == null && /[?&]live=1(?:&|$)/.test(String(location.search));
+  var ready = !live;
+  var requested = false;
+  var initialExchange = data.town.exchange;
+  var storyStart = initialExchange ? Math.max(0, initialExchange.t - 28) : 0;
+  var lostTime = 0;
+  var waitingSince = null;
+
+  function askAhead() {
+    if (requested) return;
+    requested = true;
+    var deadline = performance.now() + 48000;
+    function fallback() {
+      town.exchange.source = "fallback";
+      town.exchange.reason = "transport";
+      ready = true;
+    }
+    function poll() {
+      fetch("/result", { cache: "no-store", signal: AbortSignal.timeout(2000) }).then(function (r) {
+        if (r.status === 202) {
+          if (performance.now() >= deadline) fallback(); else setTimeout(poll, 150);
+          return null;
+        }
+        if (!r.ok) throw new Error("board session closed");
+        return r.json();
+      }).then(function (reply) {
+        if (!reply) return;
+        town = data.town = reply.town;
+        ready = true;
+      }).catch(fallback);
+    }
+    fetch("/negotiate", { method: "POST", signal: AbortSignal.timeout(2000) })
+      .then(function (r) { if (!r.ok) throw new Error("board session closed"); poll(); }).catch(fallback);
+  }
+
   function townTime(now) {
     var last = (data.town && data.town.frames.length) ? data.town.frames.length - 1 : 0;
     if (last < 1) return 0;
-    var t = seekTo != null ? Math.max(0, seekTo) : elapsedSec(now) * speed;
+    if (seekTo != null) return Math.max(0, Math.min(last, seekTo));
+    var raw = storyStart + elapsedSec(now);
+    if (live && initialExchange && raw >= initialExchange.t - 25) askAhead();
+    var t = raw - lostTime;
+    var dialogueAt = initialExchange ? initialExchange.t - 3 : last;
+    if (!ready && t >= dialogueAt) {
+      if (waitingSince == null) waitingSince = raw;
+      t = dialogueAt;
+    } else if (waitingSince != null) {
+      lostTime += raw - waitingSince;
+      waitingSince = null;
+      t = raw - lostTime;
+    }
+    document.getElementById("network").setAttribute("data-time", t.toFixed(3));
     return t <= last ? t : t % last;
   }
 
@@ -566,20 +615,18 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
   dinnerMain.pts.forEach(take);
   dinnerRamp.pts.forEach(take);
 
-  function fit(canvas) {
-    var rect = canvas.getBoundingClientRect();
-    var dpr = window.devicePixelRatio || 1;
-    var w = Math.max(1, rect.width);
-    var h = Math.max(1, rect.height);
-    var bw = Math.floor(w * dpr);
-    var bh = Math.floor(h * dpr);
-    if (canvas.width !== bw || canvas.height !== bh) {
-      canvas.width = bw;
-      canvas.height = bh;
-    }
-    var ctx = canvas.getContext("2d");
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    return { ctx: ctx, w: w, h: h };
+  function svgNode(tag, attrs, text) {
+    var node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    Object.keys(attrs || {}).forEach(function (key) { node.setAttribute(key, attrs[key]); });
+    if (text != null) node.textContent = text;
+    return node;
+  }
+
+  function fit(svg) {
+    var rect = svg.getBoundingClientRect();
+    var w = Math.max(1, rect.width), h = Math.max(1, rect.height);
+    svg.setAttribute("viewBox", "0 0 " + w + " " + h);
+    return { ctx: document.createDocumentFragment(), w: w, h: h };
   }
 
   function makeView(w, h) {
@@ -598,26 +645,21 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     return { x: view.ox + p.x * view.sc, y: view.oy + p.y * view.sc };
   }
 
-  function tracePts(ctx, view, pts) {
-    if (!pts || pts.length < 2) return;
-    var p0 = toScreen(view, pts[0]);
-    ctx.beginPath();
-    ctx.moveTo(p0.x, p0.y);
-    for (var i = 1; i < pts.length; i++) {
-      var p = toScreen(view, pts[i]);
-      ctx.lineTo(p.x, p.y);
-    }
+  function pathFor(view, pts) {
+    return pts.map(function (p, i) {
+      var at = toScreen(view, p);
+      return (i ? "L" : "M") + at.x.toFixed(2) + " " + at.y.toFixed(2);
+    }).join(" ");
   }
 
-  // Motorway level first, then streets on top with a white casing, so bridges read as bridges.
+  // One continuous road network. Bridges keep their white casing.
   function drawRoads(ctx, view) {
-    ctx.lineJoin = "round";
-    ctx.lineCap = "butt";
     var lane = LANE_W * view.sc;
     function stroke(list, color, width) {
-      ctx.strokeStyle = color;
-      ctx.lineWidth = width;
-      list.forEach(function (r) { tracePts(ctx, view, r.pts); ctx.stroke(); });
+      list.forEach(function (r) {
+        ctx.appendChild(svgNode("path", { d: pathFor(view, r.pts), fill: "none",
+          stroke: color, "stroke-width": width, "stroke-linejoin": "round" }));
+      });
     }
     var low = links.filter(function (r) { return r.level === 0; });
     var high = links.filter(function (r) { return r.level !== 0; });
@@ -630,28 +672,10 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
   function drawHome(ctx, view) {
     var at = toScreen(view, { x: road.home[0], y: road.home[1] });
     var s = Math.max(5, 2.4 * view.sc);
-    ctx.save();
-    ctx.translate(at.x + s * 1.6, at.y);
-    ctx.fillStyle = "#3a3a3a";
-    ctx.beginPath();
-    ctx.moveTo(-s, -s * 0.1);
-    ctx.lineTo(0, -s);
-    ctx.lineTo(s, -s * 0.1);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillRect(-s * 0.7, -s * 0.1, s * 1.4, s * 0.9);
-    ctx.restore();
-  }
-
-  function roundRect(ctx, x, y, w, h, r) {
-    var radius = Math.max(0, Math.min(r, w / 2, h / 2));
-    ctx.beginPath();
-    ctx.moveTo(x + radius, y);
-    ctx.arcTo(x + w, y, x + w, y + h, radius);
-    ctx.arcTo(x + w, y + h, x, y + h, radius);
-    ctx.arcTo(x, y + h, x, y, radius);
-    ctx.arcTo(x, y, x + w, y, radius);
-    ctx.closePath();
+    var g = svgNode("g", { transform: "translate(" + (at.x + s * 1.6) + " " + at.y + ")", fill: "#3a3a3a" });
+    g.appendChild(svgNode("path", { d: "M" + (-s) + " " + (-s * 0.1) + " L0 " + (-s) + " L" + s + " " + (-s * 0.1) + " Z" }));
+    g.appendChild(svgNode("rect", { x: -s * 0.7, y: -s * 0.1, width: s * 1.4, height: s * 0.9 }));
+    ctx.appendChild(g);
   }
 
   function pose(view, front, rear, length) {
@@ -666,15 +690,10 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     };
   }
 
-  function drawCar(ctx, p, color) {
-    ctx.save();
-    ctx.translate(p.x, p.y);
-    ctx.rotate(p.ang);
-    var r = Math.min(1.05, p.wid / 4);
-    roundRect(ctx, -p.len, -p.wid / 2, p.len, p.wid, r);
-    ctx.fillStyle = color;
-    ctx.fill();
-    ctx.restore();
+  function drawCar(ctx, p, color, id) {
+    ctx.appendChild(svgNode("rect", { x: -p.len, y: -p.wid / 2, width: p.len, height: p.wid,
+      rx: Math.min(1.05, p.wid / 4), fill: color, "data-car": id == null ? "dinner" : id,
+      transform: "translate(" + p.x + " " + p.y + ") rotate(" + (p.ang * 180 / Math.PI) + ")" }));
   }
 
   function cueAnchor() {
@@ -685,7 +704,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
   function exchangeAlpha(t) {
     var ex = town.exchange;
     if (!ex || !ex.lines || ex.lines.length < 2) return 0;
-    if (t + 1e-6 < ex.t) return 0;
+    if (!ready || t + 1e-6 < ex.t - 3) return 0;
     var fade = ex.fade_s > 0 ? ex.fade_s : 2.5;
     if (t <= ex.until) return 1;
     var u = (t - ex.until) / fade;
@@ -695,7 +714,9 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
   // Two short lines, one over each car, for the single town exchange. Grey on white.
   function drawExchange(ctx, view, t) {
     var alpha = exchangeAlpha(t);
-    if (alpha <= 0) return;
+    var pending = !ready && waitingSince != null;
+    if (alpha <= 0 && !pending) return;
+    if (pending) alpha = 1;
     var ex = town.exchange;
     var frames = town.frames;
     if (!frames.length) return;
@@ -707,6 +728,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     b.cars.forEach(function (car) { next[car[0]] = car; });
     var spots = [];
     ex.lines.forEach(function (line) {
+      if (!pending && line.id === ex.merges && t < ex.t - 1.5) return;
       var car = null;
       a.cars.forEach(function (item) { if (item[0] === line.id) car = item; });
       if (!car) return;
@@ -716,43 +738,35 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
       var d = later ? car[2] + (later[2] - car[2]) * u : car[2];
       if (d >= route.total) return;
       var at = toScreen(view, routeLoc(route, d));
-      spots.push({ id: line.id, say: line.say, x: at.x, y: at.y });
+      spots.push({ id: line.id, say: pending ? "negotiating…" : line.say, x: at.x, y: at.y });
     });
     if (!spots.length) return;
     var placed = spots.map(function (s) {
-      return { say: s.say, x: s.x, y: s.y - 14 };
+      return { say: s.say, x: s.x, y: s.y - 22 };
     });
     if (spots.length === 2 && Math.hypot(spots[1].x - spots[0].x, spots[1].y - spots[0].y) < 90) {
       var mid = (spots[0].x + spots[1].x) / 2;
       var top = Math.min(spots[0].y, spots[1].y);
       placed = spots.map(function (s) {
-        return { say: s.say, x: mid, y: top - (s.id === ex.yields ? 28 : 13) };
+        return { say: s.say, x: mid, y: top - (s.id === ex.yields ? 46 : 25) };
       });
     }
-    ctx.save();
-    ctx.font = "11px ui-sans-serif, system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "bottom";
-    ctx.lineWidth = 3;
-    ctx.lineJoin = "round";
-    ctx.strokeStyle = "rgba(255,255,255," + alpha.toFixed(3) + ")";
-    ctx.fillStyle = "rgba(90,90,90," + alpha.toFixed(3) + ")";
-    placed.forEach(function (s) {
-      ctx.strokeText(s.say, s.x, s.y);
-      ctx.fillText(s.say, s.x, s.y);
+    var g = svgNode("g", { opacity: alpha, "data-exchange": pending ? "pending" : ex.source });
+    placed.forEach(function (s, i) {
+      var spot = spots[i];
+      g.appendChild(svgNode("path", { d: "M" + spot.x + " " + (spot.y - 4) + " L" + s.x + " " + (s.y + 4),
+        stroke: "#999", "stroke-width": 0.7, fill: "none" }));
+      g.appendChild(svgNode("text", { x: s.x, y: s.y, "text-anchor": "middle", fill: "#444",
+        stroke: "white", "stroke-width": 4, "paint-order": "stroke", "font-size": 14,
+        "font-family": "system-ui, sans-serif", "data-speaker": spot.id }, s.say));
     });
-    ctx.restore();
+    ctx.appendChild(g);
   }
 
   function drawCue(ctx, view, role) {
     var at = toScreen(view, cueAnchor());
-    ctx.save();
-    ctx.font = "11px ui-sans-serif, system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = "#222";
-    ctx.fillText(role, at.x, at.y);
-    ctx.restore();
+    ctx.appendChild(svgNode("text", { x: at.x, y: at.y, fill: "#222", "font-size": 11,
+      "font-family": "system-ui, sans-serif", "text-anchor": "middle" }, role));
   }
 
   function drawDinner(ctx, view, frames, simT, cue) {
@@ -788,7 +802,12 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
       var v = later ? car[3] + (later[3] - car[3]) * u : car[3];
       if (d >= route.total) return;
       var p = pose(view, routeLoc(route, d), routeLoc(route, d - 4.5), 4.5);
-      drawCar(ctx, p, v < 2.5 ? "#d08a2a" : "#7a7a7a");
+      var ex = town.exchange;
+      var yielding = ex && ready && t >= ex.t && t <= ex.until && car[0] === ex.yields;
+      var merging = ex && ready && t >= ex.t - 3 && t <= ex.until && car[0] === ex.merges;
+      drawCar(ctx, p, yielding || v < 2.5 ? "#d08a2a" : (merging ? "#333" : "#7a7a7a"), car[0]);
+      if (yielding) ctx.appendChild(svgNode("text", { x: p.x, y: p.y + 19, "text-anchor": "middle",
+        fill: "#9b6520", "font-family": "system-ui, sans-serif", "font-size": 12, "data-role": "yield" }, "yield"));
     });
   }
 
@@ -797,9 +816,6 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     if (!canvas) return;
     var fitted = fit(canvas);
     var ctx = fitted.ctx;
-    ctx.clearRect(0, 0, fitted.w, fitted.h);
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(0, 0, fitted.w, fitted.h);
     var view = makeView(fitted.w, fitted.h);
     drawRoads(ctx, view);
     drawHome(ctx, view);
@@ -811,6 +827,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     var showCue = drawDinner(ctx, view, strip.frames, simT, cue);
     if (cue && showCue) drawCue(ctx, view, cue.role);
     drawExchange(ctx, view, townTime(now));
+    canvas.replaceChildren(ctx);
   }
   function loop(now) {
     paint(now);
@@ -837,6 +854,11 @@ pub fn write_board_html(html: &str) -> Result<PathBuf, MuseError> {
 /// Open the page in a real window. The child is detached so this process can exit.
 pub fn open_board(path: &Path) -> Result<(), MuseError> {
     let url = file_url(path);
+    open_board_url(&url)
+}
+
+/// Open a loopback board session in the same minimalist window.
+pub fn open_board_url(url: &str) -> Result<(), MuseError> {
     if let Some(bin) = chrome_bin() {
         if launch_chrome(bin, &url, false).is_ok() {
             return Ok(());
@@ -846,7 +868,7 @@ pub fn open_board(path: &Path) -> Result<(), MuseError> {
             return Ok(());
         }
     }
-    open_with_desktop(&url, path)
+    open_with_desktop(url, Path::new(url))
 }
 
 /// Write the page and open it.

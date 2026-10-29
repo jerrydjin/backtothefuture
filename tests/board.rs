@@ -152,11 +152,11 @@ fn board_dinner_is_red_red_green() {
     assert_eq!(html.matches("class=\"pill green\"").count(), 1);
     assert_eq!(html.matches(">RED</button>").count(), 2);
     assert_eq!(html.matches(">GREEN</button>").count(), 1);
-    assert!(html.contains("<canvas id=\"network\""));
+    assert!(html.contains("<svg id=\"network\""));
     assert_eq!(
-        html.matches("<canvas").count(),
+        html.matches("<svg").count(),
         1,
-        "the map is one network canvas"
+        "the map is one network SVG"
     );
     assert!(!html.contains("id=\"score\""));
     assert!(!html.contains("id=\"now\""));
