@@ -11,7 +11,8 @@ use serde::Serialize;
 use crate::episode::{DinnerRun, EpisodeOpts, ModeRun};
 use crate::error::MuseError;
 use crate::muse::MuseClient;
-use crate::network::{run_town, NetworkRun, DINNER_HOME};
+use crate::negotiate::{MergeTalk, ScriptedTalk};
+use crate::network::{run_town_with, NetworkRun, DINNER_HOME};
 use crate::schema::{Score, TalkPhase, WorldState, YieldRole};
 use crate::world::{CAR_LENGTH_M, CAR_WIDTH_M, LANE_WIDTH_M, TAPER_M};
 
@@ -106,6 +107,15 @@ pub fn dinner_board(
 }
 
 pub fn board_from_run(run: &DinnerRun, client_label: &str) -> DinnerBoard {
+    board_from_run_with(run, client_label, Box::new(ScriptedTalk))
+}
+
+/// Same board, with the negotiator that speaks once at one town merge.
+pub fn board_from_run_with(
+    run: &DinnerRun,
+    client_label: &str,
+    talk: Box<dyn MergeTalk>,
+) -> DinnerBoard {
     let (gate_s_m, home_s_m) = road_marks(run);
     DinnerBoard {
         client: client_label.to_string(),
@@ -125,7 +135,7 @@ pub fn board_from_run(run: &DinnerRun, client_label: &str) -> DinnerBoard {
             strip("negotiate", &run.negotiate, false),
         ],
         dinner_road: dinner_road(run, gate_s_m, home_s_m),
-        town: run_town(TOWN_SEED),
+        town: run_town_with(TOWN_SEED, talk),
     }
 }
 
@@ -258,6 +268,7 @@ fn road_marks(run: &DinnerRun) -> (f64, f64) {
 
 /// Self-contained page. Three mute pills carry the sticky RED / RED / GREEN.
 /// The script draws a white network and moves flat cars. One yield or merge cue.
+/// One town merge draws two short grey lines over those cars, then fades.
 pub fn render_board_html(board: &DinnerBoard) -> String {
     let json = serde_json::to_string(board).unwrap_or_else(|_| "{}".to_string());
     let json = json.replace('<', "\\u003c");
@@ -671,6 +682,68 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     return { x: p.x, y: p.y - 9 };
   }
 
+  function exchangeAlpha(t) {
+    var ex = town.exchange;
+    if (!ex || !ex.lines || ex.lines.length < 2) return 0;
+    if (t + 1e-6 < ex.t) return 0;
+    var fade = ex.fade_s > 0 ? ex.fade_s : 2.5;
+    if (t <= ex.until) return 1;
+    var u = (t - ex.until) / fade;
+    return u >= 1 ? 0 : 1 - u;
+  }
+
+  // Two short lines, one over each car, for the single town exchange. Grey on white.
+  function drawExchange(ctx, view, t) {
+    var alpha = exchangeAlpha(t);
+    if (alpha <= 0) return;
+    var ex = town.exchange;
+    var frames = town.frames;
+    if (!frames.length) return;
+    var i = Math.max(0, Math.min(frames.length - 1, Math.floor(t)));
+    var u = Math.max(0, Math.min(1, t - i));
+    var a = frames[i];
+    var b = frames[Math.min(i + 1, frames.length - 1)];
+    var next = {};
+    b.cars.forEach(function (car) { next[car[0]] = car; });
+    var spots = [];
+    ex.lines.forEach(function (line) {
+      var car = null;
+      a.cars.forEach(function (item) { if (item[0] === line.id) car = item; });
+      if (!car) return;
+      var route = routes[car[1]];
+      if (!route) return;
+      var later = next[car[0]];
+      var d = later ? car[2] + (later[2] - car[2]) * u : car[2];
+      if (d >= route.total) return;
+      var at = toScreen(view, routeLoc(route, d));
+      spots.push({ id: line.id, say: line.say, x: at.x, y: at.y });
+    });
+    if (!spots.length) return;
+    var placed = spots.map(function (s) {
+      return { say: s.say, x: s.x, y: s.y - 14 };
+    });
+    if (spots.length === 2 && Math.hypot(spots[1].x - spots[0].x, spots[1].y - spots[0].y) < 90) {
+      var mid = (spots[0].x + spots[1].x) / 2;
+      var top = Math.min(spots[0].y, spots[1].y);
+      placed = spots.map(function (s) {
+        return { say: s.say, x: mid, y: top - (s.id === ex.yields ? 28 : 13) };
+      });
+    }
+    ctx.save();
+    ctx.font = "11px ui-sans-serif, system-ui, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    ctx.lineWidth = 3;
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "rgba(255,255,255," + alpha.toFixed(3) + ")";
+    ctx.fillStyle = "rgba(90,90,90," + alpha.toFixed(3) + ")";
+    placed.forEach(function (s) {
+      ctx.strokeText(s.say, s.x, s.y);
+      ctx.fillText(s.say, s.x, s.y);
+    });
+    ctx.restore();
+  }
+
   function drawCue(ctx, view, role) {
     var at = toScreen(view, cueAnchor());
     ctx.save();
@@ -737,6 +810,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     var cue = oneCue(strip.frames, simT);
     var showCue = drawDinner(ctx, view, strip.frames, simT, cue);
     if (cue && showCue) drawCue(ctx, view, cue.role);
+    drawExchange(ctx, view, townTime(now));
   }
   function loop(now) {
     paint(now);

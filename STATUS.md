@@ -14,7 +14,13 @@ The scripted stub runs until `MODEL_API_KEY` is set. Curl does the HTTP. With a 
 
 ## Step 2
 
-Started. Negotiate sits beside the zone plan, on the same board. Two cars at the gore read the symbolic neighbor view and exchange yield / merge on the local stub. Agreement lets one in. Both demanding the gore holds. Cooperating cars clear it with no collision. No API key. `decide` is the local policy body; an HTTP client can replace it later. The live window draws that exchange on the cars at the gore. The sticky path is still selfish RED, dumb-equal RED, scripted GREEN.
+Started. Negotiate sits beside the zone plan, on the same board. Two cars at the gore read the symbolic neighbor view and exchange yield / merge on the local stub. Agreement lets one in. Both demanding the gore holds. Cooperating cars clear it with no collision. `decide` is the local policy body. The live window draws that exchange on the cars at the gore.
+
+One motorway merge on the town board speaks once. `GEMINI_API_KEY` calls Gemini through the curl adapter; a missing key, timeout, or unparseable reply uses the same local decision and a fixed two-line exchange (`source=fallback`). The lines sit over those two cars and fade after the yield. The judge still does not read them. The sticky path is still selfish RED, dumb-equal RED, scripted GREEN.
+
+```bash
+GEMINI_API_KEY=... cargo run -- --board
+```
 
 Cuts below are unchanged.
 
@@ -68,7 +74,7 @@ Knobs: `--cars`, `--jam symmetric|ramp-surge|mainline-plug`, `--prefs`, `--show`
 
 Real completions need `MODEL_API_KEY` (optional `MODEL_API_BASE`, `MODEL_API_MODEL`). Curl does the HTTP. The key is not logged.
 
-Unset key uses the scripted stub (`ALLOW_CHEAT`, default on) so the red/green loop still runs. `ALLOW_CHEAT=0` with no key fails closed. The board does not need a key. The negotiate exchange does not use it either.
+Unset key uses the scripted stub (`ALLOW_CHEAT`, default on) so the red/green loop still runs. `ALLOW_CHEAT=0` with no key fails closed. The board does not need a key. The one town-merge exchange uses `GEMINI_API_KEY` when it is set, and prints `source=fallback` when it is not.
 
 ## Handoffs
 

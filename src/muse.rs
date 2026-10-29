@@ -198,55 +198,169 @@ impl MuseClient for HttpMuse {
 impl HttpMuse {
     fn complete_inner(&self, prompt: &str) -> Result<String, String> {
         let url = format!("{}/chat/completions", self.base.trim_end_matches('/'));
-        let body = serde_json::json!({
-            "model": self.model,
-            "temperature": 0,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "You are Muse. Reply with one ZonePlan JSON object and no other text."
-                },
-                {"role": "user", "content": prompt}
-            ]
-        })
-        .to_string();
+        let body = openai_body(
+            &self.model,
+            "You are Muse. Reply with one ZonePlan JSON object and no other text.",
+            prompt,
+        );
         let auth = format!("authorization: Bearer {}", self.api_key);
-        let output = Command::new("curl")
-            .args([
-                "-sS",
-                "-X",
-                "POST",
-                &url,
-                "-H",
-                "content-type: application/json",
-                "-H",
-                &auth,
-                "-d",
-                &body,
-                "--max-time",
-                "30",
-            ])
-            .output()
-            .map_err(|error| format!("http: curl failed to start: {error}"))?;
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!(
-                "http: curl status {}: {}",
-                output.status,
-                stderr.trim()
-            ));
+        let text = curl_post(&url, &[auth], &body, 30, &self.api_key)?;
+        completion_text(&text).map_err(|error| redact(&error, &self.api_key))
+    }
+}
+
+/// One Gemini chat for the town-merge negotiator. Same curl adapter as [`HttpMuse`].
+///
+/// `GEMINI_API_KEY` is the credential. `MODEL_API_BASE` overrides the host when it
+/// is set. `MODEL_API_MODEL` overrides the model when the override is a Gemini
+/// model, or when `MODEL_API_BASE` points somewhere else.
+#[derive(Clone, Debug)]
+pub struct GeminiChat {
+    api_key: String,
+    base: String,
+    model: String,
+    openai: bool,
+}
+
+impl GeminiChat {
+    pub fn from_key(api_key: impl Into<String>) -> Self {
+        let api_key = api_key.into();
+        let base_env = std::env::var("MODEL_API_BASE")
+            .ok()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty());
+        let model_env = std::env::var("MODEL_API_MODEL")
+            .ok()
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty());
+        let (base, model, openai) = match base_env {
+            Some(base) => {
+                let openai =
+                    base.contains("/openai") || !base.contains("generativelanguage.googleapis.com");
+                let model = model_env.unwrap_or_else(|| "gemini-2.5-flash".to_string());
+                (base, model, openai)
+            }
+            None => {
+                let model = match model_env {
+                    Some(model) if model.starts_with("gemini") => model,
+                    _ => "gemini-2.5-flash".to_string(),
+                };
+                (
+                    "https://generativelanguage.googleapis.com/v1beta".to_string(),
+                    model,
+                    false,
+                )
+            }
+        };
+        Self {
+            api_key,
+            base,
+            model,
+            openai,
         }
-        let text = String::from_utf8_lossy(&output.stdout).to_string();
-        let value: serde_json::Value = serde_json::from_str(&text)
-            .map_err(|_| format!("http: response was not JSON: {}", truncate(&text)))?;
-        if let Some(content) = value["choices"][0]["message"]["content"].as_str() {
+    }
+
+    /// Raw model text, or an error. The key is redacted. Callers fall back.
+    pub fn complete(&self, system: &str, user: &str) -> Result<String, String> {
+        let (url, body, header) = if self.openai {
+            (
+                format!("{}/chat/completions", self.base.trim_end_matches('/')),
+                openai_body(&self.model, system, user),
+                format!("authorization: Bearer {}", self.api_key),
+            )
+        } else {
+            (
+                format!(
+                    "{}/models/{}:generateContent",
+                    self.base.trim_end_matches('/'),
+                    self.model
+                ),
+                serde_json::json!({
+                    "systemInstruction": {"parts": [{"text": system}]},
+                    "contents": [{"role": "user", "parts": [{"text": user}]}],
+                    "generationConfig": {"temperature": 0, "maxOutputTokens": 256}
+                })
+                .to_string(),
+                format!("x-goog-api-key: {}", self.api_key),
+            )
+        };
+        let text = curl_post(&url, &[header], &body, 15, &self.api_key)?;
+        completion_text(&text).map_err(|error| redact(&error, &self.api_key))
+    }
+}
+
+fn openai_body(model: &str, system: &str, user: &str) -> String {
+    serde_json::json!({
+        "model": model,
+        "temperature": 0,
+        "messages": [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user}
+        ]
+    })
+    .to_string()
+}
+
+/// Pull the assistant text out of an OpenAI chat body or a Gemini `generateContent` body.
+pub fn completion_text(body: &str) -> Result<String, String> {
+    let value: serde_json::Value = serde_json::from_str(body)
+        .map_err(|_| format!("http: response was not JSON: {}", truncate(body)))?;
+    if let Some(content) = value["choices"][0]["message"]["content"].as_str() {
+        let content = content.trim();
+        if !content.is_empty() {
             return Ok(content.to_string());
         }
-        let message = value["error"]["message"]
-            .as_str()
-            .unwrap_or("missing completion");
-        Err(format!("http: {message}"))
     }
+    if let Some(parts) = value["candidates"][0]["content"]["parts"].as_array() {
+        let mut text = String::new();
+        for part in parts {
+            if let Some(piece) = part["text"].as_str() {
+                text.push_str(piece);
+            }
+        }
+        let text = text.trim();
+        if !text.is_empty() {
+            return Ok(text.to_string());
+        }
+    }
+    let message = value["error"]["message"]
+        .as_str()
+        .unwrap_or("missing completion");
+    Err(format!("http: {message}"))
+}
+
+fn curl_post(
+    url: &str,
+    headers: &[String],
+    body: &str,
+    timeout_secs: u64,
+    api_key: &str,
+) -> Result<String, String> {
+    let timeout = timeout_secs.to_string();
+    let mut cmd = Command::new("curl");
+    cmd.args([
+        "-sS",
+        "-X",
+        "POST",
+        url,
+        "-H",
+        "content-type: application/json",
+    ]);
+    for header in headers {
+        cmd.args(["-H", header]);
+    }
+    cmd.args(["-d", body, "--max-time", &timeout]);
+    let output = cmd
+        .output()
+        .map_err(|error| redact(&format!("http: curl failed to start: {error}"), api_key))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(redact(
+            &format!("http: curl status {}: {}", output.status, stderr.trim()),
+            api_key,
+        ));
+    }
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
 fn redact(message: &str, key: &str) -> String {
@@ -328,5 +442,16 @@ mod tests {
         let live = MuseKind::from_key(Some("test-key"), false).unwrap();
         assert!(matches!(live, MuseKind::Http(_)));
         assert_eq!(live.label(), "muse");
+    }
+
+    #[test]
+    fn completion_text_reads_openai_and_gemini_bodies() {
+        let openai = r#"{"choices":[{"message":{"content":"{\"ok\":true}"}}]}"#;
+        assert_eq!(completion_text(openai).unwrap(), "{\"ok\":true}");
+        let gemini =
+            r#"{"candidates":[{"content":{"parts":[{"text":"{\"lines\":[]}"},{"text":""}]}}]}"#;
+        assert_eq!(completion_text(gemini).unwrap(), "{\"lines\":[]}");
+        let missing = completion_text(r#"{"error":{"message":"API key not valid"}}"#);
+        assert!(missing.unwrap_err().contains("API key not valid"));
     }
 }

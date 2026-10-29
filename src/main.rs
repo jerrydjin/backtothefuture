@@ -3,8 +3,9 @@
 use std::env;
 use std::process::ExitCode;
 
+use muse::negotiate::negotiator_from_env;
 use muse::{
-    board_from_run, interpret_english, present_board, render_board_html, run_dinner, Bias,
+    board_from_run_with, interpret_english, present_board, render_board_html, run_dinner, Bias,
     EpisodeOpts, JamType, MuseKind, Scenario, Verdict, DINNER_SENTENCE,
 };
 
@@ -73,7 +74,11 @@ fn main() -> ExitCode {
         println!("\n{} trace\n{trace}", report.client);
     }
     if args.board {
-        let html = render_board_html(&board_from_run(&dinner, muse.label()));
+        let board = board_from_run_with(&dinner, muse.label(), negotiator_from_env());
+        if let Some(exchange) = &board.town.exchange {
+            println!("{}", exchange.log());
+        }
+        let html = render_board_html(&board);
         match present_board(&html) {
             Ok(path) => println!("board: {}", path.display()),
             Err(error) => {
@@ -170,6 +175,9 @@ Knobs:
   --show                   print the ramp merge in the terminal: wreck, held jam, and cleared road
   --board                  open the live birds-eye window: white network, flat cars, one yield or merge cue
   --help
+
+Negotiation:
+  GEMINI_API_KEY           one town merge speaks through Gemini. Unset, timeout, or a bad reply prints source=fallback.
 
 Score:
   GREEN requires zero collisions, every car home, fairness <= 0.15, and time-home inside budget.

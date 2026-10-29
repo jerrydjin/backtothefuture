@@ -12,6 +12,7 @@ use std::collections::BinaryHeap;
 
 use serde::Serialize;
 
+use crate::negotiate::{car_pref, MergeCar, MergeLine, MergeSnap, MergeTalk, ScriptedTalk};
 use crate::world::{
     A_MAX_MPS2, B_MAX_MPS2, CAR_LENGTH_M, CAR_WIDTH_M, LANE_WIDTH_M, MIN_GAP_M, V_MAX_MPS,
 };
@@ -40,6 +41,12 @@ const LOOKAHEAD_M: f64 = 140.0;
 const BACKLOG_CAP: u32 = 12;
 /// Below this a car counts as queued.
 pub const QUEUED_MPS: f64 = 1.0;
+/// Two cars this close to one motorway merge, in meters, can speak once.
+const MEET_M: f64 = 22.0;
+/// The yielder stays at the line at least this long, so the yield is visible.
+const YIELD_HOLD_S: f64 = 3.0;
+/// A merger who never finds a gap cannot pin the yielder past this.
+const YIELD_CAP_S: f64 = 14.0;
 
 /// Where the dinner road's home sits on the town map: the block between the
 /// motorway, the south arterial, and the first two cross streets.
@@ -122,6 +129,8 @@ struct Node {
     weight: f64,
     /// Map gate. Both carriageways of the motorway share one, so no trip turns back on itself.
     gate: usize,
+    /// Eastbound or westbound on-ramp merge. At most one of these speaks.
+    negotiate: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -249,6 +258,7 @@ fn town_plan() -> (Vec<Node>, Vec<EdgeDef>) {
             rate: 0.0,
             weight: 0.0,
             gate: nodes.len(),
+            negotiate: false,
         });
         nodes.len() - 1
     };
@@ -286,6 +296,10 @@ fn town_plan() -> (Vec<Node>, Vec<EdgeDef>) {
     // Motorway merges zipper. Ramp terminals take turns like an all-way give way.
     for zip in [eb_on2, wb_on3, wb_on2, t2n, t2s, t3n, t3s] {
         nodes[zip].zipper = true;
+    }
+    // One of these on-ramp merges hosts the single negotiated yield.
+    for merge in [eb_on2, wb_on2, wb_on3] {
+        nodes[merge].negotiate = true;
     }
     nodes[wbw].gate = ebw;
     nodes[ebe].gate = wbe;
@@ -652,6 +666,43 @@ pub struct NetStats {
     pub overlaps: u32,
 }
 
+/// The one spoken exchange at a motorway merge. The board fades it after the yield.
+#[derive(Clone, Debug, Serialize)]
+pub struct TownExchange {
+    /// Seconds from the start of the recording.
+    pub t: f64,
+    /// When the merger's rear cleared the line. Labels fade after this.
+    pub until: f64,
+    pub fade_s: f64,
+    pub yields: u32,
+    pub merges: u32,
+    /// `model` or `fallback`.
+    pub source: String,
+    pub lines: Vec<MergeLine>,
+}
+
+impl TownExchange {
+    /// Stdout log: the two lines, who yields, and whether a model wrote them.
+    pub fn log(&self) -> String {
+        let mut lines = self.lines.clone();
+        lines.sort_by_key(|line| line.id);
+        let mut out = format!(
+            "negotiate source={} t={:.1} until={:.1}",
+            self.source, self.t, self.until
+        );
+        for line in &lines {
+            out.push('\n');
+            out.push_str(&format!("negotiate {}: {}", line.id, line.say));
+        }
+        out.push('\n');
+        out.push_str(&format!(
+            "negotiate yields={} merges={}",
+            self.yields, self.merges
+        ));
+        out
+    }
+}
+
 /// A recorded run of the town, ready to draw.
 #[derive(Clone, Debug, Serialize)]
 pub struct NetworkRun {
@@ -660,6 +711,19 @@ pub struct NetworkRun {
     pub frames: Vec<NetFrame>,
     pub stats: NetStats,
     pub dt: f64,
+    /// Spoken once, at one merge. Empty when that merge never saw two cars.
+    pub exchange: Option<TownExchange>,
+}
+
+/// Who yields at the one negotiated merge, and when the merger cleared the line.
+struct Hold {
+    yields: u32,
+    merges: u32,
+    lines: Vec<MergeLine>,
+    source: String,
+    spoken_at: f64,
+    line_d: f64,
+    cleared_at: Option<f64>,
 }
 
 /// Small deterministic generator, so the board and the tests see the same town.
@@ -705,10 +769,16 @@ pub struct TownSim {
     next_id: u32,
     spawned: u32,
     exited: u32,
+    talk: Box<dyn MergeTalk>,
+    hold: Option<Hold>,
 }
 
 impl TownSim {
     pub fn new(seed: u64) -> Self {
+        Self::with_talk(seed, Box::new(ScriptedTalk))
+    }
+
+    pub fn with_talk(seed: u64, talk: Box<dyn MergeTalk>) -> Self {
         let net = Network::town();
         let mut routes = Vec::new();
         let mut trips = vec![Vec::new(); net.sources.len()];
@@ -737,6 +807,8 @@ impl TownSim {
             next_id: 0,
             spawned: 0,
             exited: 0,
+            talk,
+            hold: None,
         }
     }
 
@@ -803,6 +875,7 @@ impl TownSim {
         self.retire();
         self.spawn();
         self.time += NET_DT_S;
+        self.note_clearance();
     }
 
     fn release_claims(&mut self) {
@@ -852,6 +925,7 @@ impl TownSim {
                     fronts.iter().map(|body| body.car).collect()
                 })
                 .collect();
+            self.consider_merge(node, &ins, &queues);
             let mut cursor = vec![0usize; ins.len()];
             let mut blocked = vec![false; ins.len()];
             loop {
@@ -877,12 +951,22 @@ impl TownSim {
                     break;
                 }
                 let last = self.last_served[node];
+                let merging = |ci: usize| {
+                    self.hold.as_ref().is_some_and(|hold| {
+                        hold.cleared_at.is_none()
+                            && hold.merges == self.cars[ci].id
+                            && self.net.nodes[node].negotiate
+                    })
+                };
                 heads.sort_by(|x, y| {
                     let px = self.net.priority(ins[x.0]);
                     let py = self.net.priority(ins[y.0]);
                     let fresh_x = last != Some(ins[x.0]);
                     let fresh_y = last != Some(ins[y.0]);
-                    py.cmp(&px)
+                    let mx = u8::from(merging(x.1));
+                    let my = u8::from(merging(y.1));
+                    my.cmp(&mx)
+                        .then(py.cmp(&px))
                         .then(fresh_y.cmp(&fresh_x))
                         .then(x.2.partial_cmp(&y.2).unwrap_or(Ordering::Equal))
                 });
@@ -908,6 +992,7 @@ impl TownSim {
                 }
             }
         }
+        self.pin_yielder();
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -921,6 +1006,9 @@ impl TownSim {
         held: &[Vec<usize>],
         index: &[Vec<Body>],
     ) -> bool {
+        if self.must_yield(self.cars[ci].id) {
+            return false;
+        }
         let car = &self.cars[ci];
         let route = &self.routes[car.route];
         let Some(k) = self.next_connector(car) else {
@@ -1023,6 +1111,13 @@ impl TownSim {
     }
 
     fn drive(&mut self, index: &[Vec<Body>]) {
+        let pinned = self.hold.as_ref().and_then(|hold| {
+            if hold.cleared_at.is_none() {
+                Some(hold.yields)
+            } else {
+                None
+            }
+        });
         let mut next = Vec::with_capacity(self.cars.len());
         for (ci, car) in self.cars.iter().enumerate() {
             let route = &self.routes[car.route];
@@ -1076,6 +1171,13 @@ impl TownSim {
             }
             let acc = acc.clamp(-2.0 * B_MAX_MPS2, A_MAX_MPS2.min(IDM_A));
             let mut v_next = (v + acc * NET_DT_S).max(0.0);
+            if pinned == Some(car.id) {
+                if let Some(k) = self.next_connector(car) {
+                    let to_line = (self.routes[car.route].start[k] - car.d).max(0.0);
+                    let v_cap = (2.0 * IDM_B * to_line).sqrt();
+                    v_next = v_next.min(v_cap);
+                }
+            }
             let mut step = (v + v_next) / 2.0 * NET_DT_S;
             if let Some((pos, _)) = obstacle {
                 let room = (pos - 0.2 - car.d).max(0.0);
@@ -1182,6 +1284,178 @@ impl TownSim {
         count
     }
 
+    fn must_yield(&self, id: u32) -> bool {
+        self.hold
+            .as_ref()
+            .is_some_and(|hold| hold.cleared_at.is_none() && hold.yields == id)
+    }
+
+    fn pin_yielder(&mut self) {
+        let Some(id) = self.hold.as_ref().and_then(|hold| {
+            if hold.cleared_at.is_none() {
+                Some(hold.yields)
+            } else {
+                None
+            }
+        }) else {
+            return;
+        };
+        if let Some(car) = self.cars.iter_mut().find(|car| car.id == id) {
+            if car.claim.is_none() {
+                car.waiting = true;
+            }
+        }
+    }
+
+    fn consider_merge(&mut self, node: usize, ins: &[usize], queues: &[Vec<usize>]) {
+        if self.hold.is_some() || self.time < WARMUP_S || !self.net.nodes[node].negotiate {
+            return;
+        }
+        let Some((ca, cb)) = self.contested(ins, queues) else {
+            return;
+        };
+        let snap = self.merge_snap(ca, cb);
+        let choice = self.talk.agree(&snap);
+        let ids = [snap.cars[0].id, snap.cars[1].id];
+        if choice.yields == choice.merges
+            || !ids.contains(&choice.yields)
+            || !ids.contains(&choice.merges)
+        {
+            return;
+        }
+        let merger_ci = if self.cars[ca].id == choice.merges {
+            ca
+        } else {
+            cb
+        };
+        let Some(line_d) = self.stop_line(merger_ci) else {
+            return;
+        };
+        self.hold = Some(Hold {
+            yields: choice.yields,
+            merges: choice.merges,
+            lines: choice.lines,
+            source: choice.source,
+            spoken_at: self.time,
+            line_d,
+            cleared_at: None,
+        });
+    }
+
+    /// Closest two unclaimed cars on different approaches, both near the line, whose paths cross.
+    fn contested(&self, ins: &[usize], queues: &[Vec<usize>]) -> Option<(usize, usize)> {
+        let mut heads = Vec::new();
+        for (a, queue) in queues.iter().enumerate() {
+            let Some(ci) = queue
+                .iter()
+                .copied()
+                .find(|ci| self.cars[*ci].claim.is_none())
+            else {
+                continue;
+            };
+            let car = &self.cars[ci];
+            let route = &self.routes[car.route];
+            if car.idx >= route.links.len() || route.links[car.idx] != ins[a] {
+                continue;
+            }
+            if self.net.links[ins[a]].is_connector() || car.idx + 1 >= route.links.len() {
+                continue;
+            }
+            let along = car.d - route.start[car.idx];
+            let to_line = self.net.links[ins[a]].len - along;
+            if !(0.0..=MEET_M).contains(&to_line) {
+                continue;
+            }
+            heads.push((ci, route.links[car.idx + 1], to_line));
+        }
+        heads.sort_by(|left, right| left.2.partial_cmp(&right.2).unwrap_or(Ordering::Equal));
+        for i in 0..heads.len() {
+            for j in (i + 1)..heads.len() {
+                let (ca, wa, _) = heads[i];
+                let (cb, wb, _) = heads[j];
+                if wa == wb || self.net.conflicts_of(wa).contains(&wb) {
+                    return Some((ca, cb));
+                }
+            }
+        }
+        None
+    }
+
+    fn merge_snap(&self, ca: usize, cb: usize) -> MergeSnap {
+        let view = |ci: usize| {
+            let car = &self.cars[ci];
+            let route = &self.routes[car.route];
+            let link = route.links[car.idx];
+            let along = (car.d - route.start[car.idx]).max(0.0);
+            let len = self.net.links[link].len;
+            let [x, y] = self.net.links[link].point_at(along.min(len));
+            MergeCar {
+                id: car.id,
+                x: round1(x),
+                y: round1(y),
+                s_to_line_m: round1((len - along).max(0.0)),
+                v_mps: round1(car.v),
+                gap_m: 0.0,
+                pref: car_pref(car.id).to_string(),
+            }
+        };
+        let mut a = view(ca);
+        let mut b = view(cb);
+        let gap = round1((a.x - b.x).hypot(a.y - b.y));
+        a.gap_m = gap;
+        b.gap_m = gap;
+        if a.id > b.id {
+            std::mem::swap(&mut a, &mut b);
+        }
+        MergeSnap { cars: [a, b] }
+    }
+
+    fn stop_line(&self, ci: usize) -> Option<f64> {
+        let car = &self.cars[ci];
+        let k = self.next_connector(car)?;
+        Some(self.routes[car.route].start[k])
+    }
+
+    fn note_clearance(&mut self) {
+        let Some(hold) = self.hold.as_ref() else {
+            return;
+        };
+        if hold.cleared_at.is_some() {
+            return;
+        }
+        let merges = hold.merges;
+        let line_d = hold.line_d;
+        let spoken = hold.spoken_at;
+        let through = self
+            .cars
+            .iter()
+            .find(|car| car.id == merges)
+            .map(|car| car.d - CAR_LENGTH_M > line_d)
+            .unwrap_or(true);
+        let held = self.time - spoken >= YIELD_HOLD_S;
+        if (through && held) || self.time - spoken >= YIELD_CAP_S {
+            if let Some(hold) = self.hold.as_mut() {
+                hold.cleared_at = Some(self.time);
+            }
+        }
+    }
+
+    fn exchange(&self) -> Option<TownExchange> {
+        let hold = self.hold.as_ref()?;
+        let t = (hold.spoken_at - WARMUP_S).max(0.0);
+        let until_at = hold.cleared_at.unwrap_or(hold.spoken_at + 8.0);
+        let until = (until_at - WARMUP_S).max(t);
+        Some(TownExchange {
+            t: round1(t),
+            until: round1(until),
+            fade_s: 2.5,
+            yields: hold.yields,
+            merges: hold.merges,
+            source: hold.source.clone(),
+            lines: hold.lines.clone(),
+        })
+    }
+
     fn frame(&self, t: u32) -> NetFrame {
         NetFrame {
             t,
@@ -1202,7 +1476,12 @@ fn claim_reach(v: f64) -> f64 {
 
 /// Run the town through warm-up and the recorded rush.
 pub fn run_town(seed: u64) -> NetworkRun {
-    let mut sim = TownSim::new(seed);
+    run_town_with(seed, Box::new(ScriptedTalk))
+}
+
+/// Same recording as [`run_town`], with the negotiator that speaks at one merge.
+pub fn run_town_with(seed: u64, talk: Box<dyn MergeTalk>) -> NetworkRun {
+    let mut sim = TownSim::with_talk(seed, talk);
     let warm_steps = (WARMUP_S / NET_DT_S).round() as u32;
     for _ in 0..warm_steps {
         sim.step();
@@ -1231,12 +1510,14 @@ pub fn run_town(seed: u64) -> NetworkRun {
     stats.spawned = sim.spawned - spawned_before;
     stats.exited = sim.exited - exited_before;
     let routes = sim.routes.iter().map(|route| route.links.clone()).collect();
+    let exchange = sim.exchange();
     NetworkRun {
         links: sim.net.links.clone(),
         routes,
         frames,
         stats,
         dt: STEPS_PER_FRAME as f64 * NET_DT_S,
+        exchange,
     }
 }
 
