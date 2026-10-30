@@ -521,6 +521,12 @@ fn run_rush_hour(args: &Args) -> Result<(), String> {
     }
     println!("rush-hour-score {}", serde_json::to_string(score).unwrap());
     println!("policy    emergency_gain(s) others_mean(s) others_p95(s) liar_win_rate collisions");
+    if score.policy != "fcfs" {
+        println!(
+            "fcfs                   0.00           0.00          0.00         0.000 {:>10}",
+            score.baseline_collisions
+        );
+    }
     println!(
         "{:<9} {:>17.2} {:>14.2} {:>13.2} {:>13.3} {:>10}",
         score.policy,
@@ -531,7 +537,9 @@ fn run_rush_hour(args: &Args) -> Result<(), String> {
         score.collisions
     );
     if !score.passed {
-        return Err("incomplete or unsafe paired run; inspect score".into());
+        return Err(
+            "incomplete, unsafe, or missing required model decisions; inspect score".into(),
+        );
     }
     Ok(())
 }

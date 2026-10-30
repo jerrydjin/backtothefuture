@@ -61,17 +61,7 @@ pub struct Keyword;
 pub struct Mock;
 
 fn urgent(text: &str) -> bool {
-    let lower = text.to_lowercase();
-    [
-        "chest pain",
-        "labour",
-        "labor",
-        "bleeding",
-        "cannot breathe",
-        "can't breathe",
-    ]
-    .iter()
-    .any(|word| lower.contains(word))
+    crate::reason::plausible_medical_emergency(text)
 }
 
 fn detail(text: &str) -> &str {
@@ -381,6 +371,7 @@ pub struct Score {
     pub model_decisions: usize,
     pub fallback_decisions: usize,
     pub collisions: u32,
+    pub baseline_collisions: u32,
     pub passed: bool,
 }
 
@@ -449,7 +440,7 @@ pub fn simulate(seed: u64, policy: &dyn Policy) -> Result<Run, String> {
         if step % 4 == 0 {
             frames.push(sim.experiment_frame());
         }
-        if home.len() == trips.len() && cursor == trips.len() {
+        if home.len() == trips.len() && cursor == trips.len() && step % 4 == 0 {
             break;
         }
         sim.step();
@@ -512,6 +503,7 @@ pub fn score(seed: u64, policy: &str, run: &Run, baseline: &Run) -> Result<Score
         }
     }
     let collisions = run.town.stats.overlaps + run.town.stats.crossing_conflicts;
+    let baseline_collisions = baseline.town.stats.overlaps + baseline.town.stats.crossing_conflicts;
     Ok(Score {
         seed,
         policy: policy.into(),
@@ -528,7 +520,9 @@ pub fn score(seed: u64, policy: &str, run: &Run, baseline: &Run) -> Result<Score
             .filter(|d| d.source == "fallback")
             .count(),
         collisions,
+        baseline_collisions,
         passed: collisions == 0
+            && baseline_collisions == 0
             && run.home.len() == run.trips.len()
             && baseline.home.len() == baseline.trips.len(),
     })

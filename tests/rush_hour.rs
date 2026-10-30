@@ -51,7 +51,7 @@ fn pool_is_fixed_with_repeated_riders_and_hidden_truth() {
 
 #[test]
 fn fcfs_is_deterministic_and_keyword_uses_identical_demand() {
-    let a = rush_hour::run(1, &Fcfs).unwrap();
+    let mut a = rush_hour::run(1, &Fcfs).unwrap();
     let b = rush_hour::run(1, &Fcfs).unwrap();
     assert_eq!(a.score, b.score);
     assert_eq!(
@@ -69,6 +69,28 @@ fn fcfs_is_deterministic_and_keyword_uses_identical_demand() {
     assert!(k.score.passed);
     assert_eq!(k.score.collisions, 0);
     assert_eq!(k.score.liar_win_rate, 1.0);
+    let mut emergency = 0;
+    for t in &a.run.trips {
+        let baseline = b.run.home[&t.car];
+        let shifted = if t.truth == Truth::Emergency {
+            emergency += 1;
+            baseline - if emergency <= 12 { 2.0 } else { 6.0 }
+        } else {
+            baseline + 3.0
+        };
+        a.run.home.insert(t.car, shifted);
+    }
+    for d in &mut a.run.decisions {
+        let trip = a.run.trips.iter().find(|t| t.car == d.car).unwrap();
+        d.granted = trip.truth == Truth::Liar && trip.claim_number == 1;
+    }
+    let measured = rush_hour::score(1, "fixture", &a.run, &b.run).unwrap();
+    assert_eq!(measured.emergency_gain, 4.0);
+    assert_eq!(measured.others_cost.mean_s, 3.0);
+    assert_eq!(measured.others_cost.p95_s, 3.0);
+    assert_eq!(measured.liar_win_rate, 1.0 / 3.0);
+    a.run.trips[0].route += 1;
+    assert!(rush_hour::score(1, "fixture", &a.run, &b.run).is_err());
 }
 
 #[test]
