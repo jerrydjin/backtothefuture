@@ -38,6 +38,8 @@ pub struct MergeCar {
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct MergeSnap {
     pub cars: [MergeCar; 2],
+    /// The queue head carrying a priority request, if any.
+    pub priority_for: Option<u32>,
 }
 
 /// One spoken line. `say` is one to six words.
@@ -61,7 +63,7 @@ pub struct MergeChoice {
 }
 
 /// `agree` picks who yields. The town sim moves the cars.
-pub trait MergeTalk: Send {
+pub trait MergeTalk: Send + Sync {
     fn agree(&self, snap: &MergeSnap) -> MergeChoice;
 }
 
@@ -76,7 +78,7 @@ impl MergeTalk for ScriptedTalk {
 }
 
 /// Something that returns model text for a prompt. Tests pass a recorded body.
-pub trait Completer: Send {
+pub trait Completer: Send + Sync {
     fn complete(&self, prompt: &str) -> Result<String, String>;
 }
 
@@ -193,11 +195,12 @@ pub fn render_merge_prompt(snap: &MergeSnap) -> String {
             pref: &car.pref,
         })
         .collect();
+    let priority = snap.priority_for.map(|id| format!("Priority request: car {id} is clearing the requested path. The other car must yield. Reflect the request in both lines.\n")).unwrap_or_default();
     let state = serde_json::to_string(&cars).unwrap_or_else(|_| "[]".to_string());
     let id0 = snap.cars[0].id;
     let id1 = snap.cars[1].id;
     format!(
-        "Two cars meet at one merge. You do not drive or brake. Distances are meters.\n\
+        "{priority}Two cars meet at one merge. You do not drive or brake. Distances are meters.\n\
 Reply with one JSON object and nothing else.\n\
 Schema: {{\"lines\":[{{\"id\":{id0},\"say\":\"<1-6 words, in this car's voice, reflecting its pref>\"}},{{\"id\":{id1},\"say\":\"<1-6 words, in this car's voice, reflecting its pref>\"}}],\"yields\":<id of the car that waits>}}\n\
 Rules:\n\
@@ -268,7 +271,7 @@ fn parse_model_exchange(text: &str, snap: &MergeSnap) -> Result<MergeChoice, Str
             say: line.say.trim().to_string(),
         });
     }
-    if !ids.contains(&parsed.yields) {
+    if !ids.contains(&parsed.yields) || snap.priority_for == Some(parsed.yields) {
         return Err("yields".into());
     }
     let merges = ids
@@ -306,7 +309,7 @@ fn scripted_choice(snap: &MergeSnap, reason: &str) -> MergeChoice {
         neighbors: &[peer_neighbor(b, Approach::Ramp)],
         heard: &[],
     });
-    let (yields, merges) = match decision.role {
+    let (mut yields, mut merges) = match decision.role {
         YieldRole::Yield => (a.id, b.id),
         YieldRole::Merge => (b.id, a.id),
         YieldRole::Hold => {
@@ -317,14 +320,29 @@ fn scripted_choice(snap: &MergeSnap, reason: &str) -> MergeChoice {
             }
         }
     };
+    if let Some(first) = snap.priority_for {
+        merges = first;
+        yields = if first == a.id { b.id } else { a.id };
+    }
+    let say = |id| {
+        if snap.priority_for.is_some() {
+            if id == yields {
+                "Priority coming, I'll wait"
+            } else {
+                "Thanks, clearing the path"
+            }
+        } else {
+            say_for(id, yields)
+        }
+    };
     let mut lines = vec![
         MergeLine {
             id: a.id,
-            say: say_for(a.id, yields).to_string(),
+            say: say(a.id).to_string(),
         },
         MergeLine {
             id: b.id,
-            say: say_for(b.id, yields).to_string(),
+            say: say(b.id).to_string(),
         },
     ];
     lines.sort_by_key(|line| line.id);
@@ -594,6 +612,7 @@ mod tests {
 
     fn snap(a: u32, b: u32) -> MergeSnap {
         MergeSnap {
+            priority_for: None,
             cars: [car(a, 10.0, 12.0, 8.0), car(b, 28.0, 9.0, 11.0)],
         }
     }

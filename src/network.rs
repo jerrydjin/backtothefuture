@@ -664,6 +664,8 @@ pub struct NetStats {
     pub peak_cars: u32,
     /// Body overlaps between cars in the same lane. Should stay zero.
     pub overlaps: u32,
+    /// Crossing connector occupancy conflicts, checked at every physics step.
+    pub crossing_conflicts: u32,
 }
 
 /// The one spoken exchange at a motorway merge. The board fades it after the yield.
@@ -685,6 +687,8 @@ pub struct TownExchange {
     pub lines: Vec<MergeLine>,
     /// Symbolic forecast at the encounter, used to ask ahead of playback.
     pub forecast: MergeSnap,
+    /// Car whose requested route this agreement clears.
+    pub priority_id: Option<u32>,
 }
 
 impl TownExchange {
@@ -723,6 +727,34 @@ pub struct NetworkRun {
     pub dt: f64,
     /// Spoken once, at one merge. Empty when that merge never saw two cars.
     pub exchange: Option<TownExchange>,
+    /// Successive agreements for the priority story; empty on the ordinary board.
+    pub exchanges: Vec<TownExchange>,
+    pub priority: Option<PriorityResult>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize)]
+pub struct PriorityRequest {
+    pub car_id: u32,
+    /// Seconds from the start of the recording.
+    pub at_s: f64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct PriorityResult {
+    pub request: PriorityRequest,
+    pub enabled: bool,
+    pub route: Option<usize>,
+    pub home_at_s: Option<f64>,
+    pub time_home_s: Option<f64>,
+    pub baseline_time_home_s: Option<f64>,
+}
+
+struct PriorityTrip {
+    request: PriorityRequest,
+    enabled: bool,
+    route: Option<usize>,
+    home_at: Option<f64>,
+    served: Vec<usize>,
 }
 
 /// Who yields at the one negotiated merge, and when the merger cleared the line.
@@ -736,7 +768,11 @@ struct Hold {
     spoken_at: f64,
     line_d: f64,
     cleared_at: Option<f64>,
+    speaker_cleared_at: Option<f64>,
     forecast: MergeSnap,
+    node: usize,
+    stream: usize,
+    beneficiary: Option<(u32, f64)>,
 }
 
 /// Small deterministic generator, so the board and the tests see the same town.
@@ -784,6 +820,8 @@ pub struct TownSim {
     exited: u32,
     talk: Box<dyn MergeTalk>,
     hold: Option<Hold>,
+    history: Vec<Hold>,
+    priority: Option<PriorityTrip>,
 }
 
 impl TownSim {
@@ -822,6 +860,8 @@ impl TownSim {
             exited: 0,
             talk,
             hold: None,
+            history: Vec::new(),
+            priority: None,
         }
     }
 
@@ -880,6 +920,15 @@ impl TownSim {
     }
 
     pub fn step(&mut self) {
+        if let Some(p) = &mut self.priority {
+            if self.time >= WARMUP_S + p.request.at_s && p.route.is_none() {
+                p.route = self
+                    .cars
+                    .iter()
+                    .find(|c| c.id == p.request.car_id)
+                    .map(|c| c.route);
+            }
+        }
         self.release_claims();
         let index = self.index();
         self.revoke_stale_claims(&index);
@@ -967,8 +1016,11 @@ impl TownSim {
                 let merging = |ci: usize| {
                     self.hold.as_ref().is_some_and(|hold| {
                         hold.cleared_at.is_none()
-                            && hold.merges == self.cars[ci].id
-                            && self.net.nodes[node].negotiate
+                            && (hold.merges == self.cars[ci].id
+                                || (hold.beneficiary.is_some()
+                                    && self.routes[self.cars[ci].route].links[self.cars[ci].idx]
+                                        == hold.stream))
+                            && hold.node == node
                     })
                 };
                 heads.sort_by(|x, y| {
@@ -1034,10 +1086,27 @@ impl TownSim {
                 return false;
             }
         }
+        let reservation = self.hold.as_ref().filter(|h| {
+            h.cleared_at.is_none() && h.beneficiary.is_some() && h.node == self.net.links[link].to
+        });
+        let clearing_path = reservation.is_some_and(|h| h.stream == link);
+        if let Some(h) = reservation {
+            if !clearing_path {
+                let first = self
+                    .net
+                    .moves_from(h.stream)
+                    .iter()
+                    .copied()
+                    .find(|conn| self.net.conflicts_of(*conn).contains(&want));
+                if first.is_some() {
+                    return false;
+                }
+            }
+        }
         // Give way to a higher-priority car that would reach the line inside the gap.
         let mine = self.net.priority(link);
         for (a, &other_link) in ins.iter().enumerate() {
-            if other_link == link || self.net.priority(other_link) <= mine {
+            if clearing_path || other_link == link || self.net.priority(other_link) <= mine {
                 continue;
             }
             let Some(&oc) = queues[a].get(cursor[a]) else {
@@ -1210,6 +1279,13 @@ impl TownSim {
     }
 
     fn retire(&mut self) {
+        if let Some(p) = &mut self.priority {
+            if let Some(car) = self.cars.iter().find(|c| c.id == p.request.car_id) {
+                if car.d >= self.routes[car.route].total {
+                    p.home_at = Some(self.time + NET_DT_S);
+                }
+            }
+        }
         let before = self.cars.len();
         let routes = &self.routes;
         self.cars.retain(|car| car.d < routes[car.route].total);
@@ -1297,6 +1373,26 @@ impl TownSim {
         count
     }
 
+    pub fn crossing_conflicts(&self) -> u32 {
+        let index = self.index();
+        let mut count = 0;
+        for (link, bodies) in index.iter().enumerate() {
+            for &other in self.net.conflicts_of(link) {
+                if other <= link {
+                    continue;
+                }
+                for a in bodies {
+                    for b in &index[other] {
+                        if a.car != b.car {
+                            count += 1;
+                        }
+                    }
+                }
+            }
+        }
+        count
+    }
+
     fn must_yield(&self, id: u32) -> bool {
         self.hold
             .as_ref()
@@ -1321,13 +1417,73 @@ impl TownSim {
     }
 
     fn consider_merge(&mut self, node: usize, ins: &[usize], queues: &[Vec<usize>]) {
-        if self.hold.is_some() || self.time < WARMUP_S || !self.net.nodes[node].negotiate {
+        if self.priority.is_some() && self.hold.as_ref().is_some_and(|h| h.cleared_at.is_some()) {
+            self.history.push(self.hold.take().expect("completed hold"));
+        }
+        if self.hold.is_some() || self.time < WARMUP_S {
             return;
         }
+        let priority_head = if let Some(p) = &self.priority {
+            if !p.enabled || self.time < WARMUP_S + p.request.at_s || p.served.contains(&node) {
+                return;
+            }
+            let Some(car) = self.cars.iter().find(|c| c.id == p.request.car_id) else {
+                return;
+            };
+            let route = &self.routes[car.route];
+            let target = (car.idx..route.links.len()).find(|&k| {
+                let link = &self.net.links[route.links[k]];
+                !link.is_connector() && link.to == node && route.start[k] + link.len > car.d
+            });
+            let Some(k) = target else { return };
+            if route.start[k] + self.net.links[route.links[k]].len - car.d > 110.0 {
+                return;
+            }
+            let stream = route.links[k];
+            Some((stream, car.id, route.start[k + 1]))
+        } else {
+            if !self.net.nodes[node].negotiate {
+                return;
+            }
+            None
+        };
         let Some((ca, cb)) = self.contested(ins, queues) else {
             return;
         };
-        let snap = self.merge_snap(ca, cb);
+        let mut snap = self.merge_snap(ca, cb);
+        let beneficiary = if let Some((stream, id, line)) = priority_head {
+            let Some(front) = [ca, cb]
+                .into_iter()
+                .find(|&ci| self.routes[self.cars[ci].route].links[self.cars[ci].idx] == stream)
+            else {
+                return;
+            };
+            snap.priority_for = Some(self.cars[front].id);
+            for car in &mut snap.cars {
+                car.pref = if car.id == self.cars[front].id {
+                    format!("Priority request from car {id}: help clear my route ahead")
+                } else {
+                    format!("Car {id} requests priority; I can yield to clear its path")
+                };
+            }
+            // An agreement should lead to movement, not point into a full exit.
+            let Some(k) = self.next_connector(&self.cars[front]) else {
+                return;
+            };
+            let index = self.index();
+            let mut held = vec![Vec::new(); self.net.links.len()];
+            for (ci, car) in self.cars.iter().enumerate() {
+                if let Some(k) = car.claim {
+                    held[self.routes[car.route].links[k]].push(ci);
+                }
+            }
+            if !self.exit_has_room(front, k, &held, &index) {
+                return;
+            }
+            Some((id, line))
+        } else {
+            None
+        };
         let choice = self.talk.agree(&snap);
         let ids = [snap.cars[0].id, snap.cars[1].id];
         if choice.yields == choice.merges
@@ -1344,6 +1500,10 @@ impl TownSim {
         let Some(line_d) = self.stop_line(merger_ci) else {
             return;
         };
+        let stream = self.routes[self.cars[merger_ci].route].links[self.cars[merger_ci].idx];
+        if let Some(p) = &mut self.priority {
+            p.served.push(node);
+        }
         self.hold = Some(Hold {
             yields: choice.yields,
             merges: choice.merges,
@@ -1354,7 +1514,11 @@ impl TownSim {
             spoken_at: self.time,
             line_d,
             cleared_at: None,
+            speaker_cleared_at: None,
             forecast: snap,
+            node,
+            stream,
+            beneficiary,
         });
     }
 
@@ -1423,7 +1587,10 @@ impl TownSim {
         if a.id > b.id {
             std::mem::swap(&mut a, &mut b);
         }
-        MergeSnap { cars: [a, b] }
+        MergeSnap {
+            cars: [a, b],
+            priority_for: None,
+        }
     }
 
     fn stop_line(&self, ci: usize) -> Option<f64> {
@@ -1439,8 +1606,13 @@ impl TownSim {
         if hold.cleared_at.is_some() {
             return;
         }
-        let merges = hold.merges;
-        let line_d = hold.line_d;
+        let speaker_through = self
+            .cars
+            .iter()
+            .find(|c| c.id == hold.merges)
+            .is_none_or(|c| c.d - CAR_LENGTH_M > hold.line_d);
+        let speaker_done = speaker_through && self.time - hold.spoken_at >= YIELD_HOLD_S;
+        let (merges, line_d) = hold.beneficiary.unwrap_or((hold.merges, hold.line_d));
         let spoken = hold.spoken_at;
         let through = self
             .cars
@@ -1449,19 +1621,30 @@ impl TownSim {
             .map(|car| car.d - CAR_LENGTH_M > line_d)
             .unwrap_or(true);
         let held = self.time - spoken >= YIELD_HOLD_S;
-        if (through && held) || self.time - spoken >= YIELD_CAP_S {
-            if let Some(hold) = self.hold.as_mut() {
+        let cap = YIELD_CAP_S;
+        if let Some(hold) = self.hold.as_mut() {
+            if speaker_done && hold.speaker_cleared_at.is_none() {
+                hold.speaker_cleared_at = Some(self.time);
+            }
+            if (through && held) || self.time - spoken >= cap {
                 hold.cleared_at = Some(self.time);
             }
         }
     }
 
     fn exchange(&self) -> Option<TownExchange> {
-        let hold = self.hold.as_ref()?;
+        let hold = self.history.first().or(self.hold.as_ref())?;
+        Some(self.exchange_for(hold))
+    }
+
+    fn exchange_for(&self, hold: &Hold) -> TownExchange {
         let t = (hold.spoken_at - WARMUP_S).max(0.0);
-        let until_at = hold.cleared_at.unwrap_or(hold.spoken_at + 8.0);
+        let until_at = hold
+            .speaker_cleared_at
+            .or(hold.cleared_at)
+            .unwrap_or(hold.spoken_at + 8.0);
         let until = (until_at - WARMUP_S).max(t);
-        Some(TownExchange {
+        TownExchange {
             t: round1(t),
             until: round1(until),
             fade_s: 2.5,
@@ -1472,7 +1655,8 @@ impl TownSim {
             provider: hold.provider.clone(),
             lines: hold.lines.clone(),
             forecast: hold.forecast.clone(),
-        })
+            priority_id: hold.beneficiary.map(|(id, _)| id),
+        }
     }
 
     fn frame(&self, t: u32) -> NetFrame {
@@ -1500,7 +1684,29 @@ pub fn run_town(seed: u64) -> NetworkRun {
 
 /// Same recording as [`run_town`], with the negotiator that speaks at one merge.
 pub fn run_town_with(seed: u64, talk: Box<dyn MergeTalk>) -> NetworkRun {
+    record_town(TownSim::with_talk(seed, talk))
+}
+
+/// Paired experiments keep the requested car and initial conditions identical.
+/// `enabled=false` records the same trip without clearing its path.
+pub fn run_priority_town(
+    seed: u64,
+    request: PriorityRequest,
+    enabled: bool,
+    talk: Box<dyn MergeTalk>,
+) -> NetworkRun {
     let mut sim = TownSim::with_talk(seed, talk);
+    sim.priority = Some(PriorityTrip {
+        request,
+        enabled,
+        route: None,
+        home_at: None,
+        served: Vec::new(),
+    });
+    record_town(sim)
+}
+
+fn record_town(mut sim: TownSim) -> NetworkRun {
     let warm_steps = (WARMUP_S / NET_DT_S).round() as u32;
     for _ in 0..warm_steps {
         sim.step();
@@ -1511,6 +1717,8 @@ pub fn run_town_with(seed: u64, talk: Box<dyn MergeTalk>) -> NetworkRun {
     let spawned_before = sim.spawned;
     let exited_before = sim.exited;
     for step in 0..=record_steps {
+        stats.overlaps += sim.overlaps();
+        stats.crossing_conflicts += sim.crossing_conflicts();
         if step % STEPS_PER_FRAME == 0 {
             let t = step / STEPS_PER_FRAME;
             let queued = sim.queued();
@@ -1519,7 +1727,6 @@ pub fn run_town_with(seed: u64, talk: Box<dyn MergeTalk>) -> NetworkRun {
                 stats.peak_at = t;
             }
             stats.peak_cars = stats.peak_cars.max(sim.car_count() as u32);
-            stats.overlaps += sim.overlaps();
             frames.push(sim.frame(t));
         }
         if step < record_steps {
@@ -1530,6 +1737,23 @@ pub fn run_town_with(seed: u64, talk: Box<dyn MergeTalk>) -> NetworkRun {
     stats.exited = sim.exited - exited_before;
     let routes = sim.routes.iter().map(|route| route.links.clone()).collect();
     let exchange = sim.exchange();
+    let exchanges = if sim.priority.is_some() {
+        sim.history
+            .iter()
+            .chain(sim.hold.iter())
+            .map(|h| sim.exchange_for(h))
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let priority = sim.priority.as_ref().map(|p| PriorityResult {
+        request: p.request,
+        enabled: p.enabled,
+        route: p.route,
+        home_at_s: p.home_at.map(|t| t - WARMUP_S),
+        time_home_s: p.home_at.map(|t| t - WARMUP_S - p.request.at_s),
+        baseline_time_home_s: None,
+    });
     NetworkRun {
         links: sim.net.links.clone(),
         routes,
@@ -1537,6 +1761,8 @@ pub fn run_town_with(seed: u64, talk: Box<dyn MergeTalk>) -> NetworkRun {
         stats,
         dt: STEPS_PER_FRAME as f64 * NET_DT_S,
         exchange,
+        exchanges,
+        priority,
     }
 }
 
@@ -1725,7 +1951,9 @@ mod tests {
             source: "fallback".into(),
             reason: "http_400".into(),
             provider: String::new(),
+            priority_id: None,
             forecast: MergeSnap {
+                priority_for: None,
                 cars: [126, 226].map(|id| MergeCar {
                     id,
                     x: 0.0,
