@@ -682,6 +682,19 @@ pub fn roles_match(
         "hold back",
         "i'll hold",
     ];
+    // Live Baseten also describes its own movement as clearing/proceeding.
+    // Treat those phrases as movement on *both* sides of the agreement, so
+    // accepting them cannot conceal a contradictory promise by the waiter.
+    let movement = [
+        "clearing ahead",
+        "clearing the route",
+        "clearing route",
+        "proceeding ahead",
+        "proceeding through",
+        "proceeding to clear",
+        "i'll clear ahead",
+        "i will clear ahead",
+    ];
     let selfish = [
         "i go first",
         "i'll go first",
@@ -704,21 +717,23 @@ pub fn roles_match(
         .replace("i go ahead", "");
     has(&wait, &invitations)
         && !has(&wait, &selfish)
-        && has(
-            &go,
-            &[
-                "thanks",
-                "thank you",
-                "going",
-                "i'll go",
-                "i go",
-                "merging",
-                "coming through",
-                "i'll take",
-                "taking",
-                "on my way",
-            ],
-        )
+        && !has(&wait, &movement)
+        && (has(&go, &movement)
+            || has(
+                &go,
+                &[
+                    "thanks",
+                    "thank you",
+                    "going",
+                    "i'll go",
+                    "i go",
+                    "merging",
+                    "coming through",
+                    "i'll take",
+                    "taking",
+                    "on my way",
+                ],
+            ))
         && !has(
             &go_without_self_acceptance,
             &[
@@ -1218,6 +1233,42 @@ mod tests {
         }
         let valid = r#"{"lines":[{"id":2,"say":"I'm holding, you can go"},{"id":5,"say":"Thanks, I'll go ahead"}],"yields":2}"#;
         assert_eq!(choice_from_reply(&state, Ok(valid)).source, "model");
+    }
+
+    #[test]
+    fn live_clearing_and_proceeding_lines_preserve_the_spoken_order() {
+        let state = snap(2, 5);
+        for go in [
+            "Priority granted, clearing ahead now",
+            "Priority granted, proceeding ahead now",
+            "Proceeding to clear priority route",
+            "Hospital over meeting, proceeding ahead now",
+            "I'll clear ahead, hospital before meeting",
+        ] {
+            let reply = |wait, go| {
+                serde_json::json!({"lines":[
+                {"id":2,"say":wait},{"id":5,"say":go}],"yields":2})
+                .to_string()
+            };
+            let valid = reply("Priority granted, I'll wait, go ahead", go);
+            assert_eq!(
+                choice_from_reply(&state, Ok(&valid)).source,
+                "model",
+                "{go}"
+            );
+            let reversed = reply(go, "I'll wait, go ahead");
+            assert_eq!(choice_from_reply(&state, Ok(&reversed)).source, "fallback");
+            let contradictory = reply(&format!("I'll wait; {go}"), "Thanks, I'll go");
+            assert_eq!(
+                choice_from_reply(&state, Ok(&contradictory)).source,
+                "fallback"
+            );
+        }
+        let contradiction = r#"{"lines":[{"id":2,"say":"I'll wait"},{"id":5,"say":"Clearing ahead, you go first"}],"yields":2}"#;
+        assert_eq!(
+            choice_from_reply(&state, Ok(contradiction)).source,
+            "fallback"
+        );
     }
 
     fn neighbor(id: u32, approach: Approach) -> VisibleNeighbor {
