@@ -202,6 +202,7 @@ impl HttpMuse {
             &self.model,
             "You are Muse. Reply with one ZonePlan JSON object and no other text.",
             prompt,
+            false,
         );
         let auth = format!("authorization: Bearer {}", self.api_key);
         let text = curl_post(&url, &[auth], &body, 30, &self.api_key)?;
@@ -320,7 +321,12 @@ impl GeminiChat {
         let (url, body, header) = if self.openai {
             (
                 format!("{}/chat/completions", self.base.trim_end_matches('/')),
-                openai_body(&self.model, system, user),
+                openai_body(
+                    &self.model,
+                    system,
+                    user,
+                    self.provider == "baseten" && self.model == BASETEN_MODEL,
+                ),
                 format!("authorization: Bearer {}", self.api_key),
             )
         } else {
@@ -383,16 +389,22 @@ fn provider_for(base: &str, openai: bool) -> &'static str {
     }
 }
 
-fn openai_body(model: &str, system: &str, user: &str) -> String {
-    serde_json::json!({
+fn openai_body(model: &str, system: &str, user: &str, bounded_reasoning: bool) -> String {
+    let mut body = serde_json::json!({
         "model": model,
         "temperature": 0,
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user}
         ]
-    })
-    .to_string()
+    });
+    if bounded_reasoning {
+        // Avoid leaving a tiny exchange's reasoning/output budget at provider
+        // defaults. Keep room for reasoning and speech inside playback.
+        body["reasoning_effort"] = serde_json::json!("low");
+        body["max_tokens"] = serde_json::json!(1024);
+    }
+    body.to_string()
 }
 
 /// Pull the assistant text out of an OpenAI chat body or a Gemini `generateContent` body.

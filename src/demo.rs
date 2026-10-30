@@ -733,6 +733,7 @@ pub fn drive_headless(
             };
             return Ok(GateReport {
                 passed: collisions == 0
+                    && late_polls == 0
                     && exchanges.len() == board.town.exchanges.len()
                     && live_ok
                     && view.name == final_stage
