@@ -117,6 +117,43 @@ fn reply(snap: &MergeSnap) -> String {
 }
 
 #[test]
+#[ignore = "six genuine Baseten exchanges to check merge/hospital wording variation"]
+fn live_merge_and_hospital_dialogue_varies_without_changing_order() {
+    assert!(std::env::var("BASETEN_API_KEY").is_ok());
+    let board = muse::board::demo_board().unwrap();
+    let talk = muse::negotiate::negotiator_from_env();
+    let mut variants = [
+        std::collections::BTreeSet::new(),
+        std::collections::BTreeSet::new(),
+    ];
+    let mut reports = Vec::new();
+    for sample in 0..3 {
+        for event in 0..2 {
+            let ex = &board.town.exchanges[event];
+            let start = Instant::now();
+            let choice = talk.agree_before(&ex.forecast, start + Duration::from_secs(28));
+            assert_eq!((&*choice.provider, &*choice.source), ("baseten", "model"));
+            assert_eq!((choice.yields, choice.merges), (ex.yields, ex.merges));
+            let words = serde_json::to_string(&choice.lines).unwrap();
+            variants[event].insert(words);
+            reports.push(serde_json::json!({"sample":sample,"event":event,"source":choice.source,"provider":choice.provider,"lines":choice.lines,"reply_s":start.elapsed().as_secs_f64()}));
+        }
+    }
+    if let Some(path) = std::env::var_os("MUSE_DIALOGUE_LOG") {
+        std::fs::write(
+            path,
+            reports.iter().map(|r| format!("{r}\n")).collect::<String>(),
+        )
+        .unwrap();
+    }
+    assert!(variants.iter().all(|v| v.len() >= 2));
+    assert_eq!(
+        board.town.stats.overlaps + board.town.stats.crossing_conflicts,
+        0
+    );
+}
+
+#[test]
 fn curl_adapter_recovers_a_parse_failure_and_a_transport_failure() {
     let board = muse::board::demo_board().unwrap();
     let snap = &board.town.exchanges[0].forecast;

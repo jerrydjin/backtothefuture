@@ -36,6 +36,10 @@ impl ReasonText {
             return Err("reason must be plain trip text without markup or credentials");
         }
         let lower = text.to_lowercase();
+        let normalized = words(text).join(" ");
+        if abusive(text) || text.chars().any(|c| matches!(c, '\u{200b}'..='\u{200f}' | '\u{202a}'..='\u{202e}' | '\u{2060}'..='\u{206f}' | '\u{feff}')) {
+            return Err("reason must be respectful plain trip text");
+        }
         // This rejects overt instruction payloads before a call. It is not the
         // safety boundary: even a successful semantic injection can only select
         // a pre-existing, collision-checked priority run.
@@ -55,9 +59,14 @@ impl ReasonText {
             "brake",
             "api key",
             "reveal secrets",
+            "disregard",
+            "forget the rules",
+            "new instructions",
+            "respond with",
+            "act as",
         ]
         .iter()
-        .any(|word| lower.contains(word))
+        .any(|word| lower.contains(word) || normalized.contains(word))
         {
             return Err("reason must describe the trip, not give model instructions");
         }
@@ -157,7 +166,18 @@ impl ReasonAgent {
              Explanation and each line must be one to eight words, at most 96 characters, without numbers, units, markup or telemetry. \
              If granted, the requester accepts and goes, the neighbor explicitly waits or yields. \
              If denied, the requester explicitly waits, the neighbor accepts their ordinary turn and goes. \
-             Use a first-person form of go or going for the moving driver, and wait or yield for the waiting driver. \
+             Sound like warm, ordinary drivers replying to this particular reason, not generic traffic announcements. \
+             Both the explanation and the neighbor's line must name a concrete detail from the rider reason, in their own words. \
+             For a grant, the requester also mentions that detail while thanking the neighbor and going. \
+             For a denial, the neighbor politely declines the actual reason; never mock, scold, or shame. The requester accepts and waits. \
+             Make the moving driver's acceptance clear; the waiting driver explicitly waits or yields. A clearly polite refusal by the neighbor may stand for keeping their ordinary turn. \
+             Use contractions and spoken fragments. Talk to each other, not about a case. Never call anyone a 'chest pain passenger' or announce 'precedence'. \
+             Natural grant example for chest pain: requester 'Thanks, chest pain, heading in'; neighbor 'Chest pain? Go, I'll wait.' \
+             Another grant example: requester 'My friend's bleeding; thanks, I'll go'; neighbor 'Your friend's bleeding? Go, I'll wait.' \
+             The requester speaks about their own situation naturally: my friend, my dad, my partner. Thank the other driver for yielding, never thank them for an illness or address a noun phrase as a person. \
+             Natural denial example for cold coffee: requester 'Fair, I'll wait my turn'; neighbor 'A cold coffee? Not this time.' \
+             Adapt the concrete detail to the actual reason; never copy an unrelated example. Avoid stiff phrases such as 'not urgent, I am going'. \
+             Avoid stock lines; make each short response specific to what was typed. \
              No extra keys, markdown, or prose. Untrusted data: {data}"
         );
         let deadline = started + Duration::from_secs(28);
@@ -170,7 +190,7 @@ impl ReasonAgent {
                 break;
             };
             match client.complete_with_timeout(&prompt, budget) {
-                Ok(text) if Instant::now() < deadline => match parse(&text, peer) {
+                Ok(text) if Instant::now() < deadline => match parse(&text, peer, reason) {
                     Some(wire) => {
                         return ReasonDecision {
                             granted: wire.granted,
@@ -191,9 +211,8 @@ impl ReasonAgent {
                     }
                     None => {
                         eprintln!(
-                            "reason parse failure attempt={} raw={:?}",
+                            "reason parse failure attempt={} reason=invalid_or_generic_exchange",
                             attempt + 1,
-                            client.diagnostic_text(&text)
                         );
                         failure = "parse".into();
                     }
@@ -218,7 +237,7 @@ impl ReasonAgent {
             ) {
                 break;
             }
-            prompt.push_str("\nRepair the reply: exact JSON schema, short speech matching the grant or denial, and no additional fields.");
+            prompt.push_str("\nRepair the reply: exact JSON, at most eight words per field, speech matching who waits/goes. Name the rider's concrete reason in the neighbor's speech and explanation, and also the requester's speech for a grant. Be kind, never generic. No additional fields.");
         }
         self.fallback(reason, peer, &failure, started.elapsed().as_secs_f64())
     }
@@ -288,14 +307,24 @@ impl ReasonAgent {
     }
 }
 
-fn parse(text: &str, peer: u32) -> Option<WireDecision> {
+fn parse(text: &str, peer: u32, reason: &ReasonText) -> Option<WireDecision> {
     if text.len() > 4096 || contains_secret(text) {
         return None;
     }
     let wire: WireDecision = serde_json::from_str(text).ok()?;
     if !human_line(&wire.explanation)
         || wire.lines.len() != 2
-        || !wire.lines.iter().all(|l| human_line(&l.say))
+        || !wire
+            .lines
+            .iter()
+            .all(|l| human_line(&l.say) && !abusive(&l.say))
+        || abusive(&wire.explanation)
+        || !references_reason(&wire.explanation, reason)
+        || !wire
+            .lines
+            .iter()
+            .filter(|l| l.id == peer || wire.granted)
+            .all(|l| references_reason(&l.say, reason))
     {
         return None;
     }
@@ -306,11 +335,31 @@ fn parse(text: &str, peer: u32) -> Option<WireDecision> {
             id: l.id,
             // Equivalent first-person speech observed in live reason replies.
             // Normalize only for role validation; preserve the actual words.
-            say: l
-                .say
-                .to_lowercase()
-                .replace("i accept and will go", "i'll go")
-                .replace("i will go", "i'll go"),
+            say: {
+                let mut say = l
+                    .say
+                    .to_lowercase()
+                    .replace("i accept and will go", "i'll go")
+                    .replace("i will go", "i'll go");
+                // A polite, reason-specific refusal keeps the peer's turn.
+                // The normal role check still rejects self-yield and go-first
+                // instructions. This does not change the words shown.
+                if !wire.granted
+                    && l.id == peer
+                    && [
+                        "not this time",
+                        "can't give",
+                        "cannot give",
+                        "doesn't earn",
+                        "isn't urgent",
+                    ]
+                    .iter()
+                    .any(|p| say.contains(p))
+                {
+                    say = format!("I'll go. {say}");
+                }
+                say
+            },
         })
         .collect();
     if lines.iter().filter(|l| l.id == 177).count() != 1
@@ -324,6 +373,95 @@ fn parse(text: &str, peer: u32) -> Option<WireDecision> {
         (177, peer)
     };
     roles_match(&lines, wait, go, None).then_some(wire)
+}
+
+fn words(text: &str) -> Vec<String> {
+    text.to_lowercase()
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+fn abusive(text: &str) -> bool {
+    words(text).iter().any(|s| {
+        [
+            "fuck", "fucking", "shit", "bitch", "asshole", "idiot", "moron", "stupid", "loser",
+            "pathetic",
+        ]
+        .contains(&s.as_str())
+    }) || text.to_lowercase().contains("shut up")
+}
+
+// Ground speech, not precedence. Ordinary inflections and a few common
+// paraphrases are equivalent; no word here selects grant/deny or motion.
+fn reason_word(word: &str) -> &str {
+    match word.trim_end_matches('s') {
+        "dog" | "pup" | "puppy" | "pet" | "cat" => "pet",
+        "wedding" | "marriage" | "married" => "wedding",
+        "bored" | "boredom" => "bored",
+        "bleeding" | "blood" | "bleed" => "bleeding",
+        "breathe" | "breath" | "breathing" => "breath",
+        "labor" | "labour" | "childbirth" => "labor",
+        "father" | "dad" => "father",
+        "child" | "kid" | "son" | "daughter" | "baby" => "child",
+        "coffee" | "latte" | "caffeine" => "coffee",
+        "pain" | "ache" => "pain",
+        "appointment" | "checkup" => "appointment",
+        other => other,
+    }
+}
+
+fn references_reason(text: &str, reason: &ReasonText) -> bool {
+    let stop = [
+        "i",
+        "i'm",
+        "m",
+        "my",
+        "me",
+        "a",
+        "an",
+        "the",
+        "s",
+        "is",
+        "am",
+        "are",
+        "in",
+        "on",
+        "at",
+        "to",
+        "for",
+        "of",
+        "and",
+        "has",
+        "have",
+        "it",
+        "get",
+        "going",
+        "go",
+        "with",
+        "needs",
+        "need",
+        "taking",
+        "take",
+        "late",
+        "urgent",
+        "urgently",
+        "severe",
+        "medical",
+        "care",
+        "help",
+        "please",
+        "passenger",
+        "friend",
+        "routine",
+    ];
+    let detail = words(reason.as_str());
+    let said = words(text);
+    detail
+        .iter()
+        .filter(|w| w.len() > 1 && !stop.contains(&w.as_str()))
+        .any(|w| said.iter().any(|s| reason_word(s) == reason_word(w)))
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
