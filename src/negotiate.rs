@@ -490,6 +490,9 @@ pub fn roles_match(
         "i yield",
         "i'll yield",
         "i'm waiting",
+        "i'm holding",
+        "you can go",
+        "i'll let you through",
         "hang back",
         "hold back",
         "i'll hold",
@@ -502,6 +505,12 @@ pub fn roles_match(
         "merging now",
         "i'll merge now",
     ];
+    // "I'll go ahead" is accepting the turn; "Thanks, go ahead" gives
+    // it away. A courtesy word alone must not hide a reversed spoken role.
+    let go_without_self_acceptance = go
+        .replace("i'll go ahead", "")
+        .replace("i will go ahead", "")
+        .replace("i go ahead", "");
     has(&wait, &invitations)
         && !has(&wait, &selfish)
         && has(
@@ -520,14 +529,22 @@ pub fn roles_match(
             ],
         )
         && !has(
-            &go,
+            &go_without_self_acceptance,
             &[
                 "you first",
                 "after you",
                 "you go",
+                "you can go",
+                "go ahead",
                 "your turn",
                 "i'll wait",
                 "i will wait",
+                "i can wait",
+                "i'm waiting",
+                "i'm holding",
+                "i'll slow",
+                "i'll hold",
+                "i'll let you through",
                 "i'm slowing",
                 "i am slowing",
                 "i yield",
@@ -882,6 +899,21 @@ mod tests {
         let wrong = r#"{"lines":[{"id":2,"say":"Thanks, going now"},{"id":5,"say":"You first, I'm slowing"}],"yields":2}"#;
         assert_eq!(choice_from_reply(&state, Ok(wrong)).source, "fallback");
         let valid = r#"{"lines":[{"id":2,"say":"You go ahead and I'll wait right here"},{"id":5,"say":"Thank you, I'm going ahead while you wait"}],"yields":2}"#;
+        assert_eq!(choice_from_reply(&state, Ok(valid)).source, "model");
+        for say in [
+            "Thanks, go ahead",
+            "Thanks, I can wait",
+            "Thanks, I'll hold",
+            "Thanks, you can go",
+        ] {
+            let wrong = serde_json::json!({"lines":[{"id":2,"say":"You first, I'm slowing"},{"id":5,"say":say}],"yields":2}).to_string();
+            assert_eq!(
+                choice_from_reply(&state, Ok(&wrong)).source,
+                "fallback",
+                "{say}"
+            );
+        }
+        let valid = r#"{"lines":[{"id":2,"say":"I'm holding, you can go"},{"id":5,"say":"Thanks, I'll go ahead"}],"yields":2}"#;
         assert_eq!(choice_from_reply(&state, Ok(valid)).source, "model");
     }
 

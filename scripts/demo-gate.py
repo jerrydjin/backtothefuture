@@ -6,13 +6,14 @@ Run basic ten first. --expanded requires a passing basic report file.
 """
 import argparse
 import json
+import hashlib
 import os
 from pathlib import Path
 import subprocess
 import sys
 from datetime import datetime, timezone
 
-p = argparse.ArgumentParser(__doc__)
+p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--binary', default='target/debug/muse')
 p.add_argument('--output', required=True)
 p.add_argument('--fallback-only', action='store_true')
@@ -31,7 +32,9 @@ def validate_batch(rows, expanded=False):
 
 
 if a.expanded:
-    rows = [json.loads(s) for s in Path(a.basic_log or '').read_text().splitlines() if s]
+    if not a.basic_log:
+        p.error('--expanded needs --basic-log from the passing basic batch')
+    rows = [json.loads(s) for s in Path(a.basic_log).read_text().splitlines() if s]
     if not validate_batch(rows):
         sys.exit('Expanded gate requires a passing basic ten-run log first.')
 if not a.fallback_only and not os.environ.get('BASETEN_API_KEY', '').strip():
@@ -41,9 +44,13 @@ output.parent.mkdir(parents=True, exist_ok=True)
 if output.exists():
     sys.exit(f'Refusing to overwrite or mix batches: {output}')
 subprocess.run([a.binary, '--help'], check=True, stdout=subprocess.DEVNULL)
+binary_hash = hashlib.sha256(Path(a.binary).read_bytes()).hexdigest()
+revision = subprocess.run(['git', 'rev-parse', 'HEAD'], text=True, capture_output=True, check=True).stdout.strip()
 modes = ['scripted'] * 5 if a.fallback_only else ['live'] * 5 + ['scripted'] * 5
 batch = []
 for i, mode in enumerate(modes, 1):
+    if hashlib.sha256(Path(a.binary).read_bytes()).hexdigest() != binary_hash:
+        sys.exit('Binary changed during the batch; start a fresh batch.')
     env = os.environ.copy()
     if mode == 'scripted':
         env.pop('BASETEN_API_KEY', None)
@@ -60,13 +67,15 @@ for i, mode in enumerate(modes, 1):
         sys.stderr.write(run.stdout + run.stderr)
         sys.exit(f'Run {i} did not resolve: exit {run.returncode}')
     report = json.loads(reports[-1])
-    report.update(run=i, mode=mode, expanded=a.expanded, started_utc=start)
+    report.update(run=i, mode=mode, expanded=a.expanded, started_utc=start, revision=revision, binary_sha256=binary_hash)
     report['live_reply_s'] = [e['reply_s'] for e in report['exchanges']
                               if e['provider'] == 'baseten' and e['source'] == 'model']
     report['passed'] &= run.returncode == 0
     if a.expanded:
         weak = report.get('weak_requests', {})
         report['passed'] &= weak.get('passed', False) and weak.get('resolved') == 1
+        report['live_reply_s'] += [e['reply_s'] for e in weak.get('exchanges', [])
+                                    if e['provider'] == 'baseten' and e['source'] == 'model']
     if mode == 'scripted':
         report['passed'] &= all(e['source'] == 'fallback' and e['reason'] == 'no_key'
                                 for e in report['exchanges'])
