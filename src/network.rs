@@ -1439,7 +1439,15 @@ impl TownSim {
             return;
         }
         let priority_head = if let Some(p) = &self.priority {
-            if !p.enabled || self.time < WARMUP_S + p.request.at_s || p.served.contains(&node) {
+            if !p.enabled
+                || self.time < WARMUP_S + p.request.at_s
+                || p.served.contains(&node)
+                || self
+                    .story
+                    .as_ref()
+                    .and_then(|s| s.priority_until_s)
+                    .is_some_and(|until| self.time >= WARMUP_S + until)
+            {
                 return;
             }
             let Some(car) = self.cars.iter().find(|c| c.id == p.request.car_id) else {
@@ -1647,7 +1655,12 @@ impl TownSim {
             if speaker_done && hold.speaker_cleared_at.is_none() {
                 hold.speaker_cleared_at = Some(self.time);
             }
-            if (through && held) || self.time - spoken >= cap {
+            let expired = self
+                .story
+                .as_ref()
+                .and_then(|s| s.priority_until_s)
+                .is_some_and(|until| self.time >= WARMUP_S + until);
+            if (through && held) || self.time - spoken >= cap || expired {
                 hold.cleared_at = Some(self.time);
             }
         }

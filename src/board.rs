@@ -739,7 +739,10 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     var label = p.request.car_id + " home";
     if (arrived && p.time_home_s != null) {
       label = "home · " + p.time_home_s.toFixed(1) + "s";
-      if (p.enabled && p.baseline_time_home_s != null) label += " · " + (p.baseline_time_home_s - p.time_home_s).toFixed(1) + "s sooner";
+      if (p.enabled && p.baseline_time_home_s != null) {
+        var gain = p.baseline_time_home_s - p.time_home_s;
+        label += " · " + Math.abs(gain).toFixed(1) + (gain >= 0 ? "s sooner" : "s later");
+      }
     }
     ctx.appendChild(svgNode("text", { x: labelX, y: at.y + 30, "text-anchor": anchor, fill: arrived ? "#2f6fdb" : "#888",
       "font-family": "system-ui, sans-serif", "font-size": 12, "data-role": "priority-home" }, label));
@@ -880,7 +883,8 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
       var ex = allExchanges()[event];
       var yielding = ex && t >= ex.t && car[0] === ex.yields;
       var merging = ex && car[0] === ex.merges;
-      var priority = town.priority && town.priority.enabled && t >= town.priority.request.at_s && car[0] === town.priority.request.car_id;
+      var priority = town.priority && town.priority.enabled && t >= town.priority.request.at_s && car[0] === town.priority.request.car_id &&
+        (!town.story || town.story.priority_until_s == null || t < town.story.priority_until_s);
       drawCar(ctx, p, priority ? "#2f6fdb" : (yielding || v < 2.5 ? "#d08a2a" : (merging ? "#333" : "#7a7a7a")), car[0]);
       if (yielding) ctx.appendChild(svgNode("text", { x: p.x, y: p.y + 19, "text-anchor": "middle",
         fill: "#9b6520", "font-family": "system-ui, sans-serif", "font-size": 12, "data-role": "yield" }, "yield"));
@@ -913,9 +917,9 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
         stroke: "white", "stroke-width": 4, "paint-order": "stroke", "font-family": "system-ui, sans-serif", "font-size": 13,
         "data-claim": claim.car_id }, words));
     });
-    var first = story.decisions.find(function (d) { return d.granted; });
+    var first = story.decisions.filter(function (d) { return d.claim.at_s + 3 <= t; }).slice(-1)[0];
     if (!first || t < first.claim.at_s + 3) return;
-    var showing = t < first.claim.at_s + 12 || allExchanges().some(function (ex, i) { return exchangeAlpha(ex, t, i) > 0; });
+    var showing = t < first.claim.at_s + 12 || (first.granted && allExchanges().some(function (ex, i) { return exchangeAlpha(ex, t, i) > 0; }));
     if (!showing) return;
     var at = carSpot(view, t, first.claim.car_id);
     if (!at) return;

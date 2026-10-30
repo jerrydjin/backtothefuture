@@ -2,17 +2,20 @@
 //! This policy never drives a car and never feeds the dinner judge.
 
 use serde::Serialize;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum StoryKind {
     Competing,
+    Abuse,
 }
 
 impl StoryKind {
     pub fn parse(value: &str) -> Option<Self> {
         match value {
             "competing" => Some(Self::Competing),
+            "abuse" => Some(Self::Abuse),
             _ => None,
         }
     }
@@ -51,7 +54,7 @@ pub struct PriorityDecision {
 }
 
 /// Input order cannot give a meeting precedence over the hospital.
-pub fn resolve_competing(claims: &[RiderClaim]) -> Vec<PriorityDecision> {
+fn resolve_candidates(claims: &[RiderClaim]) -> Vec<PriorityDecision> {
     let winner = claims.iter().max_by(|a, b| {
         a.reason
             .cmp(&b.reason)
@@ -69,10 +72,72 @@ pub fn resolve_competing(claims: &[RiderClaim]) -> Vec<PriorityDecision> {
             {
                 "Hospital takes priority over a meeting.".into()
             } else {
-                "Priority granted for this trip.".into()
+                if claim.reason == PriorityReason::Meeting {
+                    "One short slot for this meeting.".into()
+                } else {
+                    "Priority granted for this trip.".into()
+                }
             },
         })
         .collect()
+}
+
+/// A rider's history follows their identity, rather than the car or request id.
+/// Weak requests need 120 seconds of quiet before they can win again.
+#[derive(Default)]
+pub struct PriorityLedger {
+    weak_attempts: BTreeMap<u32, Vec<f64>>,
+    seen: BTreeSet<(u32, u32)>,
+}
+
+impl PriorityLedger {
+    pub fn resolve(&mut self, claims: &[RiderClaim]) -> Vec<PriorityDecision> {
+        let mut candidates = Vec::new();
+        let mut denied = BTreeMap::new();
+        for claim in claims {
+            let key = (claim.rider_id, claim.sequence);
+            let reason = if !self.seen.insert(key) {
+                Some("No: this request was already answered.")
+            } else if claim.reason == PriorityReason::Meeting {
+                let times = self.weak_attempts.entry(claim.rider_id).or_default();
+                times.retain(|t| claim.at_s - *t < 120.0);
+                let repeated = !times.is_empty();
+                times.push(claim.at_s);
+                repeated.then_some("No: repeated weak reasons don't earn priority.")
+            } else {
+                None
+            };
+            if let Some(reason) = reason {
+                denied.insert(key, reason.to_string());
+            } else {
+                candidates.push(claim.clone());
+            }
+        }
+        let resolved = resolve_candidates(&candidates);
+        claims
+            .iter()
+            .map(|claim| {
+                let key = (claim.rider_id, claim.sequence);
+                if let Some(reason) = denied.get(&key) {
+                    PriorityDecision {
+                        claim: claim.clone(),
+                        granted: false,
+                        explanation: reason.clone(),
+                    }
+                } else {
+                    resolved
+                        .iter()
+                        .find(|d| d.claim == *claim)
+                        .expect("eligible claim")
+                        .clone()
+                }
+            })
+            .collect()
+    }
+}
+
+pub fn resolve_competing(claims: &[RiderClaim]) -> Vec<PriorityDecision> {
+    PriorityLedger::default().resolve(claims)
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -80,31 +145,61 @@ pub struct StoryRun {
     pub kind: StoryKind,
     pub claims: Vec<RiderClaim>,
     pub decisions: Vec<PriorityDecision>,
+    /// A weak first request grants a short slot, never an unlimited trip pass.
+    pub priority_until_s: Option<f64>,
 }
 
 impl StoryRun {
     pub fn new(kind: StoryKind) -> Self {
-        let claims = vec![
-            RiderClaim {
-                rider_id: 1,
-                car_id: 177,
-                sequence: 1,
-                at_s: 200.0,
-                reason: PriorityReason::Hospital,
-            },
-            RiderClaim {
-                rider_id: 2,
-                car_id: 200,
-                sequence: 1,
-                at_s: 200.0,
-                reason: PriorityReason::Meeting,
-            },
-        ];
-        let decisions = resolve_competing(&claims);
+        let claims = match kind {
+            StoryKind::Competing => vec![
+                RiderClaim {
+                    rider_id: 1,
+                    car_id: 177,
+                    sequence: 1,
+                    at_s: 200.0,
+                    reason: PriorityReason::Hospital,
+                },
+                RiderClaim {
+                    rider_id: 2,
+                    car_id: 200,
+                    sequence: 1,
+                    at_s: 200.0,
+                    reason: PriorityReason::Meeting,
+                },
+            ],
+            StoryKind::Abuse => [200.0, 232.0, 240.0]
+                .into_iter()
+                .enumerate()
+                .map(|(i, at_s)| RiderClaim {
+                    rider_id: 1,
+                    car_id: 177,
+                    sequence: i as u32 + 1,
+                    at_s,
+                    reason: PriorityReason::Meeting,
+                })
+                .collect(),
+        };
+        let mut ledger = PriorityLedger::default();
+        let mut decisions = Vec::new();
+        let mut start = 0;
+        while start < claims.len() {
+            let mut end = start + 1;
+            while end < claims.len() && claims[end].at_s == claims[start].at_s {
+                end += 1;
+            }
+            decisions.extend(ledger.resolve(&claims[start..end]));
+            start = end;
+        }
+        let priority_until_s = decisions
+            .iter()
+            .find(|d| d.granted && d.claim.reason == PriorityReason::Meeting)
+            .map(|d| d.claim.at_s + 30.0);
         Self {
             kind,
             claims,
             decisions,
+            priority_until_s,
         }
     }
 
