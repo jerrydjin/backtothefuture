@@ -7,6 +7,38 @@ const REQUEST: PriorityRequest = PriorityRequest {
 };
 
 #[test]
+fn priority_board_keeps_the_sticky_scores_and_reports_the_paired_baseline() {
+    let scenario = muse::Scenario::new(
+        6,
+        muse::JamType::Symmetric,
+        "Zipper fairly so both approaches get home.",
+    );
+    let dinner =
+        muse::run_dinner(&scenario, &muse::FakeEcho, &muse::EpisodeOpts::default()).unwrap();
+    for enabled in [false, true] {
+        let board = muse::board::priority_board_from_run(&dinner, "scripted", enabled);
+        assert_eq!(
+            board
+                .strips
+                .iter()
+                .filter(|s| s.scoreboard)
+                .map(|s| s.verdict.as_str())
+                .collect::<Vec<_>>(),
+            ["RED", "RED", "GREEN"]
+        );
+        assert_eq!(
+            board.strips[2].score,
+            "GREEN time_home=69 collisions=0 fairness=0.00 home=6/6"
+        );
+        assert_eq!(
+            board.town.priority.as_ref().unwrap().baseline_time_home_s,
+            Some(141.0)
+        );
+        assert_eq!(board.town.priority.as_ref().unwrap().enabled, enabled);
+    }
+}
+
+#[test]
 fn two_relayed_agreements_get_the_same_car_home_sooner_without_collisions() {
     let baseline = run_priority_town(7, REQUEST, false, Box::new(ScriptedTalk));
     let cleared = run_priority_town(7, REQUEST, true, Box::new(ScriptedTalk));
@@ -46,9 +78,11 @@ fn two_relayed_agreements_get_the_same_car_home_sooner_without_collisions() {
         );
         assert!(ex.forecast.cars.iter().all(|c| c.pref.contains("177")));
         assert_eq!(ex.source, "fallback");
-        let frame = &cleared.frames[ex.t.ceil() as usize];
-        let speaker = frame.cars.iter().find(|c| c.0 == ex.merges).unwrap();
-        junctions.push((speaker.1, speaker.2));
+        assert!(
+            cleared.routes[after.route.unwrap()].contains(&ex.stream_link),
+            "agreement is on the requested route"
+        );
+        junctions.push(ex.junction);
     }
     assert_ne!(junctions[0], junctions[1]);
     for run in [&baseline, &cleared] {

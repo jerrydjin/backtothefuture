@@ -12,7 +12,7 @@ use crate::episode::{DinnerRun, EpisodeOpts, ModeRun};
 use crate::error::MuseError;
 use crate::muse::MuseClient;
 use crate::negotiate::{MergeTalk, ScriptedTalk};
-use crate::network::{run_town_with, NetworkRun, DINNER_HOME};
+use crate::network::{run_priority_town, run_town_with, NetworkRun, DINNER_HOME, PRIORITY_DEMO};
 use crate::schema::{Score, TalkPhase, WorldState, YieldRole};
 use crate::world::{CAR_LENGTH_M, CAR_WIDTH_M, LANE_WIDTH_M, TAPER_M};
 
@@ -108,6 +108,21 @@ pub fn dinner_board(
 
 pub fn board_from_run(run: &DinnerRun, client_label: &str) -> DinnerBoard {
     board_from_run_with(run, client_label, Box::new(ScriptedTalk))
+}
+
+/// The same board with a paired, unscored priority experiment in its town.
+pub fn priority_board_from_run(run: &DinnerRun, client_label: &str, enabled: bool) -> DinnerBoard {
+    let mut board = board_from_run(run, client_label);
+    let baseline = run_priority_town(TOWN_SEED, PRIORITY_DEMO, false, Box::new(ScriptedTalk));
+    board.town = if enabled {
+        run_priority_town(TOWN_SEED, PRIORITY_DEMO, true, Box::new(ScriptedTalk))
+    } else {
+        baseline.clone()
+    };
+    if let Some(p) = &mut board.town.priority {
+        p.baseline_time_home_s = baseline.priority.and_then(|p| p.time_home_s);
+    }
+    board
 }
 
 /// Same board, with the negotiator that speaks once at one town merge.
@@ -406,24 +421,30 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
   // Forecast once, ask 25 wall seconds before the encounter, then replay the
   // returned agreement through the same local physics. Only a late reply holds time.
   var live = seekTo == null && /[?&]live=1(?:&|$)/.test(String(location.search));
-  var ready = !live;
-  var requested = false;
-  var initialExchange = data.town.exchange;
+  var initialExchanges = data.town.exchanges.length ? data.town.exchanges :
+    (data.town.exchange ? [data.town.exchange] : []);
+  var readyEvents = {}, requestedEvents = {}, revision = 0;
+  var initialExchange = initialExchanges[0];
   var storyStart = initialExchange ? Math.max(0, initialExchange.t - 28) : 0;
+  if (data.town.priority) storyStart = Math.max(0, Math.min(
+    initialExchange ? storyStart : Infinity, data.town.priority.request.at_s - 3));
   var lostTime = 0;
-  var waitingSince = null;
+  var waitingSince = null, waitingAt = null;
 
-  function askAhead() {
-    if (requested) return;
-    requested = true;
+  function eventReady(event) { return !live || !!readyEvents[event]; }
+  function allExchanges() { return town.exchanges.length ? town.exchanges : (town.exchange ? [town.exchange] : []); }
+
+  function askAhead(event) {
+    if (requestedEvents[event]) return;
+    requestedEvents[event] = true;
     var deadline = performance.now() + 48000;
     function fallback() {
-      town.exchange.source = "fallback";
-      town.exchange.reason = "transport";
-      ready = true;
+      var ex = allExchanges()[event];
+      if (ex) { ex.source = "fallback"; ex.reason = "transport"; }
+      readyEvents[event] = true;
     }
     function poll() {
-      fetch("/result", { cache: "no-store", signal: AbortSignal.timeout(2000) }).then(function (r) {
+      fetch("/result?event=" + event, { cache: "no-store", signal: AbortSignal.timeout(2000) }).then(function (r) {
         if (r.status === 202) {
           if (performance.now() >= deadline) fallback(); else setTimeout(poll, 150);
           return null;
@@ -432,11 +453,14 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
         return r.json();
       }).then(function (reply) {
         if (!reply) return;
-        town = data.town = reply.town;
-        ready = true;
+        if (reply.completed.length >= revision) {
+          town = data.town = reply.town;
+          revision = reply.completed.length;
+        }
+        reply.completed.forEach(function (i) { readyEvents[i] = true; });
       }).catch(fallback);
     }
-    fetch("/negotiate", { method: "POST", signal: AbortSignal.timeout(2000) })
+    fetch("/negotiate?event=" + event, { method: "POST", signal: AbortSignal.timeout(2000) })
       .then(function (r) { if (!r.ok) throw new Error("board session closed"); poll(); }).catch(fallback);
   }
 
@@ -445,15 +469,21 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     if (last < 1) return 0;
     if (seekTo != null) return Math.max(0, Math.min(last, seekTo));
     var raw = storyStart + elapsedSec(now);
-    if (live && initialExchange && raw >= initialExchange.t - 25) askAhead();
     var t = raw - lostTime;
-    var dialogueAt = initialExchange ? initialExchange.t - 3 : last;
-    if (!ready && t >= dialogueAt) {
+    initialExchanges.forEach(function (ex, event) {
+      if (live && t >= ex.t - 25) askAhead(event);
+    });
+    var blocked = initialExchanges.findIndex(function (ex, event) {
+      return !eventReady(event) && t >= ex.t - 3;
+    });
+    if (blocked >= 0) {
       if (waitingSince == null) waitingSince = raw;
-      t = dialogueAt;
+      waitingAt = blocked;
+      t = initialExchanges[blocked].t - 3;
     } else if (waitingSince != null) {
       lostTime += raw - waitingSince;
       waitingSince = null;
+      waitingAt = null;
       t = raw - lostTime;
     }
     document.getElementById("network").setAttribute("data-time", t.toFixed(3));
@@ -635,6 +665,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     var bh = Math.max(1, bounds.maxY - bounds.minY);
     var sc = Math.min((w - pad * 2) / bw, (h - pad * 2) / bh);
     return {
+      width: w, height: h,
       sc: sc,
       ox: (w - bw * sc) / 2 - bounds.minX * sc,
       oy: (h - bh * sc) / 2 - bounds.minY * sc
@@ -678,6 +709,26 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     ctx.appendChild(g);
   }
 
+  function drawPriorityHome(ctx, view, t) {
+    var p = town.priority;
+    if (!p || p.route == null) return;
+    var route = routes[p.route];
+    var at = toScreen(view, routeLoc(route, route.total));
+    var arrived = p.home_at_s != null && t >= p.home_at_s;
+    var left = at.x < view.width / 2;
+    var labelX = at.x + (left ? 8 : -8), anchor = left ? "start" : "end";
+    var label = p.request.car_id + " home";
+    if (arrived && p.time_home_s != null) {
+      label = "home · " + p.time_home_s.toFixed(1) + "s";
+      if (p.enabled && p.baseline_time_home_s != null) label += " · " + (p.baseline_time_home_s - p.time_home_s).toFixed(1) + "s sooner";
+    }
+    ctx.appendChild(svgNode("text", { x: labelX, y: at.y + 30, "text-anchor": anchor, fill: arrived ? "#2f6fdb" : "#888",
+      "font-family": "system-ui, sans-serif", "font-size": 12, "data-role": "priority-home" }, label));
+    if (arrived && p.enabled && p.baseline_time_home_s != null) ctx.appendChild(svgNode("text", {
+      x: labelX, y: at.y + 47, "text-anchor": anchor, fill: "#888", "font-family": "system-ui, sans-serif", "font-size": 11
+    }, p.baseline_time_home_s.toFixed(1) + "s without request · " + (town.stats.overlaps + town.stats.crossing_conflicts) + " collisions"));
+  }
+
   function pose(view, front, rear, length) {
     var a = toScreen(view, front);
     var b = toScreen(view, rear);
@@ -701,10 +752,9 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     return { x: p.x, y: p.y - 9 };
   }
 
-  function exchangeAlpha(t) {
-    var ex = town.exchange;
+  function exchangeAlpha(ex, t, event) {
     if (!ex || !ex.lines || ex.lines.length < 2) return 0;
-    if (!ready || t + 1e-6 < ex.t - 3) return 0;
+    if (!eventReady(event) || t + 1e-6 < ex.t - 3) return 0;
     var fade = ex.fade_s > 0 ? ex.fade_s : 2.5;
     if (t <= ex.until) return 1;
     var u = (t - ex.until) / fade;
@@ -713,11 +763,14 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
 
   // Two short lines, one over each car, for the single town exchange. Grey on white.
   function drawExchange(ctx, view, t) {
-    var alpha = exchangeAlpha(t);
-    var pending = !ready && waitingSince != null;
+    allExchanges().forEach(function (ex, event) { drawOneExchange(ctx, view, t, ex, event); });
+  }
+
+  function drawOneExchange(ctx, view, t, ex, event) {
+    var alpha = exchangeAlpha(ex, t, event);
+    var pending = !eventReady(event) && waitingAt === event;
     if (alpha <= 0 && !pending) return;
     if (pending) alpha = 1;
-    var ex = town.exchange;
     var frames = town.frames;
     if (!frames.length) return;
     var i = Math.max(0, Math.min(frames.length - 1, Math.floor(t)));
@@ -751,7 +804,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
         return { say: s.say, x: mid, y: top - (s.id === ex.yields ? 46 : 25) };
       });
     }
-    var g = svgNode("g", { opacity: alpha, "data-exchange": pending ? "pending" : ex.source });
+    var g = svgNode("g", { opacity: alpha, "data-event": event, "data-exchange": pending ? "pending" : ex.source });
     placed.forEach(function (s, i) {
       var spot = spots[i];
       g.appendChild(svgNode("path", { d: "M" + spot.x + " " + (spot.y - 4) + " L" + s.x + " " + (s.y + 4),
@@ -802,12 +855,20 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
       var v = later ? car[3] + (later[3] - car[3]) * u : car[3];
       if (d >= route.total) return;
       var p = pose(view, routeLoc(route, d), routeLoc(route, d - 4.5), 4.5);
-      var ex = town.exchange;
-      var yielding = ex && ready && t >= ex.t && t <= ex.until && car[0] === ex.yields;
-      var merging = ex && ready && t >= ex.t - 3 && t <= ex.until && car[0] === ex.merges;
-      drawCar(ctx, p, yielding || v < 2.5 ? "#d08a2a" : (merging ? "#333" : "#7a7a7a"), car[0]);
+      var event = allExchanges().findIndex(function (ex, i) {
+        return eventReady(i) && t >= ex.t - 3 && t <= ex.until;
+      });
+      var ex = allExchanges()[event];
+      var yielding = ex && t >= ex.t && car[0] === ex.yields;
+      var merging = ex && car[0] === ex.merges;
+      var priority = town.priority && town.priority.enabled && t >= town.priority.request.at_s && car[0] === town.priority.request.car_id;
+      drawCar(ctx, p, priority ? "#2f6fdb" : (yielding || v < 2.5 ? "#d08a2a" : (merging ? "#333" : "#7a7a7a")), car[0]);
       if (yielding) ctx.appendChild(svgNode("text", { x: p.x, y: p.y + 19, "text-anchor": "middle",
         fill: "#9b6520", "font-family": "system-ui, sans-serif", "font-size": 12, "data-role": "yield" }, "yield"));
+      if (priority) ctx.appendChild(svgNode("text", { x: p.x, y: p.y + 20, "text-anchor": "middle",
+        fill: "#2f6fdb", stroke: "white", "stroke-width": 3, "paint-order": "stroke", "font-family": "system-ui, sans-serif",
+        "font-size": 13, "data-role": "priority" }, t < town.priority.request.at_s + 5 ? "priority, please" : town.priority.request.car_id + " · priority"));
+
     });
   }
 
@@ -827,6 +888,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     var showCue = drawDinner(ctx, view, strip.frames, simT, cue);
     if (cue && showCue) drawCue(ctx, view, cue.role);
     drawExchange(ctx, view, townTime(now));
+    drawPriorityHome(ctx, view, townTime(now));
     canvas.replaceChildren(ctx);
   }
   function loop(now) {

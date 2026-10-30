@@ -689,6 +689,8 @@ pub struct TownExchange {
     pub forecast: MergeSnap,
     /// Car whose requested route this agreement clears.
     pub priority_id: Option<u32>,
+    pub junction: usize,
+    pub stream_link: usize,
 }
 
 impl TownExchange {
@@ -702,6 +704,9 @@ impl TownExchange {
         }
         if !self.provider.is_empty() {
             out.push_str(&format!(" provider={}", self.provider));
+        }
+        if let Some(id) = self.priority_id {
+            out.push_str(&format!(" priority={id} junction={}", self.junction));
         }
         out.push_str(&format!(" t={:.1} until={:.1}", self.t, self.until));
         for line in &lines {
@@ -738,6 +743,12 @@ pub struct PriorityRequest {
     /// Seconds from the start of the recording.
     pub at_s: f64,
 }
+
+/// Fixed request on the board's deterministic rush-hour trip.
+pub const PRIORITY_DEMO: PriorityRequest = PriorityRequest {
+    car_id: 177,
+    at_s: 200.0,
+};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct PriorityResult {
@@ -1656,6 +1667,8 @@ impl TownSim {
             lines: hold.lines.clone(),
             forecast: hold.forecast.clone(),
             priority_id: hold.beneficiary.map(|(id, _)| id),
+            junction: hold.node,
+            stream_link: hold.stream,
         }
     }
 
@@ -1952,6 +1965,8 @@ mod tests {
             reason: "http_400".into(),
             provider: String::new(),
             priority_id: None,
+            junction: 0,
+            stream_link: 0,
             forecast: MergeSnap {
                 priority_for: None,
                 cars: [126, 226].map(|id| MergeCar {

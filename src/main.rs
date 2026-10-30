@@ -83,13 +83,25 @@ fn main() -> ExitCode {
         eprintln!("fair prefs did not go green");
         return ExitCode::from(1);
     }
-    if args.board {
-        let board = board_from_run(&dinner, muse.label());
-        if let Err(error) =
-            muse::board_server::serve_board(&board, negotiator_from_env(), !args.no_open)
-        {
-            eprintln!("board: {error}");
-            return ExitCode::from(1);
+    if args.board || args.priority.is_some() {
+        let board = match args.priority {
+            Some(enabled) => muse::board::priority_board_from_run(&dinner, muse.label(), enabled),
+            None => board_from_run(&dinner, muse.label()),
+        };
+        if let Some(p) = &board.town.priority {
+            if let (Some(time), Some(baseline)) = (p.time_home_s, p.baseline_time_home_s) {
+                println!("priority car={} requested={} time_home={time:.2}s baseline={baseline:.2}s saved={:.2}s collisions={} negotiations={}",
+                    p.request.car_id, p.enabled, baseline-time,
+                    board.town.stats.overlaps + board.town.stats.crossing_conflicts, board.town.exchanges.len());
+            }
+        }
+        if args.board {
+            if let Err(error) =
+                muse::board_server::serve_board(&board, negotiator_from_env(), !args.no_open)
+            {
+                eprintln!("board: {error}");
+                return ExitCode::from(1);
+            }
         }
     }
 
@@ -104,6 +116,7 @@ struct Args {
     show: bool,
     board: bool,
     no_open: bool,
+    priority: Option<bool>,
     rewrite_every: Option<u32>,
 }
 
@@ -117,6 +130,7 @@ impl Args {
             show: false,
             board: false,
             no_open: false,
+            priority: None,
             rewrite_every: None,
         };
         let mut args = env::args().skip(1);
@@ -126,6 +140,8 @@ impl Args {
                 "--show" => parsed.show = true,
                 "--board" => parsed.board = true,
                 "--no-open" => parsed.no_open = true,
+                "--priority" => parsed.priority = Some(true),
+                "--priority-baseline" => parsed.priority = Some(false),
                 "--cars" => {
                     let value = args.next().ok_or("--cars needs a number")?;
                     parsed.cars = value
@@ -173,6 +189,8 @@ Knobs:
   --show                   print the ramp merge in the terminal: wreck, held jam, and cleared road
   --board                  open the live birds-eye window: white network, flat cars, one yield or merge cue
   --no-open                print the board URL without opening a window (with --board)
+  --priority               car 177 requests priority; cars ahead clear its path
+  --priority-baseline      the same trip without its priority request
   --help
 
 Negotiation:
