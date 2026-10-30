@@ -20,6 +20,23 @@ pub const ACTION_S: f64 = 3.0;
 pub const FADE_S: f64 = 1.5;
 pub const MAX_DEMO_S: f64 = 115.0;
 
+// The demo has exactly two modes. Other provider keys belong to --board.
+fn demo_talk() -> Box<dyn MergeTalk> {
+    let key = std::env::var("BASETEN_API_KEY").ok();
+    let model = std::env::var("MODEL_API_MODEL").ok();
+    match crate::muse::select_talk(crate::muse::TalkKeys {
+        baseten: key.as_deref(),
+        model: model.as_deref(),
+        ..Default::default()
+    }) {
+        Some(endpoint) => Box::new(crate::negotiate::MergeAgent::with_provider(
+            Box::new(crate::muse::GeminiChat::from_endpoint(endpoint)),
+            "baseten",
+        )),
+        None => Box::new(ScriptedTalk),
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TypedRequest {
     pub car_id: u32,
@@ -649,7 +666,7 @@ pub fn run(
     for strip in board.strips.iter().filter(|s| s.scoreboard) {
         println!("{:<12}{}", strip.name, strip.score);
     }
-    let server = DemoServer::start(board.clone(), crate::negotiate::negotiator_from_env())?;
+    let server = DemoServer::start(board.clone(), demo_talk())?;
     let url = format!("http://{}/?demo=1", server.address);
     println!("board: {url}");
     if headless {
