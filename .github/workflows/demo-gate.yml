@@ -1,0 +1,45 @@
+name: real-time demo gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    # The explicit commit marker prevents incidental pushes from spending API calls.
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'codex/negotiation-stories-7-12'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Check explicit gate marker
+        id: marker
+        shell: bash
+        run: |
+          if git log -1 --format=%s | grep -Fq '[run-demo-gate]'; then
+            echo 'run=true' >> "$GITHUB_OUTPUT"
+          fi
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.marker.outputs.run == 'true'
+      - name: Tests and build
+        if: steps.marker.outputs.run == 'true'
+        run: cargo test && cargo build
+      - name: Basic ten, then expanded ten
+        if: steps.marker.outputs.run == 'true'
+        env:
+          BASETEN_API_KEY: ${{ secrets.BASETEN_API_KEY }}
+        shell: bash
+        run: |
+          python3 scripts/demo-gate.py --output gate-results/basic.jsonl
+          python3 scripts/demo-gate.py --expanded --basic-log gate-results/basic.jsonl --output gate-results/expanded.jsonl
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.marker.outputs.run == 'true'
+        with:
+          name: real-time-demo-gates
+          path: gate-results/
+          if-no-files-found: warn
