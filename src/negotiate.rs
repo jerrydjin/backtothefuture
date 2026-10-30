@@ -12,6 +12,7 @@
 //! [`LocalNegotiate`] itself does not read a key.
 
 use serde::Serialize;
+use std::time::{Duration, Instant};
 
 use crate::muse::{negotiate_reason, select_talk, GeminiChat, TalkKeys};
 use crate::schema::{Approach, TalkPhase, VisibleNeighbor, YieldRole, YieldTalk};
@@ -80,6 +81,11 @@ pub struct MergeChoice {
 /// `agree` picks who yields. The town sim moves the cars.
 pub trait MergeTalk: Send + Sync {
     fn agree(&self, snap: &MergeSnap) -> MergeChoice;
+
+    /// Callers with a playback deadline pass the remaining wall-clock budget.
+    fn agree_before(&self, snap: &MergeSnap, _deadline: Instant) -> MergeChoice {
+        self.agree(snap)
+    }
 }
 
 /// Scripted town negotiator. Same decision as [`LocalNegotiate`] at turn 0.
@@ -95,6 +101,14 @@ impl MergeTalk for ScriptedTalk {
 /// Something that returns model text for a prompt. Tests pass a recorded body.
 pub trait Completer: Send + Sync {
     fn complete(&self, prompt: &str) -> Result<String, String>;
+
+    fn complete_with_timeout(&self, prompt: &str, _timeout: Duration) -> Result<String, String> {
+        self.complete(prompt)
+    }
+
+    fn diagnostic_text(&self, text: &str) -> String {
+        redacted_model_text(text)
+    }
 }
 
 impl Completer for GeminiChat {
@@ -105,9 +119,22 @@ impl Completer for GeminiChat {
             prompt,
         )
     }
+
+    fn complete_with_timeout(&self, prompt: &str, timeout: Duration) -> Result<String, String> {
+        GeminiChat::complete_with_timeout(
+            self,
+            "You negotiate one merge. Reply with one JSON object and no other text.",
+            prompt,
+            timeout,
+        )
+    }
+
+    fn diagnostic_text(&self, text: &str) -> String {
+        redacted_model_text(&self.redact_text(text))
+    }
 }
 
-/// Live or scripted negotiator. The client is called once per agreement.
+/// Live negotiator, with at most one retry inside the caller’s deadline.
 pub struct MergeAgent {
     client: Box<dyn Completer>,
     provider: String,
@@ -128,11 +155,58 @@ impl MergeAgent {
 
 impl MergeTalk for MergeAgent {
     fn agree(&self, snap: &MergeSnap) -> MergeChoice {
-        let prompt = render_merge_prompt(snap);
-        let mut choice = match self.client.complete(&prompt) {
-            Ok(text) => choice_from_reply(snap, Ok(&text)),
-            Err(error) => choice_from_reply(snap, Err(error.as_str())),
-        };
+        self.agree_before(snap, Instant::now() + Duration::from_secs(45))
+    }
+
+    fn agree_before(&self, snap: &MergeSnap, deadline: Instant) -> MergeChoice {
+        let mut prompt = render_merge_prompt(snap);
+        let mut reason = "timeout".to_string();
+        for attempt in 0..2 {
+            // Leave room for parsing and publishing the answer before playback expires.
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            let Some(budget) = remaining.checked_sub(Duration::from_millis(100)) else {
+                break;
+            };
+            let reply = self.client.complete_with_timeout(&prompt, budget);
+            if Instant::now() >= deadline {
+                reason = "timeout".into();
+                break;
+            }
+            match reply {
+                Ok(text) => match parse_model_exchange(&text, snap) {
+                    Ok(mut choice) => {
+                        choice.provider = self.provider.clone();
+                        return choice;
+                    }
+                    Err(error) => {
+                        eprintln!(
+                            "merge parse failure attempt={} reason={} raw={:?}",
+                            attempt + 1,
+                            error,
+                            self.client.diagnostic_text(&text)
+                        );
+                        reason = "parse".into();
+                        prompt.push_str("\nThe previous reply was invalid. Return only the complete JSON exchange. Keep the agreed order, with each driver's role explicit and each line at most eight words.\n");
+                    }
+                },
+                Err(error) => reason = negotiate_reason(&error),
+            }
+            if !matches!(
+                reason.as_str(),
+                "parse"
+                    | "transport"
+                    | "timeout"
+                    | "bad_response"
+                    | "http_429"
+                    | "http_500"
+                    | "http_502"
+                    | "http_503"
+                    | "http_504"
+            ) {
+                break;
+            }
+        }
+        let mut choice = scripted_choice(snap, &reason);
         choice.provider = self.provider.clone();
         choice
     }
@@ -1068,6 +1142,58 @@ mod tests {
         assert_eq!(choice.source, "model");
         assert!(choice.lines.iter().all(|l| human_line(&l.say)));
         assert!(roles_match(&choice.lines, 2, 5, None));
+    }
+
+    #[test]
+    fn one_retry_recovers_parse_and_transport_errors_with_remaining_budget() {
+        use std::sync::{Arc, Mutex};
+        struct Replies {
+            replies: Mutex<std::collections::VecDeque<Result<String, String>>>,
+            budgets: Arc<Mutex<Vec<Duration>>>,
+        }
+        impl Completer for Replies {
+            fn complete(&self, _: &str) -> Result<String, String> {
+                unreachable!()
+            }
+            fn complete_with_timeout(&self, _: &str, budget: Duration) -> Result<String, String> {
+                self.budgets.lock().unwrap().push(budget);
+                std::thread::sleep(Duration::from_millis(5));
+                self.replies
+                    .lock()
+                    .unwrap()
+                    .pop_front()
+                    .expect("no third attempt")
+            }
+        }
+        for first in [
+            Ok("bad JSON".into()),
+            Err("transport".into()),
+            Err("timeout".into()),
+        ] {
+            let budgets = Arc::new(Mutex::new(Vec::new()));
+            let agent = MergeAgent::new(Box::new(Replies {
+                replies: Mutex::new([first, Ok(RECORDED.into())].into()),
+                budgets: Arc::clone(&budgets),
+            }));
+            let choice = agent.agree_before(&snap(2, 5), Instant::now() + Duration::from_secs(1));
+            assert_eq!(choice.source, "model");
+            let budgets = budgets.lock().unwrap();
+            assert_eq!(budgets.len(), 2);
+            assert!(budgets[1] < budgets[0] && budgets[0] < Duration::from_secs(1));
+        }
+        let budgets = Arc::new(Mutex::new(Vec::new()));
+        let agent = MergeAgent::new(Box::new(Replies {
+            replies: Mutex::new([Ok("bad".into()), Ok("still bad".into())].into()),
+            budgets: Arc::clone(&budgets),
+        }));
+        assert_eq!(agent.agree(&snap(2, 5)).reason, "parse");
+        assert_eq!(budgets.lock().unwrap().len(), 2);
+        // An exhausted deadline must never start a request, including a retry.
+        assert_eq!(
+            agent.agree_before(&snap(2, 5), Instant::now()).reason,
+            "timeout"
+        );
+        assert_eq!(budgets.lock().unwrap().len(), 2);
     }
 
     #[test]

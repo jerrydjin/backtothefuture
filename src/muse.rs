@@ -304,6 +304,19 @@ impl GeminiChat {
 
     /// Raw model text, or a short reason token. The token does not contain the key.
     pub fn complete(&self, system: &str, user: &str) -> Result<String, String> {
+        self.complete_with_timeout(system, user, std::time::Duration::from_secs(45))
+    }
+
+    pub(crate) fn redact_text(&self, text: &str) -> String {
+        redact(text, &self.api_key)
+    }
+
+    pub fn complete_with_timeout(
+        &self,
+        system: &str,
+        user: &str,
+        timeout: std::time::Duration,
+    ) -> Result<String, String> {
         let (url, body, header) = if self.openai {
             (
                 format!("{}/chat/completions", self.base.trim_end_matches('/')),
@@ -326,8 +339,8 @@ impl GeminiChat {
                 format!("x-goog-api-key: {}", self.api_key),
             )
         };
-        let text =
-            curl_negotiate(&url, &[header], &body, 45).map_err(|error| negotiate_reason(&error))?;
+        let text = curl_negotiate(&url, &[header], &body, timeout.as_secs_f64())
+            .map_err(|error| negotiate_reason(&error))?;
         completion_text(&text).map_err(|error| negotiate_reason(&error))
     }
 }
@@ -453,9 +466,9 @@ fn curl_negotiate(
     url: &str,
     headers: &[String],
     body: &str,
-    timeout_secs: u64,
+    timeout_secs: f64,
 ) -> Result<String, String> {
-    let timeout = timeout_secs.to_string();
+    let timeout = timeout_secs.max(0.001).to_string();
     let mut cmd = Command::new("curl");
     cmd.args([
         "-sS",
