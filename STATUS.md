@@ -137,3 +137,20 @@ counter-offer is 101.50s. Weak spam earns no extension and stays 141.00s. Every
 recorded run has zero lane overlaps and crossing conflicts at 0.25s precision.
 Sticky RED/RED/GREEN time_home=69, judge, and schema are unchanged. See
 `docs/negotiation-stories.md` for complete commands, evidence, and commit counts.
+
+## Phase 1 live reliability (unmerged)
+
+Branch `fix/phase-1-live-reliability`, based on main `b25729f`, repairs fenced,
+prose-wrapped and smart-quoted model JSON, trims speech safely, logs redacted parse
+failures, and retries once inside the remaining reply budget. Event 0 starts
+before HTML serialization and client polling; the 28s deadline is unchanged.
+
+92 tests pass. The separate real-time mock HTTP gate passes with 3/3 model
+exchanges, a 26.013571s first reply, 101.521s playback, zero collisions and zero
+late polls. Sticky remains RED/RED/GREEN time_home=69. Judge/schema, renderer and
+network physics are unchanged. See docs/phase-1-live-reliability.md and its saved
+mock JSONL for commands and actual lines.
+
+**Handoff:** No Baseten key is configured, so real live latency and five-out-of-five
+reliability are unmeasured. Michael runs the five consecutive live gates; phase 2
+has not started under the requested no-key stop condition. No merge.
