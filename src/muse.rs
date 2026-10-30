@@ -320,6 +320,22 @@ impl GeminiChat {
         user: &str,
         timeout: std::time::Duration,
     ) -> Result<String, String> {
+        self.complete_with_output_budget(
+            system,
+            user,
+            timeout,
+            if self.openai { 1024 } else { 256 },
+        )
+    }
+
+    /// Batches need more spoken output while retaining the same hard deadline.
+    pub fn complete_with_output_budget(
+        &self,
+        system: &str,
+        user: &str,
+        timeout: std::time::Duration,
+        tokens: usize,
+    ) -> Result<String, String> {
         let (url, body, header) = if self.openai {
             (
                 format!("{}/chat/completions", self.base.trim_end_matches('/')),
@@ -347,8 +363,21 @@ impl GeminiChat {
                 format!("x-goog-api-key: {}", self.api_key),
             )
         };
-        let text = curl_negotiate(&url, &[header], &body, timeout.as_secs_f64(), &self.api_key)
-            .map_err(|error| negotiate_reason(&error))?;
+        let mut body: serde_json::Value = serde_json::from_str(&body).map_err(|_| "bad_request")?;
+        if self.openai {
+            body["max_tokens"] = serde_json::json!(tokens.clamp(256, 16384));
+        } else {
+            body["generationConfig"]["maxOutputTokens"] =
+                serde_json::json!(tokens.clamp(256, 16384));
+        }
+        let text = curl_negotiate(
+            &url,
+            &[header],
+            &body.to_string(),
+            timeout.as_secs_f64(),
+            &self.api_key,
+        )
+        .map_err(|error| negotiate_reason(&error))?;
         completion_text(&text).map_err(|error| negotiate_reason(&error))
     }
 }
