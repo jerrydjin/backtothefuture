@@ -1,7 +1,7 @@
 //! Paired, seeded town experiments. The policy receives claims, never truth.
 //! Only a precedence flag enters TownSim; trajectories use its existing rules.
 use crate::negotiate::{human_line, roles_match, MergeLine};
-use crate::network::{NetStats, Network, NetworkRun, ScheduledCar, TownSim, NET_DT_S};
+use crate::network::{NetStats, Network, NetworkRun, ScheduledCar, TownSim};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -203,6 +203,9 @@ impl Policy for Live {
             std::time::Duration::from_secs(28),
         ) {
             Ok(text) => {
+                if client.redact_text(&text) != text {
+                    return fallback("credential_output");
+                }
                 let Ok(w) = serde_json::from_str::<WireDecision>(&text) else {
                     return fallback("parse");
                 };
@@ -375,6 +378,8 @@ pub struct Score {
     pub emergency_gain: f64,
     pub others_cost: OthersCost,
     pub liar_win_rate: f64,
+    pub model_decisions: usize,
+    pub fallback_decisions: usize,
     pub collisions: u32,
     pub passed: bool,
 }
@@ -516,6 +521,12 @@ pub fn score(seed: u64, policy: &str, run: &Run, baseline: &Run) -> Result<Score
         emergency_gain: median(&gains),
         others_cost: others_cost(&costs),
         liar_win_rate: liar_wins as f64 / liar_total.max(1) as f64,
+        model_decisions: run.decisions.iter().filter(|d| d.source == "model").count(),
+        fallback_decisions: run
+            .decisions
+            .iter()
+            .filter(|d| d.source == "fallback")
+            .count(),
         collisions,
         passed: collisions == 0
             && run.home.len() == run.trips.len()

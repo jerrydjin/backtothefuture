@@ -506,8 +506,14 @@ fn run_reason(args: &Args) -> Result<(), String> {
 }
 
 fn run_rush_hour(args: &Args) -> Result<(), String> {
+    if args.board || args.save_replay.is_some() || args.reason.is_some() {
+        return Err("rush-hour currently supports headless scoring; legacy board and reason modes remain available separately".into());
+    }
     let policy = muse::rush_hour::policy(&args.policy)?;
-    let result = muse::rush_hour::run(args.seed, policy.as_ref())?;
+    let mut result = muse::rush_hour::run(args.seed, policy.as_ref())?;
+    if args.require_live && result.score.model_decisions != result.run.decisions.len() {
+        result.score.passed = false;
+    }
     let score = &result.score;
     let json = serde_json::to_string_pretty(score).map_err(|e| e.to_string())?;
     if let Some(path) = &args.score {
