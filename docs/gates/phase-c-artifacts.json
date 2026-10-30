@@ -1,0 +1,21 @@
+{
+  "binary_sha256": "6ddeaf0b6691f5d9c9695ad2e45c45d1710497041e56ec0a6f7ac2f5272e55fd",
+  "demo_length_s": 102.085359871,
+  "model_decisions": 5,
+  "collisions": 0,
+  "artifacts": {
+    "deny.json": {
+      "bytes": 690887,
+      "sha256": "ae7c6c79bdc829ab9f64c9201849c7164f1e20fe82d3538f767468f66ce3f9d9"
+    },
+    "grant.json": {
+      "bytes": 697687,
+      "sha256": "7ae0a4d213db7a7404665236d8be7323f98ed48e866b0583ffc9e9398361516c"
+    },
+    "demo.json": {
+      "bytes": 699220,
+      "sha256": "076706bf0dd95ca8df34d49bac91d89e1ca0debc5c33fbec1365f7d7d12ee14d"
+    }
+  },
+  "default_tests_passed": 109
+}

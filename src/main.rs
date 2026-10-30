@@ -48,6 +48,7 @@ fn main() -> ExitCode {
             args.require_live,
             args.include_weak,
             args.gate_log.as_deref(),
+            args.save_replay.as_deref(),
         ) {
             Ok(()) => ExitCode::SUCCESS,
             Err(error) => {
@@ -66,6 +67,15 @@ fn main() -> ExitCode {
             }
         };
         println!("Replay: saved trajectories and dialogue; model calls=0");
+        if let Some(path) = &args.export_replay {
+            if let Err(error) = std::fs::write(path, muse::board::render_board_html(&archive.board))
+            {
+                eprintln!("replay export: {error}");
+                return ExitCode::from(1);
+            }
+            println!("exported replay: {}", path.display());
+            return ExitCode::SUCCESS;
+        }
         for strip in archive.board.strips.iter().filter(|s| s.scoreboard) {
             println!("{:<12}{}", strip.name, strip.score);
         }
@@ -209,6 +219,7 @@ struct Args {
     story: Option<muse::story::StoryKind>,
     replay: Option<std::path::PathBuf>,
     save_replay: Option<std::path::PathBuf>,
+    export_replay: Option<std::path::PathBuf>,
     rewrite_every: Option<u32>,
     reason: Option<muse::reason::ReasonText>,
 }
@@ -232,12 +243,20 @@ impl Args {
             story: None,
             replay: None,
             save_replay: None,
+            export_replay: None,
             rewrite_every: None,
             reason: None,
         };
         let mut args = env::args().skip(1);
         while let Some(arg) = args.next() {
             match arg.as_str() {
+                "--export-replay" => {
+                    parsed.export_replay = Some(
+                        args.next()
+                            .ok_or("--export-replay needs an HTML file")?
+                            .into(),
+                    );
+                }
                 "-h" | "--help" => parsed.help = true,
                 "--show" => parsed.show = true,
                 "--board" => parsed.board = true,
@@ -302,6 +321,12 @@ impl Args {
         if parsed.replay.is_some() && (parsed.story.is_some() || parsed.priority.is_some()) {
             return Err("--replay uses saved decisions; choose a replay or a new story".into());
         }
+        if parsed.export_replay.is_some() && parsed.replay.is_none() {
+            return Err("--export-replay needs --replay FILE".into());
+        }
+        if parsed.demo && parsed.save_replay.is_some() && !parsed.headless {
+            return Err("record a demo with --demo --headless --save-replay FILE".into());
+        }
         if (parsed.headless || parsed.require_live || parsed.gate_log.is_some())
             && !parsed.demo
             && parsed.reason.is_none()
@@ -314,8 +339,7 @@ impl Args {
             && (parsed.demo
                 || parsed.priority.is_some()
                 || parsed.story.is_some()
-                || parsed.replay.is_some()
-                || parsed.save_replay.is_some())
+                || parsed.replay.is_some())
         {
             return Err("--reason uses a fresh trip; choose it separately from demo, priority, story, or replay".into());
         }
@@ -326,10 +350,7 @@ impl Args {
             return Err("--include-weak needs --demo --headless".into());
         }
         if parsed.demo
-            && (parsed.story.is_some()
-                || parsed.priority.is_some()
-                || parsed.replay.is_some()
-                || parsed.save_replay.is_some())
+            && (parsed.story.is_some() || parsed.priority.is_some() || parsed.replay.is_some())
         {
             return Err(
                 "--demo plays the complete story; use story/replay flags separately".into(),
@@ -365,6 +386,7 @@ Knobs:
   --priority-baseline      the same trip without its priority request
   --story KIND             competing | abuse | emergency | chain | counter-offer
   --save-replay FILE       save trajectories, dialogue, reasons, and reply times
+  --export-replay HTML     export --replay FILE as a standalone offline board
   --replay FILE            play that saved result with zero model calls
   --help
 
@@ -416,6 +438,15 @@ fn run_reason(args: &Args) -> Result<(), String> {
         (baseline, None)
     };
     let board = muse::reason::board(town, report)?;
+    if let Some(path) = &args.save_replay {
+        let mut archive = muse::replay::ReplayArchive::new(board.clone());
+        archive.reply_seconds = board
+            .reason
+            .as_ref()
+            .map(|r| vec![Some(r.decision.reply_s)])
+            .unwrap_or_default();
+        archive.write(path)?;
+    }
     for strip in board.strips.iter().filter(|s| s.scoreboard) {
         println!("{:<12}{}", strip.name, strip.score);
     }

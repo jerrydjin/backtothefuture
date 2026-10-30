@@ -971,9 +971,10 @@ pub fn run(
     require_live: bool,
     include_weak: bool,
     log: Option<&std::path::Path>,
+    recording: Option<&std::path::Path>,
 ) -> Result<(), String> {
     let started = Instant::now();
-    let outcome = run_session(headless, open, require_live, include_weak);
+    let outcome = run_session(headless, open, require_live, include_weak, recording);
     let mut report = match outcome {
         Ok(Some(report)) => report,
         Ok(None) => return Ok(()),
@@ -1015,6 +1016,7 @@ fn run_session(
     open: bool,
     require_live: bool,
     include_weak: bool,
+    recording: Option<&std::path::Path>,
 ) -> Result<Option<GateReport>, String> {
     if require_live
         && std::env::var("BASETEN_API_KEY")
@@ -1049,6 +1051,31 @@ fn run_session(
         }
         report.length_s = started.elapsed().as_secs_f64();
         report.passed &= report.length_s < 120.0;
+        if let Some(path) = recording {
+            let mut recorded = board.clone();
+            for result in &report.exchanges {
+                let exchange = &mut recorded.town.exchanges[result.event];
+                exchange.lines = result.lines.clone();
+                exchange.source = result.source.clone();
+                exchange.provider = result.provider.clone();
+                exchange.reason = result.reason.clone();
+            }
+            recorded.town.exchange = recorded.town.exchanges.first().cloned();
+            let mut archive = crate::replay::ReplayArchive::new(recorded);
+            archive.reply_seconds = (0..board.town.exchanges.len())
+                .map(|i| {
+                    report
+                        .exchanges
+                        .iter()
+                        .find(|e| e.event == i)
+                        .map(|e| e.reply_s)
+                })
+                .collect();
+            if let Err(error) = archive.write(path) {
+                report.passed = false;
+                report.failure_reason = Some(error);
+            }
+        }
         Ok(Some(report))
     } else {
         if open {

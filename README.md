@@ -10,6 +10,9 @@ meeting priorities compete. The demo ends on the hospital decision and its
 one-line reason, in under two minutes. `BASETEN_API_KEY` uses the live model;
 without it the same story uses the scripted fallback.
 
+Play the saved live demo, grant and denial without credentials:
+`python3 scripts/play-recording.py`. [Recording commands and measured evidence](docs/phase-c-live-recording.md).
+
 ## Rider reasons (draft phase 2)
 
 `cargo run -- --board` opens the same white network with one small reason input.
