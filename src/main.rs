@@ -23,6 +23,15 @@ fn main() -> ExitCode {
         println!("{}", usage());
         return ExitCode::SUCCESS;
     }
+    if args.rush_hour {
+        return match run_rush_hour(&args) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => {
+                eprintln!("rush-hour: {e}");
+                ExitCode::from(1)
+            }
+        };
+    }
 
     if args.reason.is_some()
         || (args.board
@@ -203,6 +212,10 @@ fn main() -> ExitCode {
 }
 
 struct Args {
+    rush_hour: bool,
+    policy: String,
+    seed: u64,
+    score: Option<std::path::PathBuf>,
     help: bool,
     cars: u32,
     jam: JamType,
@@ -227,6 +240,10 @@ struct Args {
 impl Args {
     fn from_env() -> Result<Self, String> {
         let mut parsed = Args {
+            rush_hour: false,
+            policy: "fcfs".into(),
+            seed: 7,
+            score: None,
             help: false,
             cars: 6,
             jam: JamType::Symmetric,
@@ -250,6 +267,16 @@ impl Args {
         let mut args = env::args().skip(1);
         while let Some(arg) = args.next() {
             match arg.as_str() {
+                "--rush-hour" => parsed.rush_hour = true,
+                "--policy" => parsed.policy = args.next().ok_or("--policy needs a name")?,
+                "--seed" => {
+                    parsed.seed = args
+                        .next()
+                        .ok_or("--seed needs a number")?
+                        .parse()
+                        .map_err(|_| "invalid seed")?
+                }
+                "--score" => parsed.score = Some(args.next().ok_or("--score needs a file")?.into()),
                 "--export-replay" => {
                     parsed.export_replay = Some(
                         args.next()
@@ -330,10 +357,19 @@ impl Args {
         if (parsed.headless || parsed.require_live || parsed.gate_log.is_some())
             && !parsed.demo
             && parsed.reason.is_none()
+            && !parsed.rush_hour
         {
             return Err(
                 "--headless, --require-live, and --gate-log need --demo or --reason".into(),
             );
+        }
+        if parsed.rush_hour
+            && (parsed.demo
+                || parsed.replay.is_some()
+                || parsed.story.is_some()
+                || parsed.priority.is_some())
+        {
+            return Err("choose rush-hour separately from legacy demo/replay/story modes".into());
         }
         if parsed.reason.is_some()
             && (parsed.demo
@@ -386,6 +422,10 @@ Knobs:
   --priority-baseline      the same trip without its priority request
   --story KIND             competing | abuse | emergency | chain | counter-offer
   --save-replay FILE       save trajectories, dialogue, reasons, and reply times
+  --rush-hour             run a seeded rush-hour policy experiment
+  --policy NAME           fcfs, keyword, mock, or live
+  --seed N                fixed rush-hour demand seed
+  --score FILE            write the paired rush-hour score JSON
   --export-replay HTML     export --replay FILE as a standalone offline board
   --replay FILE            play that saved result with zero model calls
   --help
@@ -461,6 +501,31 @@ fn run_reason(args: &Args) -> Result<(), String> {
         loop {
             std::thread::park_timeout(std::time::Duration::from_secs(1));
         }
+    }
+    Ok(())
+}
+
+fn run_rush_hour(args: &Args) -> Result<(), String> {
+    let policy = muse::rush_hour::policy(&args.policy)?;
+    let result = muse::rush_hour::run(args.seed, policy.as_ref())?;
+    let score = &result.score;
+    let json = serde_json::to_string_pretty(score).map_err(|e| e.to_string())?;
+    if let Some(path) = &args.score {
+        std::fs::write(path, format!("{json}\n")).map_err(|e| e.to_string())?;
+    }
+    println!("rush-hour-score {}", serde_json::to_string(score).unwrap());
+    println!("policy    emergency_gain(s) others_mean(s) others_p95(s) liar_win_rate collisions");
+    println!(
+        "{:<9} {:>17.2} {:>14.2} {:>13.2} {:>13.3} {:>10}",
+        score.policy,
+        score.emergency_gain,
+        score.others_cost.mean_s,
+        score.others_cost.p95_s,
+        score.liar_win_rate,
+        score.collisions
+    );
+    if !score.passed {
+        return Err("incomplete or unsafe paired run; inspect score".into());
     }
     Ok(())
 }
