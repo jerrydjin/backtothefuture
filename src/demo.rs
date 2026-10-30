@@ -66,6 +66,14 @@ impl DemoStage {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DemoPlan {
     pub stages: Vec<DemoStage>,
+    #[serde(default)]
+    pub refusals: Vec<Refusal>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Refusal {
+    pub at_t: f64,
+    pub reason: String,
 }
 
 impl DemoPlan {
@@ -102,6 +110,7 @@ impl DemoPlan {
         }
         let a = &town.exchanges;
         let plan = Self {
+            refusals: vec![],
             stages: vec![
                 DemoStage {
                     name: "town-merge".into(),
@@ -211,6 +220,53 @@ impl Clock {
                 + DIALOGUE_S
                 + ACTION_S
                 + FADE_S;
+            if delivered[stage.event].is_some()
+                && elapsed >= end
+                && i + 1 == plan.stages.len()
+                && !plan.refusals.is_empty()
+            {
+                // Rejected requests do not create another model call or extend
+                // the original short priority slot. Each refusal stays readable.
+                let tail = elapsed - end;
+                let beat = (tail / 5.0).floor() as usize;
+                let n = beat.min(plan.refusals.len() - 1);
+                let refusal = &plan.refusals[n];
+                let local = (tail - n as f64 * 5.0).max(0.0);
+                let from_t = if n == 0 {
+                    ex.until + ex.fade_s
+                } else {
+                    plan.refusals[n - 1].at_t + 3.0
+                };
+                let typing = local < 2.0;
+                let complete = tail >= plan.refusals.len() as f64 * 5.0;
+                return DemoView {
+                    stage: i,
+                    name: "weak-requests".into(),
+                    event: stage.event,
+                    phase: if complete {
+                        "complete"
+                    } else if typing {
+                        "typing"
+                    } else {
+                        "denied"
+                    }
+                    .into(),
+                    sim_t: if typing {
+                        from_t + (refusal.at_t - from_t) * (local / 2.0)
+                    } else {
+                        refusal.at_t + (local - 2.0).min(3.0)
+                    },
+                    typed_progress: (local / 2.0).min(1.0),
+                    reason: if typing {
+                        String::new()
+                    } else {
+                        refusal.reason.clone()
+                    },
+                    request_event: None,
+                    complete,
+                    wall_s: now - self.origin,
+                };
+            }
             if delivered[stage.event].is_some()
                 && elapsed >= end
                 && self.stage + 1 < plan.stages.len()
@@ -559,6 +615,8 @@ pub struct GateReport {
     pub final_stage: String,
     pub final_reason: String,
     pub exchanges: Vec<GateExchange>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub weak_requests: Option<Box<GateReport>>,
 }
 
 /// Drive the exact browser session over HTTP, with real wall time and no DOM.
@@ -628,12 +686,19 @@ pub fn drive_headless(
                 || exchanges
                     .iter()
                     .all(|e| e.provider == "baseten" && e.source == "model");
+            let plan = board.demo.as_ref().unwrap();
+            let (final_stage, final_reason) = if let Some(refusal) = plan.refusals.last() {
+                ("weak-requests", refusal.reason.as_str())
+            } else {
+                let stage = plan.stages.last().unwrap();
+                (stage.name.as_str(), stage.reason.as_str())
+            };
             return Ok(GateReport {
                 passed: collisions == 0
                     && exchanges.len() == board.town.exchanges.len()
                     && live_ok
-                    && view.name == "competing"
-                    && view.reason == "Hospital takes priority over a meeting.",
+                    && view.name == final_stage
+                    && view.reason == final_reason,
                 length_s: started.elapsed().as_secs_f64(),
                 collisions,
                 resolved: exchanges.len(),
@@ -642,16 +707,61 @@ pub fn drive_headless(
                 final_stage: view.name,
                 final_reason: view.reason,
                 exchanges,
+                weak_requests: None,
             });
         }
         std::thread::sleep(Duration::from_millis(50));
     }
 }
 
+/// The expanded gate reuses the same HTTP clock and renderer for the short
+/// first grant followed by two refusals. The public --demo still ends competing.
+pub fn weak_request_board() -> Result<DinnerBoard, String> {
+    let mut board = crate::board::demo_board()?;
+    board.town =
+        crate::network::run_story_town(7, crate::story::StoryKind::Abuse, Box::new(ScriptedTalk));
+    let story = board
+        .town
+        .story
+        .as_ref()
+        .ok_or("missing weak-request story")?;
+    if story.decisions.len() != 3
+        || !story.decisions[0].granted
+        || story.decisions[1..].iter().any(|d| d.granted)
+        || story.priority_until_s != Some(230.0)
+        || board.town.exchanges.len() != 1
+    {
+        return Err("repeated weak requests won or extended their short slot".into());
+    }
+    let first = &story.decisions[0];
+    board.demo = Some(DemoPlan {
+        stages: vec![DemoStage {
+            name: "weak-requests".into(),
+            event: 0,
+            from_t: first.claim.at_s - 2.0,
+            trigger_t: first.claim.at_s,
+            requests: vec![TypedRequest {
+                car_id: first.claim.car_id,
+                text: "I'm late for a meeting".into(),
+            }],
+            reason: first.explanation.clone(),
+        }],
+        refusals: story.decisions[1..]
+            .iter()
+            .map(|d| Refusal {
+                at_t: d.claim.at_s,
+                reason: d.explanation.clone(),
+            })
+            .collect(),
+    });
+    Ok(board)
+}
+
 pub fn run(
     headless: bool,
     open: bool,
     require_live: bool,
+    include_weak: bool,
     log: Option<&std::path::Path>,
 ) -> Result<(), String> {
     if require_live
@@ -670,7 +780,21 @@ pub fn run(
     let url = format!("http://{}/?demo=1", server.address);
     println!("board: {url}");
     if headless {
+        let weak = if include_weak {
+            Some(std::thread::spawn(move || -> Result<GateReport, String> {
+                let board = weak_request_board()?;
+                let server = DemoServer::start(board.clone(), demo_talk())?;
+                drive_headless(&server, &board, require_live)
+            }))
+        } else {
+            None
+        };
         let mut report = drive_headless(&server, &board, require_live)?;
+        if let Some(weak) = weak {
+            let result = weak.join().map_err(|_| "weak-request gate panicked")??;
+            report.passed &= result.passed;
+            report.weak_requests = Some(Box::new(result));
+        }
         report.length_s = started.elapsed().as_secs_f64();
         report.passed &= report.length_s < 120.0;
         let json = serde_json::to_string(&report).map_err(|e| e.to_string())?;
@@ -705,6 +829,37 @@ pub fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn weak_request_clock_shows_both_refusals_without_another_negotiation() {
+        let board = weak_request_board().unwrap();
+        let mut clock = Clock::new(0.0);
+        let mut last_t = 0.0;
+        let mut seen = 0;
+        for tick in 0..501 {
+            let view = clock.view(tick as f64 / 10.0, &board, &[Some(2.01)]);
+            assert!(view.sim_t >= last_t);
+            last_t = view.sim_t;
+            if view.phase == "denied" {
+                assert_eq!(view.request_event, None);
+                assert_eq!(
+                    view.reason,
+                    "No: repeated weak reasons don't earn priority."
+                );
+                seen += 1;
+            }
+        }
+        assert!(seen >= 58, "both refusals must stay readable");
+        let end = clock.view(500.0, &board, &[Some(2.01)]);
+        assert!(end.complete);
+        assert_eq!(end.name, "weak-requests");
+        assert_eq!(end.sim_t, 243.0);
+        assert_eq!(board.town.exchanges.len(), 1);
+        assert_eq!(
+            board.town.stats.overlaps + board.town.stats.crossing_conflicts,
+            0
+        );
+    }
 
     #[test]
     fn clock_is_continuous_and_freezes_on_the_final_reason_under_two_minutes() {

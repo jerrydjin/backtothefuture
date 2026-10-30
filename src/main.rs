@@ -29,6 +29,7 @@ fn main() -> ExitCode {
             args.headless,
             !args.no_open,
             args.require_live,
+            args.include_weak,
             args.gate_log.as_deref(),
         ) {
             Ok(()) => ExitCode::SUCCESS,
@@ -184,6 +185,7 @@ struct Args {
     demo: bool,
     headless: bool,
     require_live: bool,
+    include_weak: bool,
     gate_log: Option<std::path::PathBuf>,
     no_open: bool,
     priority: Option<bool>,
@@ -205,6 +207,7 @@ impl Args {
             demo: false,
             headless: false,
             require_live: false,
+            include_weak: false,
             gate_log: None,
             no_open: false,
             priority: None,
@@ -222,6 +225,7 @@ impl Args {
                 "--demo" => parsed.demo = true,
                 "--headless" => parsed.headless = true,
                 "--require-live" => parsed.require_live = true,
+                "--include-weak" => parsed.include_weak = true,
                 "--gate-log" => {
                     parsed.gate_log = Some(args.next().ok_or("--gate-log needs a file")?.into())
                 }
@@ -277,6 +281,9 @@ impl Args {
         if (parsed.headless || parsed.require_live || parsed.gate_log.is_some()) && !parsed.demo {
             return Err("--headless, --require-live, and --gate-log need --demo".into());
         }
+        if parsed.include_weak && !(parsed.demo && parsed.headless) {
+            return Err("--include-weak needs --demo --headless".into());
+        }
         if parsed.demo
             && (parsed.story.is_some()
                 || parsed.priority.is_some()
@@ -303,6 +310,7 @@ Knobs:
   --demo                   play the finite normal/merge/priority/competing story
   --headless               drive the same demo over HTTP without a browser
   --require-live           fail the headless gate unless every reply is Baseten
+  --include-weak           also gate the weak-request grant and repeated refusals
   --gate-log FILE          append the headless run report as JSONL
   --cars N                 fleet size, 2 to 64 (default 6)
   --jam KIND               symmetric | ramp-surge | mainline-plug
