@@ -32,3 +32,32 @@ fn demo_is_one_continuous_town_and_ends_on_hospital_priority() {
         "GREEN time_home=69 collisions=0 fairness=0.00 home=6/6"
     );
 }
+#[test]
+fn missing_live_credentials_still_write_exactly_one_failed_gate_line() {
+    let path = std::env::temp_dir().join(format!("muse-missing-key-{}.jsonl", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_muse"))
+        .args(["--demo", "--headless", "--require-live", "--gate-log"])
+        .arg(&path)
+        .env_remove("BASETEN_API_KEY")
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let lines = std::fs::read_to_string(&path).unwrap();
+    assert_eq!(lines.lines().count(), 1);
+    let report: serde_json::Value = serde_json::from_str(lines.trim()).unwrap();
+    assert_eq!(report["passed"], false);
+    assert!(report["failure_reason"]
+        .as_str()
+        .unwrap()
+        .contains("requires BASETEN_API_KEY"));
+    assert_eq!(
+        String::from_utf8(output.stdout)
+            .unwrap()
+            .lines()
+            .filter(|l| l.starts_with("demo-gate "))
+            .count(),
+        1
+    );
+    std::fs::remove_file(path).unwrap();
+}

@@ -167,7 +167,16 @@ impl MergeTalk for MergeAgent {
             let Some(budget) = remaining.checked_sub(Duration::from_millis(100)) else {
                 break;
             };
+            let started = Instant::now();
+            eprintln!(
+                "merge-timing cars={},{} attempt={} phase=start budget_s={:.3}",
+                snap.cars[0].id,
+                snap.cars[1].id,
+                attempt + 1,
+                budget.as_secs_f64()
+            );
             let reply = self.client.complete_with_timeout(&prompt, budget);
+            eprintln!("merge-timing cars={},{} attempt={} phase=returned elapsed_s={:.3} remaining_s={:.3} result={}", snap.cars[0].id, snap.cars[1].id, attempt + 1, started.elapsed().as_secs_f64(), deadline.saturating_duration_since(Instant::now()).as_secs_f64(), reply.as_ref().map(|_| "reply".to_string()).unwrap_or_else(|e| negotiate_reason(e)));
             if Instant::now() >= deadline {
                 reason = "timeout".into();
                 break;
@@ -180,10 +189,13 @@ impl MergeTalk for MergeAgent {
                     }
                     Err(error) => {
                         eprintln!(
-                            "merge parse failure attempt={} reason={} raw={:?}",
+                            "merge parse failure attempt={} reason={}",
                             attempt + 1,
-                            error,
-                            self.client.diagnostic_text(&text)
+                            if error.is_empty() {
+                                "parse"
+                            } else {
+                                "invalid_exchange"
+                            }
                         );
                         reason = "parse".into();
                         prompt.push_str("\nThe previous reply was invalid. Return only the complete JSON exchange. Keep the agreed order, with each driver's role explicit and each line at most eight words.\n");

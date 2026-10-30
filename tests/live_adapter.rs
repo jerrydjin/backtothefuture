@@ -153,6 +153,30 @@ fn curl_timeout_obeys_remaining_deadline_without_starting_another_request() {
 }
 
 #[test]
+#[ignore = "real-time watchdog gate with three non-cooperative exchanges, approximately 111 seconds"]
+fn non_cooperative_provider_finishes_with_three_logged_fallbacks() {
+    struct Stuck;
+    impl MergeTalk for Stuck {
+        fn agree(&self, _: &MergeSnap) -> muse::negotiate::MergeChoice {
+            std::thread::sleep(Duration::from_secs(180));
+            unreachable!("the demo must finish before this call returns")
+        }
+    }
+    let board = muse::board::demo_board().unwrap();
+    let server = DemoServer::start(board.clone(), Box::new(Stuck)).unwrap();
+    let report = drive_headless(&server, &board, true).unwrap();
+    assert!(!report.passed);
+    assert_eq!(report.collisions, 0);
+    assert_eq!(report.resolved, 3);
+    assert!(report.length_s < muse::demo::MAX_DEMO_S);
+    assert!(report
+        .exchanges
+        .iter()
+        .all(|e| e.source == "fallback" && e.reason == "reply_deadline"));
+    println!("watchdog-gate {}", serde_json::to_string(&report).unwrap());
+}
+
+#[test]
 #[ignore = "real-time three-scene HTTP gate, approximately 105 seconds"]
 fn slow_first_http_reply_completes_the_demo_with_three_model_exchanges() {
     let board = muse::board::demo_board().unwrap();
