@@ -355,6 +355,44 @@ struct Slot {
     delivered: Option<f64>,
 }
 
+/// Start a forecast as soon as its pair is known. Browser POSTs remain idempotent.
+fn launch_negotiation(
+    i: usize,
+    expected: crate::network::TownExchange,
+    shared: Arc<Mutex<Vec<Slot>>>,
+    client: Arc<dyn MergeTalk>,
+    deadline: Instant,
+) {
+    std::thread::spawn(move || {
+        let start = Instant::now();
+        let proposed = client.agree_before(&expected.forecast, deadline);
+        let choice = if proposed.yields == expected.yields
+            && proposed.merges == expected.merges
+            && proposed
+                .lines
+                .iter()
+                .all(|l| crate::negotiate::human_line(&l.say))
+            && crate::negotiate::roles_match(
+                &proposed.lines,
+                proposed.yields,
+                proposed.merges,
+                None,
+            ) {
+            proposed
+        } else {
+            crate::negotiate::choice_from_reply(&expected.forecast, Err("parse"))
+        };
+        let answer = Resolution {
+            choice,
+            reply_s: start.elapsed().as_secs_f64(),
+        };
+        let mut state = shared.lock().unwrap();
+        if state[i].answer.is_none() {
+            state[i].answer = Some(answer);
+        }
+    });
+}
+
 pub struct DemoServer {
     pub address: SocketAddr,
     stop: Arc<AtomicBool>,
@@ -390,6 +428,16 @@ impl DemoServer {
                     .collect::<Vec<_>>(),
             ));
             let talk: Arc<dyn MergeTalk> = Arc::from(talk);
+            // Event 0 no longer waits for HTML serialization, page loading,
+            // browser polling, or the headless client's first POST.
+            slots.lock().unwrap()[0].started = true;
+            launch_negotiation(
+                0,
+                board.town.exchanges[0].clone(),
+                Arc::clone(&slots),
+                Arc::clone(&talk),
+                Instant::now() + Duration::from_secs_f64(REPLY_DEADLINE_S),
+            );
             let html = crate::board::render_board_html(&board);
             let mut clock = None;
             while !halt.load(Ordering::Relaxed) {
@@ -479,40 +527,25 @@ impl DemoServer {
                         let mut state = slots.lock().unwrap();
                         if !state[i].started {
                             state[i].started = true;
-                            let expected = board.town.exchanges[i].clone();
-                            let shared = Arc::clone(&slots);
-                            let client = Arc::clone(&talk);
-                            std::thread::spawn(move || {
-                                let start = Instant::now();
-                                let proposed = client.agree(&expected.forecast);
-                                let choice = if proposed.yields == expected.yields
-                                    && proposed.merges == expected.merges
-                                    && proposed
-                                        .lines
-                                        .iter()
-                                        .all(|l| crate::negotiate::human_line(&l.say))
-                                    && crate::negotiate::roles_match(
-                                        &proposed.lines,
-                                        proposed.yields,
-                                        proposed.merges,
-                                        None,
-                                    ) {
-                                    proposed
-                                } else {
-                                    crate::negotiate::choice_from_reply(
-                                        &expected.forecast,
-                                        Err("parse"),
-                                    )
-                                };
-                                let answer = Resolution {
-                                    choice,
-                                    reply_s: start.elapsed().as_secs_f64(),
-                                };
-                                let mut state = shared.lock().unwrap();
-                                if state[i].answer.is_none() {
-                                    state[i].answer = Some(answer);
-                                }
-                            });
+                            let deadline = clock
+                                .as_ref()
+                                .map(|c: &Clock| {
+                                    let stage = &board.demo.as_ref().unwrap().stages[c.stage];
+                                    epoch
+                                        + Duration::from_secs_f64(
+                                            c.stage_start + stage.typing_s() + REPLY_DEADLINE_S,
+                                        )
+                                })
+                                .unwrap_or_else(|| {
+                                    Instant::now() + Duration::from_secs_f64(REPLY_DEADLINE_S)
+                                });
+                            launch_negotiation(
+                                i,
+                                board.town.exchanges[i].clone(),
+                                Arc::clone(&slots),
+                                Arc::clone(&talk),
+                                deadline,
+                            );
                         }
                         (202, "application/json", "{}".into())
                     }
@@ -612,6 +645,9 @@ pub struct GateReport {
     pub resolved: usize,
     pub posts: usize,
     pub result_gets: usize,
+    /// State polls that observed a late reply holding the encounter.
+    #[serde(default)]
+    pub late_polls: usize,
     pub final_stage: String,
     pub final_reason: String,
     pub exchanges: Vec<GateExchange>,
@@ -629,6 +665,7 @@ pub fn drive_headless(
     let mut posted = std::collections::BTreeSet::new();
     let mut exchanges = Vec::new();
     let mut result_gets = 0;
+    let mut late_polls = 0;
     loop {
         if started.elapsed().as_secs_f64() > MAX_DEMO_S {
             return Err("demo exceeded its bounded wall time".into());
@@ -638,6 +675,7 @@ pub fn drive_headless(
             return Err(format!("demo state HTTP {code}"));
         }
         let view: DemoView = serde_json::from_value(state).map_err(|e| e.to_string())?;
+        late_polls += usize::from(view.phase == "late");
         if let Some(event) = view.request_event {
             if posted.insert(event) {
                 let (code, _) = http(server.address, "POST", &format!("/negotiate?event={event}"))?;
@@ -704,6 +742,7 @@ pub fn drive_headless(
                 resolved: exchanges.len(),
                 posts: posted.len(),
                 result_gets,
+                late_polls,
                 final_stage: view.name,
                 final_reason: view.reason,
                 exchanges,
@@ -908,7 +947,7 @@ mod tests {
     }
 
     #[test]
-    fn real_http_gate_is_idempotent_and_requires_a_post_before_a_result() {
+    fn real_http_gate_prefetches_event_zero_and_posts_are_idempotent() {
         struct Count(Arc<std::sync::atomic::AtomicUsize>);
         impl MergeTalk for Count {
             fn agree(&self, snap: &crate::negotiate::MergeSnap) -> MergeChoice {
@@ -919,8 +958,15 @@ mod tests {
         let calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let board = crate::board::demo_board().unwrap();
         let server = DemoServer::start(board, Box::new(Count(Arc::clone(&calls)))).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while calls.load(Ordering::Relaxed) == 0 {
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        // The first ask happened without any HTTP request.
+        assert_eq!(calls.load(Ordering::Relaxed), 1);
         assert_eq!(
-            http(server.address, "GET", "/result?event=0").unwrap().0,
+            http(server.address, "GET", "/result?event=1").unwrap().0,
             202
         );
         for _ in 0..2 {
