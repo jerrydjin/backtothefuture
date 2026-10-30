@@ -202,6 +202,7 @@ impl HttpMuse {
             &self.model,
             "You are Muse. Reply with one ZonePlan JSON object and no other text.",
             prompt,
+            false,
         );
         let auth = format!("authorization: Bearer {}", self.api_key);
         let text = curl_post(&url, &[auth], &body, 30, &self.api_key)?;
@@ -304,10 +305,28 @@ impl GeminiChat {
 
     /// Raw model text, or a short reason token. The token does not contain the key.
     pub fn complete(&self, system: &str, user: &str) -> Result<String, String> {
+        self.complete_with_timeout(system, user, std::time::Duration::from_secs(45))
+    }
+
+    pub(crate) fn redact_text(&self, text: &str) -> String {
+        redact(text, &self.api_key)
+    }
+
+    pub fn complete_with_timeout(
+        &self,
+        system: &str,
+        user: &str,
+        timeout: std::time::Duration,
+    ) -> Result<String, String> {
         let (url, body, header) = if self.openai {
             (
                 format!("{}/chat/completions", self.base.trim_end_matches('/')),
-                openai_body(&self.model, system, user),
+                openai_body(
+                    &self.model,
+                    system,
+                    user,
+                    self.provider == "baseten" && self.model == BASETEN_MODEL,
+                ),
                 format!("authorization: Bearer {}", self.api_key),
             )
         } else {
@@ -326,8 +345,8 @@ impl GeminiChat {
                 format!("x-goog-api-key: {}", self.api_key),
             )
         };
-        let text =
-            curl_negotiate(&url, &[header], &body, 45).map_err(|error| negotiate_reason(&error))?;
+        let text = curl_negotiate(&url, &[header], &body, timeout.as_secs_f64())
+            .map_err(|error| negotiate_reason(&error))?;
         completion_text(&text).map_err(|error| negotiate_reason(&error))
     }
 }
@@ -370,16 +389,22 @@ fn provider_for(base: &str, openai: bool) -> &'static str {
     }
 }
 
-fn openai_body(model: &str, system: &str, user: &str) -> String {
-    serde_json::json!({
+fn openai_body(model: &str, system: &str, user: &str, bounded_reasoning: bool) -> String {
+    let mut body = serde_json::json!({
         "model": model,
         "temperature": 0,
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user}
         ]
-    })
-    .to_string()
+    });
+    if bounded_reasoning {
+        // Avoid leaving a tiny exchange's reasoning/output budget at provider
+        // defaults. Keep room for reasoning and speech inside playback.
+        body["reasoning_effort"] = serde_json::json!("low");
+        body["max_tokens"] = serde_json::json!(1024);
+    }
+    body.to_string()
 }
 
 /// Pull the assistant text out of an OpenAI chat body or a Gemini `generateContent` body.
@@ -453,9 +478,9 @@ fn curl_negotiate(
     url: &str,
     headers: &[String],
     body: &str,
-    timeout_secs: u64,
+    timeout_secs: f64,
 ) -> Result<String, String> {
-    let timeout = timeout_secs.to_string();
+    let timeout = timeout_secs.max(0.001).to_string();
     let mut cmd = Command::new("curl");
     cmd.args([
         "-sS",

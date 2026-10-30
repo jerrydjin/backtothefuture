@@ -8,10 +8,11 @@
 //! [`negotiator_from_env`] once at one merge. `BASETEN_API_KEY` selects the
 //! hackathon host. `GEMINI_API_KEY` is the Gemini path. `MERGE_API_KEY` is a
 //! generic key that follows `MODEL_API_BASE`. No key, a timeout, or a reply
-//! that is not the strict JSON falls back to this decision.
+//! that cannot form a safe exchange falls back to this decision.
 //! [`LocalNegotiate`] itself does not read a key.
 
 use serde::Serialize;
+use std::time::{Duration, Instant};
 
 use crate::muse::{negotiate_reason, select_talk, GeminiChat, TalkKeys};
 use crate::schema::{Approach, TalkPhase, VisibleNeighbor, YieldRole, YieldTalk};
@@ -80,6 +81,11 @@ pub struct MergeChoice {
 /// `agree` picks who yields. The town sim moves the cars.
 pub trait MergeTalk: Send + Sync {
     fn agree(&self, snap: &MergeSnap) -> MergeChoice;
+
+    /// Callers with a playback deadline pass the remaining wall-clock budget.
+    fn agree_before(&self, snap: &MergeSnap, _deadline: Instant) -> MergeChoice {
+        self.agree(snap)
+    }
 }
 
 /// Scripted town negotiator. Same decision as [`LocalNegotiate`] at turn 0.
@@ -95,6 +101,14 @@ impl MergeTalk for ScriptedTalk {
 /// Something that returns model text for a prompt. Tests pass a recorded body.
 pub trait Completer: Send + Sync {
     fn complete(&self, prompt: &str) -> Result<String, String>;
+
+    fn complete_with_timeout(&self, prompt: &str, _timeout: Duration) -> Result<String, String> {
+        self.complete(prompt)
+    }
+
+    fn diagnostic_text(&self, text: &str) -> String {
+        redacted_model_text(text)
+    }
 }
 
 impl Completer for GeminiChat {
@@ -105,9 +119,22 @@ impl Completer for GeminiChat {
             prompt,
         )
     }
+
+    fn complete_with_timeout(&self, prompt: &str, timeout: Duration) -> Result<String, String> {
+        GeminiChat::complete_with_timeout(
+            self,
+            "You negotiate one merge. Reply with one JSON object and no other text.",
+            prompt,
+            timeout,
+        )
+    }
+
+    fn diagnostic_text(&self, text: &str) -> String {
+        redacted_model_text(&self.redact_text(text))
+    }
 }
 
-/// Live or scripted negotiator. The client is called once per agreement.
+/// Live negotiator, with at most one retry inside the caller’s deadline.
 pub struct MergeAgent {
     client: Box<dyn Completer>,
     provider: String,
@@ -128,11 +155,58 @@ impl MergeAgent {
 
 impl MergeTalk for MergeAgent {
     fn agree(&self, snap: &MergeSnap) -> MergeChoice {
-        let prompt = render_merge_prompt(snap);
-        let mut choice = match self.client.complete(&prompt) {
-            Ok(text) => choice_from_reply(snap, Ok(&text)),
-            Err(error) => choice_from_reply(snap, Err(error.as_str())),
-        };
+        self.agree_before(snap, Instant::now() + Duration::from_secs(45))
+    }
+
+    fn agree_before(&self, snap: &MergeSnap, deadline: Instant) -> MergeChoice {
+        let mut prompt = render_merge_prompt(snap);
+        let mut reason = "timeout".to_string();
+        for attempt in 0..2 {
+            // Leave room for parsing and publishing the answer before playback expires.
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            let Some(budget) = remaining.checked_sub(Duration::from_millis(100)) else {
+                break;
+            };
+            let reply = self.client.complete_with_timeout(&prompt, budget);
+            if Instant::now() >= deadline {
+                reason = "timeout".into();
+                break;
+            }
+            match reply {
+                Ok(text) => match parse_model_exchange(&text, snap) {
+                    Ok(mut choice) => {
+                        choice.provider = self.provider.clone();
+                        return choice;
+                    }
+                    Err(error) => {
+                        eprintln!(
+                            "merge parse failure attempt={} reason={} raw={:?}",
+                            attempt + 1,
+                            error,
+                            self.client.diagnostic_text(&text)
+                        );
+                        reason = "parse".into();
+                        prompt.push_str("\nThe previous reply was invalid. Return only the complete JSON exchange. Keep the agreed order, with each driver's role explicit and each line at most eight words.\n");
+                    }
+                },
+                Err(error) => reason = negotiate_reason(&error),
+            }
+            if !matches!(
+                reason.as_str(),
+                "parse"
+                    | "transport"
+                    | "timeout"
+                    | "bad_response"
+                    | "http_429"
+                    | "http_500"
+                    | "http_502"
+                    | "http_503"
+                    | "http_504"
+            ) {
+                break;
+            }
+        }
+        let mut choice = scripted_choice(snap, &reason);
         choice.provider = self.provider.clone();
         choice
     }
@@ -189,9 +263,14 @@ pub fn car_pref(id: u32) -> &'static str {
 /// Parse a model reply into a choice. Any miss falls back to [`scripted_choice`].
 pub fn choice_from_reply(snap: &MergeSnap, reply: Result<&str, &str>) -> MergeChoice {
     match reply {
-        Ok(text) => {
-            parse_model_exchange(text, snap).unwrap_or_else(|_| scripted_choice(snap, "parse"))
-        }
+        Ok(text) => parse_model_exchange(text, snap).unwrap_or_else(|error| {
+            eprintln!(
+                "merge parse failure reason={} raw={:?}",
+                error,
+                redacted_model_text(text)
+            );
+            scripted_choice(snap, "parse")
+        }),
         Err(error) => scripted_choice(snap, error),
     }
 }
@@ -295,12 +374,117 @@ struct ModelLine {
     say: String,
 }
 
-fn parse_model_exchange(text: &str, snap: &MergeSnap) -> Result<MergeChoice, String> {
-    let text = text.trim().trim_start_matches('\u{feff}');
-    if text.is_empty() || text.starts_with("```") || text.contains("ERROR:") {
-        return Err("not a bare object".into());
+/// Extract a single complete JSON object without depending on fences or prose.
+/// Streaming deserialization respects braces and escaped quotes inside speech.
+fn extract_model_exchange(text: &str) -> Result<ModelExchange, String> {
+    fn extract(text: &str) -> Option<ModelExchange> {
+        for (i, ch) in text.char_indices() {
+            if ch != '{' {
+                continue;
+            }
+            let mut stream =
+                serde_json::Deserializer::from_str(&text[i..]).into_iter::<ModelExchange>();
+            if let Some(Ok(value)) = stream.next() {
+                return Some(value);
+            }
+        }
+        None
     }
-    let parsed: ModelExchange = serde_json::from_str(text).map_err(|error| error.to_string())?;
+    if let Some(value) = extract(text) {
+        return Ok(value);
+    }
+    // Some replies use typographic quotes as JSON delimiters. Try this only
+    // after standard JSON, preserving ordinary smart quotes inside valid strings.
+    let normalized = text.replace(['“', '”'], "\"");
+    extract(&normalized).ok_or_else(|| "invalid exchange JSON".into())
+}
+
+fn trim_spoken_line(say: &str) -> String {
+    let mut words = Vec::new();
+    let mut chars = 0;
+    for word in say.split_whitespace().take(SAY_MAX_WORDS) {
+        let next = chars + word.chars().count() + usize::from(!words.is_empty());
+        if next > 96 {
+            break;
+        }
+        words.push(word);
+        chars = next;
+    }
+    words.join(" ")
+}
+
+/// Redact known environment credentials before truncating (never truncate a key
+/// into an unrecognizable prefix). Long credential-like tokens are hidden too.
+fn redacted_model_text(text: &str) -> String {
+    let mut safe = text.to_string();
+    for name in [
+        "BASETEN_API_KEY",
+        "MERGE_API_KEY",
+        "GEMINI_API_KEY",
+        "MODEL_API_KEY",
+    ] {
+        if let Ok(key) = std::env::var(name) {
+            if !key.is_empty() {
+                safe = safe.replace(&key, "[REDACTED]");
+            }
+        }
+    }
+    let mut redacted = String::new();
+    let mut token = String::new();
+    let flush = |token: &mut String, out: &mut String| {
+        if token.len() >= 24 || token.starts_with("sk-") {
+            out.push_str("[REDACTED]");
+        } else {
+            out.push_str(token);
+        }
+        token.clear();
+    };
+    for ch in safe.chars() {
+        if ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.' | '/' | '+' | '=') {
+            token.push(ch);
+        } else {
+            flush(&mut token, &mut redacted);
+            redacted.push(ch);
+        }
+    }
+    flush(&mut token, &mut redacted);
+    let mut excerpt: String = redacted.chars().take(1024).collect();
+    if redacted.chars().count() > 1024 {
+        excerpt.push_str("…[truncated]");
+    }
+    excerpt
+}
+
+fn parse_model_exchange(text: &str, snap: &MergeSnap) -> Result<MergeChoice, String> {
+    let mut parsed = extract_model_exchange(text)?;
+    // Validate the full speech first: truncation must never conceal a reversal.
+    let mouths = [snap.cars[0].id, snap.cars[1].id];
+    if !mouths.contains(&parsed.yields) || snap.priority_for == Some(parsed.yields) {
+        return Err("yields".into());
+    }
+    let merges = mouths
+        .into_iter()
+        .find(|id| *id != parsed.yields)
+        .expect("peer");
+    let original: Vec<_> = parsed
+        .lines
+        .iter()
+        .map(|l| MergeLine {
+            id: l.id,
+            say: l.say.clone(),
+        })
+        .collect();
+    if !roles_match(
+        &original,
+        parsed.yields,
+        merges,
+        parsed.counter_offer.as_ref(),
+    ) {
+        return Err("spoken roles do not match the agreement".into());
+    }
+    if let Some(offer) = &mut parsed.counter_offer {
+        offer.explanation = trim_spoken_line(&offer.explanation);
+    }
     let ids: Vec<_> = snap
         .cars
         .iter()
@@ -322,26 +506,27 @@ fn parse_model_exchange(text: &str, snap: &MergeSnap) -> Result<MergeChoice, Str
     let mut seen = vec![false; ids.len()];
     let mut lines = Vec::with_capacity(ids.len());
     for line in parsed.lines {
-        if !human_line(&line.say) {
-            return Err("line length".into());
-        }
+        // Prefer the opening words. If a long preamble put the driver's role
+        // at the end, retain a short window that still expresses that role.
+        let words: Vec<_> = line.say.split_whitespace().collect();
+        let say = words
+            .windows(words.len().clamp(1, SAY_MAX_WORDS))
+            .map(|window| trim_spoken_line(&window.join(" ")))
+            .find(|say| {
+                let mut trial = original.clone();
+                for candidate in trial.iter_mut().filter(|l| l.id == line.id) {
+                    candidate.say.clone_from(say);
+                }
+                human_line(say)
+                    && roles_match(&trial, parsed.yields, merges, parsed.counter_offer.as_ref())
+            })
+            .ok_or("line cannot fit the speech contract")?;
         match ids.iter().position(|id| *id == line.id) {
             Some(index) if !seen[index] => seen[index] = true,
             _ => return Err("line id".into()),
         }
-        lines.push(MergeLine {
-            id: line.id,
-            say: line.say.trim().to_string(),
-        });
+        lines.push(MergeLine { id: line.id, say });
     }
-    let mouths = [snap.cars[0].id, snap.cars[1].id];
-    if !mouths.contains(&parsed.yields) || snap.priority_for == Some(parsed.yields) {
-        return Err("yields".into());
-    }
-    let merges = mouths
-        .into_iter()
-        .find(|id| *id != parsed.yields)
-        .expect("peer");
     if snap.counter_offer_allowed != parsed.counter_offer.is_some() {
         return Err("counter-offer required only when offered".into());
     }
@@ -497,6 +682,19 @@ pub fn roles_match(
         "hold back",
         "i'll hold",
     ];
+    // Live Baseten also describes its own movement as clearing/proceeding.
+    // Treat those phrases as movement on *both* sides of the agreement, so
+    // accepting them cannot conceal a contradictory promise by the waiter.
+    let movement = [
+        "clearing ahead",
+        "clearing the route",
+        "clearing route",
+        "proceeding ahead",
+        "proceeding through",
+        "proceeding to clear",
+        "i'll clear ahead",
+        "i will clear ahead",
+    ];
     let selfish = [
         "i go first",
         "i'll go first",
@@ -504,6 +702,12 @@ pub fn roles_match(
         "going now",
         "merging now",
         "i'll merge now",
+        "i'll go",
+        "i will go",
+        "i'm going",
+        "i go",
+        "i'll take",
+        "i'm merging",
     ];
     // "I'll go ahead" is accepting the turn; "Thanks, go ahead" gives
     // it away. A courtesy word alone must not hide a reversed spoken role.
@@ -513,21 +717,23 @@ pub fn roles_match(
         .replace("i go ahead", "");
     has(&wait, &invitations)
         && !has(&wait, &selfish)
-        && has(
-            &go,
-            &[
-                "thanks",
-                "thank you",
-                "going",
-                "i'll go",
-                "i go",
-                "merging",
-                "coming through",
-                "i'll take",
-                "taking",
-                "on my way",
-            ],
-        )
+        && !has(&wait, &movement)
+        && (has(&go, &movement)
+            || has(
+                &go,
+                &[
+                    "thanks",
+                    "thank you",
+                    "going",
+                    "i'll go",
+                    "i go",
+                    "merging",
+                    "coming through",
+                    "i'll take",
+                    "taking",
+                    "on my way",
+                ],
+            ))
         && !has(
             &go_without_self_acceptance,
             &[
@@ -875,11 +1081,7 @@ mod tests {
             assert!(!human_line(bad), "accepted telemetry: {bad}");
         }
         let state = snap(2, 5);
-        for bad in [
-            "You can go first and I will wait here",
-            "Wait 4 seconds",
-            "The gap is clear",
-        ] {
+        for bad in ["Wait 4 seconds", "The gap is clear"] {
             let reply = serde_json::json!({"lines":[{"id":2,"say":bad},{"id":5,"say":"Thanks, going now"}],"yields":2}).to_string();
             let fallback = choice_from_reply(&state, Ok(&reply));
             assert_eq!(fallback.source, "fallback");
@@ -891,6 +1093,122 @@ mod tests {
                 None
             ));
         }
+    }
+
+    #[test]
+    fn model_formatting_and_long_lines_are_repaired_without_changing_roles() {
+        let text = r#"{"lines":[{"id":2,"say":"You go ahead and I will wait here please"},{"id":5,"say":"Thanks, I’m going ahead while you wait here please"}],"yields":2}"#;
+        for reply in [
+            text.to_string(),
+            format!("```json\n{text}\n```"),
+            format!("Here is the agreement:\n{text}\nHave a safe trip."),
+            text.replace('"', "“"),
+            format!("\u{feff}  {text}  "),
+        ] {
+            let choice = choice_from_reply(&snap(2, 5), Ok(&reply));
+            assert_eq!(choice.source, "model", "{reply}");
+            assert_eq!(choice.lines[0].say, "You go ahead and I will wait here");
+            assert_eq!(
+                choice.lines[1].say,
+                "Thanks, I’m going ahead while you wait here"
+            );
+            assert!(choice.lines.iter().all(|l| human_line(&l.say)));
+        }
+        // A contradiction past the cap must not disappear through truncation.
+        for (wait, go) in [
+            (
+                "You first, I'll wait right here for you; I'm going first",
+                "Thanks, going now",
+            ),
+            (
+                "You first, I'm slowing",
+                "Thanks, I'm going ahead while the road clears; you first",
+            ),
+            ("I'll go, you wait", "Thanks, going now"),
+        ] {
+            let reply =
+                serde_json::json!({"lines":[{"id":2,"say":wait},{"id":5,"say":go}],"yields":2})
+                    .to_string();
+            assert_eq!(
+                choice_from_reply(&snap(2, 5), Ok(&reply)).source,
+                "fallback"
+            );
+        }
+    }
+
+    #[test]
+    fn parse_diagnostics_are_redacted_and_bounded() {
+        let text = format!("sk-diagnostic-fixture {}", "é".repeat(1500));
+        let safe = redacted_model_text(&text);
+        assert!(!safe.contains("sk-diagnostic-fixture"));
+        assert!(safe.starts_with("[REDACTED]"));
+        assert!(safe.ends_with("…[truncated]"));
+        assert!(safe.chars().count() < 1050);
+    }
+
+    #[test]
+    fn trimming_preserves_a_role_after_a_long_preamble() {
+        let text = serde_json::json!({"lines":[
+            {"id":2,"say":"I'm late for work but the hospital matters more, you go ahead"},
+            {"id":5,"say":"The hospital is really important to me today, thanks, I'll go"}
+        ],"yields":2})
+        .to_string();
+        let choice = choice_from_reply(&snap(2, 5), Ok(&text));
+        assert_eq!(choice.source, "model");
+        assert!(choice.lines.iter().all(|l| human_line(&l.say)));
+        assert!(roles_match(&choice.lines, 2, 5, None));
+    }
+
+    #[test]
+    fn one_retry_recovers_parse_and_transport_errors_with_remaining_budget() {
+        use std::sync::{Arc, Mutex};
+        struct Replies {
+            replies: Mutex<std::collections::VecDeque<Result<String, String>>>,
+            budgets: Arc<Mutex<Vec<Duration>>>,
+        }
+        impl Completer for Replies {
+            fn complete(&self, _: &str) -> Result<String, String> {
+                unreachable!()
+            }
+            fn complete_with_timeout(&self, _: &str, budget: Duration) -> Result<String, String> {
+                self.budgets.lock().unwrap().push(budget);
+                std::thread::sleep(Duration::from_millis(5));
+                self.replies
+                    .lock()
+                    .unwrap()
+                    .pop_front()
+                    .expect("no third attempt")
+            }
+        }
+        for first in [
+            Ok("bad JSON".into()),
+            Err("transport".into()),
+            Err("timeout".into()),
+        ] {
+            let budgets = Arc::new(Mutex::new(Vec::new()));
+            let agent = MergeAgent::new(Box::new(Replies {
+                replies: Mutex::new([first, Ok(RECORDED.into())].into()),
+                budgets: Arc::clone(&budgets),
+            }));
+            let choice = agent.agree_before(&snap(2, 5), Instant::now() + Duration::from_secs(1));
+            assert_eq!(choice.source, "model");
+            let budgets = budgets.lock().unwrap();
+            assert_eq!(budgets.len(), 2);
+            assert!(budgets[1] < budgets[0] && budgets[0] < Duration::from_secs(1));
+        }
+        let budgets = Arc::new(Mutex::new(Vec::new()));
+        let agent = MergeAgent::new(Box::new(Replies {
+            replies: Mutex::new([Ok("bad".into()), Ok("still bad".into())].into()),
+            budgets: Arc::clone(&budgets),
+        }));
+        assert_eq!(agent.agree(&snap(2, 5)).reason, "parse");
+        assert_eq!(budgets.lock().unwrap().len(), 2);
+        // An exhausted deadline must never start a request, including a retry.
+        assert_eq!(
+            agent.agree_before(&snap(2, 5), Instant::now()).reason,
+            "timeout"
+        );
+        assert_eq!(budgets.lock().unwrap().len(), 2);
     }
 
     #[test]
@@ -915,6 +1233,42 @@ mod tests {
         }
         let valid = r#"{"lines":[{"id":2,"say":"I'm holding, you can go"},{"id":5,"say":"Thanks, I'll go ahead"}],"yields":2}"#;
         assert_eq!(choice_from_reply(&state, Ok(valid)).source, "model");
+    }
+
+    #[test]
+    fn live_clearing_and_proceeding_lines_preserve_the_spoken_order() {
+        let state = snap(2, 5);
+        for go in [
+            "Priority granted, clearing ahead now",
+            "Priority granted, proceeding ahead now",
+            "Proceeding to clear priority route",
+            "Hospital over meeting, proceeding ahead now",
+            "I'll clear ahead, hospital before meeting",
+        ] {
+            let reply = |wait, go| {
+                serde_json::json!({"lines":[
+                {"id":2,"say":wait},{"id":5,"say":go}],"yields":2})
+                .to_string()
+            };
+            let valid = reply("Priority granted, I'll wait, go ahead", go);
+            assert_eq!(
+                choice_from_reply(&state, Ok(&valid)).source,
+                "model",
+                "{go}"
+            );
+            let reversed = reply(go, "I'll wait, go ahead");
+            assert_eq!(choice_from_reply(&state, Ok(&reversed)).source, "fallback");
+            let contradictory = reply(&format!("I'll wait; {go}"), "Thanks, I'll go");
+            assert_eq!(
+                choice_from_reply(&state, Ok(&contradictory)).source,
+                "fallback"
+            );
+        }
+        let contradiction = r#"{"lines":[{"id":2,"say":"I'll wait"},{"id":5,"say":"Clearing ahead, you go first"}],"yields":2}"#;
+        assert_eq!(
+            choice_from_reply(&state, Ok(contradiction)).source,
+            "fallback"
+        );
     }
 
     fn neighbor(id: u32, approach: Approach) -> VisibleNeighbor {

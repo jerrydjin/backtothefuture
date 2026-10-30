@@ -137,3 +137,11 @@ counter-offer is 101.50s. Weak spam earns no extension and stays 141.00s. Every
 recorded run has zero lane overlaps and crossing conflicts at 0.25s precision.
 Sticky RED/RED/GREEN time_home=69, judge, and schema are unchanged. See
 `docs/negotiation-stories.md` for complete commands, evidence, and commit counts.
+
+## Phase 1 live reliability (unmerged)
+
+Draft PR #15 now passes five consecutive genuine Baseten live gates on `2ee9a89`: 15/15 Baseten/model exchanges, zero collisions, zero late polls. Actual replies range from 1.672645s to 3.386454s. 94 tests and cargo build pass. Parsing, retry budgets, eager first ask, observed movement wording, bounded Spark reasoning and compact headless HTTP are covered. Earlier failed attempts are preserved separately, not counted.
+
+Sticky remains RED/RED/GREEN time_home=69. Judge/schema, renderer and network physics remain unchanged. See docs/phase-1-live-reliability.md and docs/gates/phase1-live.jsonl for exact lines, sources, timings, commands and remaining limits.
+
+**Handoff:** Jerry reviews draft PR #15 without merging. Codex proceeds to phase 2 on a separate branch and draft PR against main. No merge.
