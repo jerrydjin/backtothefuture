@@ -93,6 +93,8 @@ pub struct DinnerBoard {
     pub town: NetworkRun,
     #[serde(default)]
     pub demo: Option<crate::demo::DemoPlan>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<crate::reason::ReasonReport>,
 }
 
 /// Run the dinner path and shape it for the window.
@@ -191,6 +193,7 @@ pub fn board_from_run_with(
         dinner_road: dinner_road(run, gate_s_m, home_s_m),
         town: run_town_with(TOWN_SEED, talk),
         demo: None,
+        reason: None,
     }
 }
 
@@ -380,17 +383,27 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
   .pill.on { color: #1c1c1c; border-color: #1c1c1c; }
   #replay { position: fixed; bottom: 12px; left: 12px; z-index: 2; font: 10px/1 system-ui, sans-serif;
     color: #888; border: 1px solid #ddd; border-radius: 999px; padding: 3px 7px; background: white; cursor: pointer; }
+  #reason-form { position: fixed; bottom: 42px; left: 12px; z-index: 2; max-width: calc(100vw - 24px); }
+  #reason-input { box-sizing: border-box; width: 340px; max-width: 100%; border: 0; border-bottom: 1px solid #ddd;
+    border-radius: 0; padding: 6px 0; background: white; color: #333; font: 13px system-ui, sans-serif; }
+  #reason-input:focus-visible { outline: none; border-bottom: 2px solid #555; }
+  #reason-status { display: block; max-width: 340px; margin-top: 5px; color: #666; font: 12px system-ui, sans-serif; }
 </style>
 </head>
 <body>
 <svg id="network" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cars negotiate on a town road network"></svg>
 <div id="pills">__PILLS__</div>
 <button id="replay" type="button" title="Replay the saved words and motion (R)">replay</button>
+<form id="reason-form" hidden>
+  <input id="reason-input" aria-label="Reason for priority" placeholder="Why do you need priority? Enter to ask" maxlength="240" required autocomplete="off">
+  <span id="reason-status" role="status" aria-live="polite"></span>
+</form>
 <script id="board-data" type="application/json">__BOARD_JSON__</script>
 <script>
 (function () {
   var data = JSON.parse(document.getElementById("board-data").textContent);
   var isDemo = !!data.demo && /[?&]demo=1(?:&|$)/.test(location.search);
+  var isReason = /[?&]reason=1(?:&|$)/.test(location.search);
   var demoView = null;
   var maxTick = 0;
   data.strips.forEach(function (strip) {
@@ -450,7 +463,10 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     paint(performance.now());
   }
   document.getElementById("replay").addEventListener("click", restart);
-  document.addEventListener("keydown", function (ev) { if (ev.key.toLowerCase() === "r") restart(); });
+  document.addEventListener("keydown", function (ev) {
+    if (ev.target.tagName === "INPUT") return;
+    if (ev.key.toLowerCase() === "r") restart();
+  });
 
   function setActive(index) {
     if (index < 0 || index >= data.strips.length || isNaN(index)) return;
@@ -496,6 +512,43 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     initialExchange ? storyStart : Infinity, data.town.priority.request.at_s - 3));
   var lostTime = 0;
   var waitingSince = null, waitingAt = null;
+  if (isReason) {
+    storyStart = 197;
+    var reasonForm = document.getElementById("reason-form");
+    var reasonInput = document.getElementById("reason-input");
+    var reasonStatus = document.getElementById("reason-status");
+    reasonForm.hidden = false;
+    if (data.reason) reasonInput.value = data.reason.reason;
+    function showReasonStatus() {
+      if (!data.reason) return;
+      reasonStatus.textContent = (data.reason.decision.granted ? "Priority granted. " : "Keep your turn. ") + data.reason.decision.explanation;
+      document.getElementById("network").setAttribute("data-reason-granted", String(data.reason.decision.granted));
+    }
+    showReasonStatus();
+    reasonForm.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      if (reasonInput.disabled) return;
+      reasonInput.disabled = true;
+      reasonStatus.textContent = "Considering your reason…";
+      paused = true;
+      pausedAt = performance.now();
+      fetch("/reason", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: reasonInput.value }), signal: AbortSignal.timeout(35000) })
+        .then(function (response) {
+          if (!response.ok) return response.text().then(function (message) { throw new Error(message); });
+          return response.json();
+        }).then(function (reply) {
+          town = data.town = reply.town;
+          data.reason = reply.report;
+          initialExchanges = allExchanges();
+          showReasonStatus();
+          restart();
+        }).catch(function (error) {
+          reasonStatus.textContent = error.name === "TimeoutError" ? "The reply took too long. Try again." : error.message;
+          if (paused) togglePause();
+        }).finally(function () { reasonInput.disabled = false; reasonInput.focus(); });
+    });
+  }
 
   function eventReady(event) { return !live || !!readyEvents[event]; }
   function allExchanges() { return town.exchanges.length ? town.exchanges : (town.exchange ? [town.exchange] : []); }
@@ -1026,6 +1079,19 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
       "font-family": "system-ui, sans-serif", "font-size": 14, "data-role": activeOffer ? "counter-offer" : "decision-reason" }, explanation));
   }
 
+  function drawReason(ctx, view, t) {
+    if (!isReason || !data.reason || t < 200 || t > 212) return;
+    data.reason.decision.lines.forEach(function (line, i) {
+      var at = carSpot(view, t, line.id);
+      if (!at) return;
+      var x = Math.max(180, Math.min(view.width - 180, at.x - 100)), y = at.y + (i ? 50 : -65);
+      ctx.appendChild(svgNode("line", { x1: at.x, y1: at.y - 7, x2: x, y2: y + 5, stroke: "#bbb", "stroke-width": 1 }));
+      ctx.appendChild(svgNode("text", { x: x, y: y, "text-anchor": "middle", fill: "#444", stroke: "white",
+        "stroke-width": 4, "paint-order": "stroke", "font-family": "system-ui, sans-serif", "font-size": 14,
+        "data-role": "reason-line", "data-car": line.id }, line.say));
+    });
+  }
+
   function drawDemo(ctx, view, t) {
     if (!demoView) return;
     var stage = data.demo.stages[demoView.stage];
@@ -1066,6 +1132,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     else {
       drawPriorityHome(ctx, view, townTime(now));
       drawStory(ctx, view, townTime(now));
+      drawReason(ctx, view, townTime(now));
     }
     canvas.replaceChildren(ctx);
   }

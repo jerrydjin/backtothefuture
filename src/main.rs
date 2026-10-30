@@ -24,6 +24,23 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
+    if args.reason.is_some()
+        || (args.board
+            && !args.demo
+            && args.priority.is_none()
+            && args.story.is_none()
+            && args.replay.is_none()
+            && args.save_replay.is_none())
+    {
+        return match run_reason(&args) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("reason: {error}");
+                ExitCode::from(1)
+            }
+        };
+    }
+
     if args.demo {
         return match muse::demo::run(
             args.headless,
@@ -193,6 +210,7 @@ struct Args {
     replay: Option<std::path::PathBuf>,
     save_replay: Option<std::path::PathBuf>,
     rewrite_every: Option<u32>,
+    reason: Option<muse::reason::ReasonText>,
 }
 
 impl Args {
@@ -215,6 +233,7 @@ impl Args {
             replay: None,
             save_replay: None,
             rewrite_every: None,
+            reason: None,
         };
         let mut args = env::args().skip(1);
         while let Some(arg) = args.next() {
@@ -222,6 +241,11 @@ impl Args {
                 "-h" | "--help" => parsed.help = true,
                 "--show" => parsed.show = true,
                 "--board" => parsed.board = true,
+                "--reason" => {
+                    let text = args.next().ok_or("--reason needs a sentence")?;
+                    parsed.reason =
+                        Some(muse::reason::ReasonText::new(&text).map_err(str::to_string)?);
+                }
                 "--demo" => parsed.demo = true,
                 "--headless" => parsed.headless = true,
                 "--require-live" => parsed.require_live = true,
@@ -278,8 +302,25 @@ impl Args {
         if parsed.replay.is_some() && (parsed.story.is_some() || parsed.priority.is_some()) {
             return Err("--replay uses saved decisions; choose a replay or a new story".into());
         }
-        if (parsed.headless || parsed.require_live || parsed.gate_log.is_some()) && !parsed.demo {
-            return Err("--headless, --require-live, and --gate-log need --demo".into());
+        if (parsed.headless || parsed.require_live || parsed.gate_log.is_some())
+            && !parsed.demo
+            && parsed.reason.is_none()
+        {
+            return Err(
+                "--headless, --require-live, and --gate-log need --demo or --reason".into(),
+            );
+        }
+        if parsed.reason.is_some()
+            && (parsed.demo
+                || parsed.priority.is_some()
+                || parsed.story.is_some()
+                || parsed.replay.is_some()
+                || parsed.save_replay.is_some())
+        {
+            return Err("--reason uses a fresh trip; choose it separately from demo, priority, story, or replay".into());
+        }
+        if parsed.reason.is_some() && parsed.board && parsed.headless {
+            return Err("choose --board or --headless for a reason".into());
         }
         if parsed.include_weak && !(parsed.demo && parsed.headless) {
             return Err("--include-weak needs --demo --headless".into());
@@ -315,6 +356,7 @@ Knobs:
   --cars N                 fleet size, 2 to 64 (default 6)
   --jam KIND               symmetric | ramp-surge | mainline-plug
   --prefs SENTENCE         plain English merge preference
+  --reason SENTENCE        assess a rider reason (1–240 characters); --board shows the trip
   --rewrite-every N        ask for a new plan every N ticks
   --show                   print the ramp merge in the terminal: wreck, held jam, and cleared road
   --board                  open the live birds-eye window: white network, flat cars, one yield or merge cue
@@ -341,4 +383,53 @@ Blocker:
   MODEL_API_KEY selects the HTTP client (curl). When it is unset, the scripted plan runs (ALLOW_CHEAT).
   With a key, the client label is muse. ALLOW_CHEAT=0 with no key fails closed."
     )
+}
+
+fn run_reason(args: &Args) -> Result<(), String> {
+    use std::io::Write;
+    let baseline = muse::reason::baseline();
+    let agent = muse::reason::ReasonAgent::from_env();
+    let (town, report) = if let Some(reason) = &args.reason {
+        let (town, mut report) = muse::reason::evaluate(reason, &agent, &baseline)?;
+        report.passed &= !args.require_live
+            || (report.decision.source == "model" && report.decision.provider == "baseten");
+        let json = serde_json::to_string(&report).map_err(|_| "cannot serialize reason report")?;
+        println!("reason-gate {json}");
+        if let Some(path) = &args.gate_log {
+            let mut file = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(path)
+                .map_err(|e| e.to_string())?;
+            writeln!(file, "{json}").map_err(|e| e.to_string())?;
+        }
+        if args.require_live
+            && (report.decision.source != "model" || report.decision.provider != "baseten")
+        {
+            return Err(
+                "reason live gate requires a Baseten/model decision; fallback was not counted"
+                    .into(),
+            );
+        }
+        (town, Some(report))
+    } else {
+        (baseline, None)
+    };
+    let board = muse::reason::board(town, report)?;
+    for strip in board.strips.iter().filter(|s| s.scoreboard) {
+        println!("{:<12}{}", strip.name, strip.score);
+    }
+    if args.board {
+        let server =
+            muse::reason_server::ReasonServer::start(board, agent).map_err(|e| e.to_string())?;
+        let url = format!("http://{}/?reason=1", server.address);
+        println!("board: {url}");
+        if !args.no_open {
+            let _ = muse::board::open_board_url(&url);
+        }
+        loop {
+            std::thread::park_timeout(std::time::Duration::from_secs(1));
+        }
+    }
+    Ok(())
 }
