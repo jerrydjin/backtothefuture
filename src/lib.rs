@@ -19,6 +19,8 @@ pub mod muse;
 pub mod negotiate;
 pub mod network;
 pub mod prefs;
+pub mod reason;
+pub mod reason_server;
 pub mod replay;
 pub mod schema;
 pub mod story;
