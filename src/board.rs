@@ -882,8 +882,9 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
         return eventReady(i) && t >= ex.t - 3 && t <= ex.until;
       });
       var ex = allExchanges()[event];
-      var yielding = ex && t >= ex.t && car[0] === ex.yields;
-      var merging = ex && car[0] === ex.merges;
+      var crossingFirst = ex && ex.counter_offer && t < ex.activation_t;
+      var yielding = ex && t >= ex.t && car[0] === (crossingFirst ? ex.merges : ex.yields);
+      var merging = ex && car[0] === (crossingFirst ? ex.yields : ex.merges);
       var priority = town.priority && town.priority.enabled && t >= town.priority.request.at_s && car[0] === town.priority.request.car_id &&
         (!town.story || town.story.priority_until_s == null || t < town.story.priority_until_s);
       drawCar(ctx, p, priority ? "#2f6fdb" : (yielding || v < 2.5 ? "#d08a2a" : (merging ? "#333" : "#7a7a7a")), car[0]);
@@ -928,13 +929,15 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     });
     var first = story.decisions.filter(function (d) { return d.claim.at_s + 3 <= t; }).slice(-1)[0];
     if (!first || t < first.claim.at_s + 3) return;
-    var showing = t < first.claim.at_s + 12 || (first.granted && allExchanges().some(function (ex, i) { return exchangeAlpha(ex, t, i) > 0; }));
+    var showing = t < first.claim.at_s + 12 || allExchanges().some(function (ex, i) { return exchangeAlpha(ex, t, i) > 0; });
     if (!showing) return;
     var at = carSpot(view, t, first.claim.car_id);
     if (!at) return;
+    var activeOffer = allExchanges().find(function (ex) { return ex.counter_offer && t >= ex.t - 1.5 && t <= ex.until; });
+    var explanation = activeOffer ? "Accepted: " + activeOffer.counter_offer.explanation : first.explanation;
     ctx.appendChild(svgNode("text", { x: Math.max(180, Math.min(view.width - 180, at.x)), y: at.y - 85,
       "text-anchor": "middle", fill: "#444", stroke: "white", "stroke-width": 4, "paint-order": "stroke",
-      "font-family": "system-ui, sans-serif", "font-size": 14, "data-role": "decision-reason" }, first.explanation));
+      "font-family": "system-ui, sans-serif", "font-size": 14, "data-role": activeOffer ? "counter-offer" : "decision-reason" }, explanation));
   }
 
   function paint(now) {

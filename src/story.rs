@@ -11,6 +11,7 @@ pub enum StoryKind {
     Abuse,
     Emergency,
     Chain,
+    CounterOffer,
 }
 
 impl StoryKind {
@@ -20,6 +21,7 @@ impl StoryKind {
             "abuse" => Some(Self::Abuse),
             "emergency" => Some(Self::Emergency),
             "chain" => Some(Self::Chain),
+            "counter-offer" => Some(Self::CounterOffer),
             _ => None,
         }
     }
@@ -219,7 +221,7 @@ pub struct StoryRun {
 impl StoryRun {
     pub fn new(kind: StoryKind) -> Self {
         let claims = match kind {
-            StoryKind::Competing => vec![
+            StoryKind::Competing | StoryKind::CounterOffer => vec![
                 RiderClaim {
                     rider_id: 1,
                     car_id: 177,

@@ -43,6 +43,7 @@ pub struct MergeSnap {
     /// Additional actual cars relaying the same request along the route.
     pub relays: Vec<MergeCar>,
     pub cause: Option<String>,
+    pub counter_offer_allowed: bool,
 }
 
 /// One spoken line. `say` is one to six words.
@@ -50,6 +51,16 @@ pub struct MergeSnap {
 pub struct MergeLine {
     pub id: u32,
     pub say: String,
+}
+
+/// A proposed crossing before the priority stream, accepted by its queue head.
+#[derive(Clone, Debug, PartialEq, Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CounterOffer {
+    pub by: u32,
+    pub accepted_by: u32,
+    pub wait_s: f64,
+    pub explanation: String,
 }
 
 /// Who waits, who goes, and the two lines. `source` is `model` or `fallback`.
@@ -63,6 +74,7 @@ pub struct MergeChoice {
     pub source: String,
     pub reason: String,
     pub provider: String,
+    pub counter_offer: Option<CounterOffer>,
 }
 
 /// `agree` picks who yields. The town sim moves the cars.
@@ -220,10 +232,20 @@ pub fn render_merge_prompt(snap: &MergeSnap) -> String {
     )
     .unwrap();
     let cause = snap.cause.as_deref().unwrap_or("local merge");
+    let counter = if snap.counter_offer_allowed {
+        ",\"counter_offer\":{\"by\":<yields id>,\"accepted_by\":<merges id>,\"wait_s\":<0.5 to 3 seconds>,\"explanation\":\"<1-6 words>\"}"
+    } else {
+        ""
+    };
+    let offer_rules = if snap.counter_offer_allowed {
+        "The other mouth car pushes back: let one car cross, then give hospital priority. Include a counter_offer accepted by the priority head, and reflect the proposal and explicit acceptance in their lines. The delay is a minimum; crossing occupancy still governs safety."
+    } else {
+        "No counter_offer key is allowed in this encounter."
+    };
     format!(
         "{priority}Cars negotiate one shared merge path. You do not drive or brake. Distances are meters.\n\
 Reply with one JSON object and nothing else.\n\
-Schema: {{\"lines\":{schema},\"yields\":<id of the car that waits>}}\n\
+Schema: {{\"lines\":{schema},\"yields\":<id of the car that waits>{counter}}}\n\
 Rules:\n\
 - lines has exactly these ids: {ids:?}; every participant must acknowledge\n\
 - each say is one to six words in that car's own voice\n\
@@ -231,6 +253,7 @@ Rules:\n\
 - the shared reason is: {cause}\n\
 - yields is one of {id0} and {id1}; the other of those two merges\n\
 - additional cars relay the request; they do not jump the queue\n\
+- {offer_rules}\n\
 - no markdown and no extra keys\n\
 - do not copy the angle-bracket placeholders\n\
 <merge>\n{state}\n</merge>\n"
@@ -253,6 +276,8 @@ struct PromptCar<'a> {
 struct ModelExchange {
     lines: Vec<ModelLine>,
     yields: u32,
+    #[serde(default)]
+    counter_offer: Option<CounterOffer>,
 }
 
 #[derive(serde::Deserialize)]
@@ -309,6 +334,19 @@ fn parse_model_exchange(text: &str, snap: &MergeSnap) -> Result<MergeChoice, Str
         .into_iter()
         .find(|id| *id != parsed.yields)
         .expect("peer");
+    if snap.counter_offer_allowed != parsed.counter_offer.is_some() {
+        return Err("counter-offer required only when offered".into());
+    }
+    if let Some(offer) = &parsed.counter_offer {
+        if offer.by != parsed.yields
+            || offer.accepted_by != merges
+            || !offer.wait_s.is_finite()
+            || !(0.5..=3.0).contains(&offer.wait_s)
+            || !valid_say(&offer.explanation)
+        {
+            return Err("unaccepted or unbounded counter-offer".into());
+        }
+    }
     lines.sort_by_key(|line| line.id);
     Ok(MergeChoice {
         yields: parsed.yields,
@@ -317,6 +355,7 @@ fn parse_model_exchange(text: &str, snap: &MergeSnap) -> Result<MergeChoice, Str
         source: "model".into(),
         reason: String::new(),
         provider: String::new(),
+        counter_offer: parsed.counter_offer,
     })
 }
 
@@ -356,7 +395,13 @@ fn scripted_choice(snap: &MergeSnap, reason: &str) -> MergeChoice {
         yields = if first == a.id { b.id } else { a.id };
     }
     let say = |id| {
-        if snap.priority_for.is_some() {
+        if snap.counter_offer_allowed {
+            if id == yields {
+                "Let me cross; next gap's yours"
+            } else {
+                "Agreed, next gap is mine"
+            }
+        } else if snap.priority_for.is_some() {
             if id == yields {
                 "Priority coming, I'll wait"
             } else {
@@ -376,9 +421,16 @@ fn scripted_choice(snap: &MergeSnap, reason: &str) -> MergeChoice {
             say: say(b.id).to_string(),
         },
     ];
-    lines.extend(snap.relays.iter().map(|car| MergeLine {
-        id: car.id,
-        say: "Please relay my emergency priority".into(),
+    lines.extend(snap.relays.iter().map(|car| {
+        MergeLine {
+            id: car.id,
+            say: if snap.cause.as_ref().is_some_and(|c| c.contains("distress")) {
+                "Please relay my emergency priority"
+            } else {
+                "Please relay my hospital priority"
+            }
+            .into(),
+        }
     }));
     lines.sort_by_key(|line| line.id);
     MergeChoice {
@@ -388,6 +440,12 @@ fn scripted_choice(snap: &MergeSnap, reason: &str) -> MergeChoice {
         source: "fallback".into(),
         reason: negotiate_reason(reason),
         provider: String::new(),
+        counter_offer: snap.counter_offer_allowed.then(|| CounterOffer {
+            by: yields,
+            accepted_by: merges,
+            wait_s: 2.0,
+            explanation: "One crossing, then hospital priority".into(),
+        }),
     }
 }
 
@@ -650,6 +708,7 @@ mod tests {
             priority_for: None,
             relays: Vec::new(),
             cause: None,
+            counter_offer_allowed: false,
             cars: [car(a, 10.0, 12.0, 8.0), car(b, 28.0, 9.0, 11.0)],
         }
     }

@@ -96,6 +96,92 @@ fn every_chain_participant_must_acknowledge_and_only_a_mouth_car_can_yield() {
 }
 
 #[test]
+fn an_accepted_counter_offer_waits_for_the_actual_crossing_before_priority() {
+    let run = run_story_town(7, StoryKind::CounterOffer, Box::new(ScriptedTalk));
+    let ex = &run.exchanges[0];
+    let offer = ex.counter_offer.as_ref().expect("a real counter-offer");
+    for pair in run.exchanges.windows(2) {
+        assert!(
+            pair[1].t - 5.0 >= pair[0].until + pair[0].fade_s,
+            "successive dialogue remains readable"
+        );
+    }
+    assert_eq!(offer.by, ex.yields);
+    assert_eq!(offer.accepted_by, ex.merges);
+    assert!(
+        ex.activation_t > ex.t + offer.wait_s,
+        "a timer alone cannot clear an occupied crossing"
+    );
+    let car = |t: usize, id| run.frames[t].cars.iter().find(|c| c.0 == id).unwrap();
+    let head = car(ex.t.ceil() as usize, ex.merges);
+    let route = &run.routes[head.1 as usize];
+    let k = route.iter().position(|id| *id == ex.stream_link).unwrap();
+    let line: f64 = route[..=k].iter().map(|&id| run.links[id].len).sum();
+    for t in ex.t.ceil() as usize..=ex.activation_t.floor() as usize {
+        assert!(
+            car(t, ex.merges).2 < line,
+            "priority stream entered before the accepted crossing cleared"
+        );
+    }
+    assert!(car(ex.activation_t.ceil() as usize + 4, ex.merges).2 > line);
+    assert!(
+        car(ex.activation_t.floor() as usize, offer.by).2
+            > car(ex.t.ceil() as usize, offer.by).2 + 5.0
+    );
+    assert_eq!(run.stats.overlaps + run.stats.crossing_conflicts, 0);
+    assert!(run.priority.as_ref().unwrap().time_home_s.unwrap() < 141.0);
+}
+
+#[test]
+fn a_counter_offer_needs_explicit_acceptance_and_a_bounded_delay() {
+    use muse::negotiate::choice_from_reply;
+    let run = run_story_town(7, StoryKind::CounterOffer, Box::new(ScriptedTalk));
+    let ex = &run.exchanges[0];
+    let mut body =
+        serde_json::json!({"lines":ex.lines,"yields":ex.yields,"counter_offer":ex.counter_offer});
+    assert_eq!(
+        choice_from_reply(&ex.forecast, Ok(&body.to_string())).source,
+        "model"
+    );
+    body["counter_offer"]["accepted_by"] = serde_json::json!(177);
+    assert_eq!(
+        choice_from_reply(&ex.forecast, Ok(&body.to_string())).source,
+        "fallback"
+    );
+    body["counter_offer"]["accepted_by"] = serde_json::json!(ex.merges);
+    body["counter_offer"]["wait_s"] = serde_json::json!(60.0);
+    assert_eq!(
+        choice_from_reply(&ex.forecast, Ok(&body.to_string())).source,
+        "fallback"
+    );
+}
+
+#[test]
+fn valid_offer_delays_share_the_same_safety_governed_forecast() {
+    use muse::negotiate::{MergeChoice, MergeSnap, MergeTalk};
+    struct Delay(f64);
+    impl MergeTalk for Delay {
+        fn agree(&self, snap: &MergeSnap) -> MergeChoice {
+            let mut choice = ScriptedTalk.agree(snap);
+            if let Some(offer) = &mut choice.counter_offer {
+                offer.wait_s = self.0;
+            }
+            choice
+        }
+    }
+    let fast = run_story_town(7, StoryKind::CounterOffer, Box::new(Delay(0.5)));
+    let slow = run_story_town(7, StoryKind::CounterOffer, Box::new(Delay(3.0)));
+    assert_eq!(
+        fast.exchanges[0].activation_t,
+        slow.exchanges[0].activation_t
+    );
+    assert_eq!(
+        serde_json::to_value(&fast.frames).unwrap(),
+        serde_json::to_value(&slow.frames).unwrap()
+    );
+}
+
+#[test]
 fn repeated_weak_requests_stop_winning_even_with_new_ids_and_cars() {
     let mut ledger = PriorityLedger::default();
     let first = RiderClaim {
