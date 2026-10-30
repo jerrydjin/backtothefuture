@@ -99,7 +99,7 @@ fn one_merge_speaks_and_the_yielder_waits() {
     assert!(log.contains(&format!("merges={}", ex.merges)), "{log}");
     for line in &ex.lines {
         let words = line.say.split_whitespace().count();
-        assert!((1..=6).contains(&words), "{}", line.say);
+        assert!((1..=8).contains(&words), "{}", line.say);
         assert!(log.contains(&line.say), "{log}");
     }
     let along = |frame: &muse::network::NetFrame, id: u32| {

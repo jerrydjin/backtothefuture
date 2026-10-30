@@ -414,7 +414,16 @@ impl DemoServer {
                                 let proposed = client.agree(&expected.forecast);
                                 let choice = if proposed.yields == expected.yields
                                     && proposed.merges == expected.merges
-                                {
+                                    && proposed
+                                        .lines
+                                        .iter()
+                                        .all(|l| crate::negotiate::human_line(&l.say))
+                                    && crate::negotiate::roles_match(
+                                        &proposed.lines,
+                                        proposed.yields,
+                                        proposed.merges,
+                                        None,
+                                    ) {
                                     proposed
                                 } else {
                                     crate::negotiate::choice_from_reply(
@@ -570,6 +579,14 @@ pub fn drive_headless(
                         .map_err(|e| e.to_string())?;
                     let ex = &town.exchanges[event];
                     let expected = &board.town.exchanges[event];
+                    if !ex
+                        .lines
+                        .iter()
+                        .all(|l| crate::negotiate::human_line(&l.say))
+                        || !crate::negotiate::roles_match(&ex.lines, ex.yields, ex.merges, None)
+                    {
+                        return Err("driver speech violated the human-line contract".into());
+                    }
                     if ex.yields != expected.yields || ex.merges != expected.merges {
                         return Err("speech changed the agreed physical order".into());
                     }

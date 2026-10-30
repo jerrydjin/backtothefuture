@@ -18,9 +18,9 @@ use crate::schema::{Approach, TalkPhase, VisibleNeighbor, YieldRole, YieldTalk};
 use crate::world::{Executor, World};
 
 /// How many words one car may speak. The board draws the line as-is.
-const SAY_MAX_WORDS: usize = 6;
-const SAY_YIELD: &str = "you merge, I yield";
-const SAY_MERGE: &str = "I'll merge, thanks";
+const SAY_MAX_WORDS: usize = 8;
+const SAY_YIELD: &str = "You first, I’m slowing";
+const SAY_MERGE: &str = "Thanks, going now";
 
 /// One car at a merge, in meters. This is the model input. No pixels.
 #[derive(Clone, Debug, PartialEq, Serialize, serde::Deserialize)]
@@ -46,7 +46,7 @@ pub struct MergeSnap {
     pub counter_offer_allowed: bool,
 }
 
-/// One spoken line. `say` is one to six words.
+/// One spoken line. `say` is one to eight human words.
 #[derive(Clone, Debug, PartialEq, Serialize, serde::Deserialize)]
 pub struct MergeLine {
     pub id: u32,
@@ -211,7 +211,11 @@ pub fn render_merge_prompt(snap: &MergeSnap) -> String {
             pref: &car.pref,
         })
         .collect();
-    let priority = snap.priority_for.map(|id| format!("Priority request: car {id} is clearing the requested path. The other car must yield. Reflect the request in both lines.\n")).unwrap_or_default();
+    let priority = snap.priority_for.map(|id| {
+        if snap.cause.as_ref().is_some_and(|c| c.starts_with("An ordinary merge")) {
+            format!("Car {id} accepts the other driver's offer to wait. Keep this agreed order.\n")
+        } else { format!("Priority request: car {id} is clearing the requested path. The other car must yield. Reflect the request in both lines.\n") }
+    }).unwrap_or_default();
     let state = serde_json::to_string(&cars).unwrap_or_else(|_| "[]".to_string());
     let id0 = snap.cars[0].id;
     let id1 = snap.cars[1].id;
@@ -225,7 +229,7 @@ pub fn render_merge_prompt(snap: &MergeSnap) -> String {
         &ids.iter()
             .map(|id| {
                 serde_json::json!({
-                    "id":id,"say":"<1-6 words, in this car's voice, reflecting its pref>"
+                    "id":id,"say":"<1-8 words, in this car's voice, reflecting its pref>"
                 })
             })
             .collect::<Vec<_>>(),
@@ -233,7 +237,7 @@ pub fn render_merge_prompt(snap: &MergeSnap) -> String {
     .unwrap();
     let cause = snap.cause.as_deref().unwrap_or("local merge");
     let counter = if snap.counter_offer_allowed {
-        ",\"counter_offer\":{\"by\":<yields id>,\"accepted_by\":<merges id>,\"wait_s\":<0.5 to 3 seconds>,\"explanation\":\"<1-6 words>\"}"
+        ",\"counter_offer\":{\"by\":<yields id>,\"accepted_by\":<merges id>,\"wait_s\":<0.5 to 3 seconds>,\"explanation\":\"<1-8 words>\"}"
     } else {
         ""
     };
@@ -248,8 +252,12 @@ Reply with one JSON object and nothing else.\n\
 Schema: {{\"lines\":{schema},\"yields\":<id of the car that waits>{counter}}}\n\
 Rules:\n\
 - lines has exactly these ids: {ids:?}; every participant must acknowledge\n\
-- each say is one to six words in that car's own voice\n\
-- each line should reflect that car's English pref and the situation (gap, speed, distance to the line)\n\
+- each say is one to eight words in that car's own voice\n\
+- sound like two ordinary drivers talking, never like telemetry\n\
+- no digits, written numbers, units, gap, gaps, meters, or metres in speech\n\
+- the waiting driver offers to slow or wait and lets the other go; the moving driver accepts and goes\n\
+- their words must match yields; never have the moving driver tell the other to go first\n\
+- each line should reflect that car's English pref and the situation; keep measurements private\n\
 - the shared reason is: {cause}\n\
 - yields is one of {id0} and {id1}; the other of those two merges\n\
 - additional cars relay the request; they do not jump the queue\n\
@@ -314,7 +322,7 @@ fn parse_model_exchange(text: &str, snap: &MergeSnap) -> Result<MergeChoice, Str
     let mut seen = vec![false; ids.len()];
     let mut lines = Vec::with_capacity(ids.len());
     for line in parsed.lines {
-        if !valid_say(&line.say) {
+        if !human_line(&line.say) {
             return Err("line length".into());
         }
         match ids.iter().position(|id| *id == line.id) {
@@ -342,10 +350,13 @@ fn parse_model_exchange(text: &str, snap: &MergeSnap) -> Result<MergeChoice, Str
             || offer.accepted_by != merges
             || !offer.wait_s.is_finite()
             || !(0.5..=3.0).contains(&offer.wait_s)
-            || !valid_say(&offer.explanation)
+            || !human_line(&offer.explanation)
         {
             return Err("unaccepted or unbounded counter-offer".into());
         }
+    }
+    if !roles_match(&lines, parsed.yields, merges, parsed.counter_offer.as_ref()) {
+        return Err("spoken roles do not match the agreement".into());
     }
     lines.sort_by_key(|line| line.id);
     Ok(MergeChoice {
@@ -359,14 +370,172 @@ fn parse_model_exchange(text: &str, snap: &MergeSnap) -> Result<MergeChoice, Str
     })
 }
 
-fn valid_say(say: &str) -> bool {
+/// The same speech contract applies to accepted model words and the fallback.
+pub fn human_line(say: &str) -> bool {
     let say = say.trim();
     let words = say.split_whitespace().count();
+    let banned = [
+        "gap",
+        "gaps",
+        "meter",
+        "meters",
+        "metre",
+        "metres",
+        "kilometer",
+        "kilometers",
+        "kilometre",
+        "kilometres",
+        "mile",
+        "miles",
+        "mph",
+        "kph",
+        "mps",
+        "feet",
+        "foot",
+        "second",
+        "seconds",
+        "minute",
+        "minutes",
+        "zero",
+        "one",
+        "two",
+        "three",
+        "four",
+        "five",
+        "six",
+        "seven",
+        "eight",
+        "nine",
+        "ten",
+        "eleven",
+        "twelve",
+        "thirteen",
+        "fourteen",
+        "fifteen",
+        "sixteen",
+        "seventeen",
+        "eighteen",
+        "nineteen",
+        "twenty",
+        "thirty",
+        "hundred",
+        "thousand",
+        "forty",
+        "fifty",
+        "sixty",
+        "seventy",
+        "eighty",
+        "ninety",
+        "million",
+        "billion",
+        "percent",
+        "percentage",
+    ];
     (1..=SAY_MAX_WORDS).contains(&words)
-        && say.chars().count() <= 48
-        && !say.chars().any(|ch| ch.is_control())
-        && !say.contains('<')
-        && !say.contains('>')
+        && say.chars().count() <= 96
+        && !say
+            .chars()
+            .any(|c| c.is_control() || c.is_numeric() || matches!(c, '<' | '>' | '%' | '°'))
+        && !say
+            .to_lowercase()
+            .split(|c: char| !c.is_alphabetic())
+            .any(|w| banned.contains(&w))
+        && !say
+            .to_lowercase()
+            .split_whitespace()
+            .map(|w| w.trim_matches(|c: char| !c.is_alphanumeric() && c != '/'))
+            .any(|w| {
+                [
+                    "m", "s", "km", "ft", "sec", "secs", "km/h", "m/s", "kmh", "kmph", "fps", "ms",
+                ]
+                .contains(&w)
+            })
+}
+
+pub fn roles_match(
+    lines: &[MergeLine],
+    yields: u32,
+    merges: u32,
+    offer: Option<&CounterOffer>,
+) -> bool {
+    let normalize = |id| {
+        lines
+            .iter()
+            .find(|l| l.id == id)
+            .map(|l| l.say.to_lowercase().replace(['’', '‘'], "'"))
+    };
+    let (Some(wait), Some(go)) = (normalize(yields), normalize(merges)) else {
+        return false;
+    };
+    let has = |s: &str, phrases: &[&str]| phrases.iter().any(|p| s.contains(p));
+    if offer.is_some() {
+        return has(
+            &wait,
+            &["let me", "may i", "can i", "i'll cross", "i can cross"],
+        ) && has(&go, &["agreed", "okay", "alright", "sure", "deal", "yes"])
+            && has(&go, &["wait", "after", "then", "your crossing"]);
+    }
+    let invitations = [
+        "you first",
+        "after you",
+        "you go",
+        "go ahead",
+        "your turn",
+        "i'll wait",
+        "i will wait",
+        "i can wait",
+        "i'm slowing",
+        "i am slowing",
+        "i'll slow",
+        "i yield",
+        "i'll yield",
+        "i'm waiting",
+        "hang back",
+        "hold back",
+        "i'll hold",
+    ];
+    let selfish = [
+        "i go first",
+        "i'll go first",
+        "i'm going first",
+        "going now",
+        "merging now",
+        "i'll merge now",
+    ];
+    has(&wait, &invitations)
+        && !has(&wait, &selfish)
+        && has(
+            &go,
+            &[
+                "thanks",
+                "thank you",
+                "going",
+                "i'll go",
+                "i go",
+                "merging",
+                "coming through",
+                "i'll take",
+                "taking",
+                "on my way",
+            ],
+        )
+        && !has(
+            &go,
+            &[
+                "you first",
+                "after you",
+                "you go",
+                "your turn",
+                "i'll wait",
+                "i will wait",
+                "i'm slowing",
+                "i am slowing",
+                "i yield",
+                "i'll yield",
+                "hold back",
+                "hang back",
+            ],
+        )
 }
 
 fn scripted_choice(snap: &MergeSnap, reason: &str) -> MergeChoice {
@@ -397,15 +566,28 @@ fn scripted_choice(snap: &MergeSnap, reason: &str) -> MergeChoice {
     let say = |id| {
         if snap.counter_offer_allowed {
             if id == yields {
-                "Let me cross; next gap's yours"
+                "May I cross, then let you through?"
             } else {
-                "Agreed, next gap is mine"
+                "Agreed, I'll wait. Then I'll go."
             }
+        } else if snap
+            .cause
+            .as_ref()
+            .is_some_and(|c| c.starts_with("An ordinary merge"))
+        {
+            say_for(id, yields)
+        } else if snap
+            .cause
+            .as_ref()
+            .is_some_and(|c| c.contains("Hospital takes priority"))
+            && id == yields
+        {
+            "I'll wait, the hospital comes first"
         } else if snap.priority_for.is_some() {
             if id == yields {
-                "Priority coming, I'll wait"
+                "I'll wait, let them through"
             } else {
-                "Thanks, clearing the path"
+                "Thanks, I'll go"
             }
         } else {
             say_for(id, yields)
@@ -425,9 +607,9 @@ fn scripted_choice(snap: &MergeSnap, reason: &str) -> MergeChoice {
         MergeLine {
             id: car.id,
             say: if snap.cause.as_ref().is_some_and(|c| c.contains("distress")) {
-                "Please relay my emergency priority"
+                "Please help, I need to get through"
             } else {
-                "Please relay my hospital priority"
+                "I'm trying to reach the hospital"
             }
             .into(),
         }
@@ -444,7 +626,7 @@ fn scripted_choice(snap: &MergeSnap, reason: &str) -> MergeChoice {
             by: yields,
             accepted_by: merges,
             wait_s: 2.0,
-            explanation: "One crossing, then hospital priority".into(),
+            explanation: "You cross, then hospital priority".into(),
         }),
     }
 }
@@ -657,6 +839,52 @@ mod tests {
     use super::*;
     use crate::schema::Approach;
 
+    #[test]
+    fn speech_has_eight_words_at_most_and_no_numbers_units_or_telemetry() {
+        assert!(human_line("You go ahead and I'll wait right here")); // eight
+        assert!(human_line("You first, I'm slowing"));
+        assert!(!human_line("You can go first and I will wait here")); // nine
+        for bad in [
+            "I'll wait 2 seconds",
+            "I need two cars ahead",
+            "There are ٢ cars",
+            "The gap's open",
+            "I have twenty meters",
+            "At ten mph",
+            "Please wait a second",
+            "I'm at m/s",
+            "My gap is ready",
+        ] {
+            assert!(!human_line(bad), "accepted telemetry: {bad}");
+        }
+        let state = snap(2, 5);
+        for bad in [
+            "You can go first and I will wait here",
+            "Wait 4 seconds",
+            "The gap is clear",
+        ] {
+            let reply = serde_json::json!({"lines":[{"id":2,"say":bad},{"id":5,"say":"Thanks, going now"}],"yields":2}).to_string();
+            let fallback = choice_from_reply(&state, Ok(&reply));
+            assert_eq!(fallback.source, "fallback");
+            assert!(fallback.lines.iter().all(|line| human_line(&line.say)));
+            assert!(roles_match(
+                &fallback.lines,
+                fallback.yields,
+                fallback.merges,
+                None
+            ));
+        }
+    }
+
+    #[test]
+    fn spoken_yield_and_go_roles_cannot_be_reversed() {
+        let state = snap(2, 5);
+        let wrong = r#"{"lines":[{"id":2,"say":"Thanks, going now"},{"id":5,"say":"You first, I'm slowing"}],"yields":2}"#;
+        assert_eq!(choice_from_reply(&state, Ok(wrong)).source, "fallback");
+        let valid = r#"{"lines":[{"id":2,"say":"You go ahead and I'll wait right here"},{"id":5,"say":"Thank you, I'm going ahead while you wait"}],"yields":2}"#;
+        assert_eq!(choice_from_reply(&state, Ok(valid)).source, "model");
+    }
+
     fn neighbor(id: u32, approach: Approach) -> VisibleNeighbor {
         VisibleNeighbor {
             agent_id: id,
@@ -745,7 +973,7 @@ mod tests {
         assert!(choice
             .lines
             .iter()
-            .all(|line| line.say.split_whitespace().count() <= 6));
+            .all(|line| line.say.split_whitespace().count() <= 8));
     }
 
     #[test]
@@ -776,7 +1004,7 @@ mod tests {
         assert!(!prompt.contains("you go first"), "{prompt}");
         assert!(!prompt.contains("merging now"), "{prompt}");
         assert!(
-            prompt.contains("<1-6 words, in this car's voice, reflecting its pref>"),
+            prompt.contains("<1-8 words, in this car's voice, reflecting its pref>"),
             "{prompt}"
         );
         assert!(prompt.contains("English pref"), "{prompt}");
@@ -796,7 +1024,7 @@ mod tests {
             assert!(!prompt.contains(canned), "{canned} in {prompt}");
         }
         assert!(
-            prompt.contains("\"say\":\"<1-6 words, in this car's voice, reflecting its pref>\"")
+            prompt.contains("\"say\":\"<1-8 words, in this car's voice, reflecting its pref>\"")
         );
         assert!(prompt.contains("English pref"));
         assert!(prompt.contains("situation"));
@@ -819,7 +1047,7 @@ mod tests {
             Ok("sure, you go"),
             Ok("```json\n{\"lines\":[],\"yields\":2}\n```"),
             Ok(
-                r#"{"lines":[{"id":2,"say":"I will wait here for you now"},{"id":5,"say":"go"}],"yields":2}"#,
+                r#"{"lines":[{"id":2,"say":"I will wait right here for you until later"},{"id":5,"say":"go"}],"yields":2}"#,
             ),
             Ok(r#"{"lines":[{"id":2,"say":"you go"},{"id":9,"say":"I go"}],"yields":2}"#),
             Ok(
@@ -827,7 +1055,7 @@ mod tests {
             ),
             Ok(""),
             Ok(
-                r#"{"lines":[{"id":2,"say":"<1-6 words, in this car's voice, reflecting its pref>"},{"id":5,"say":"I go"}],"yields":2}"#,
+                r#"{"lines":[{"id":2,"say":"<1-8 words, in this car's voice, reflecting its pref>"},{"id":5,"say":"I go"}],"yields":2}"#,
             ),
         ];
         let reasons = [
@@ -842,11 +1070,11 @@ mod tests {
             assert!(!choice.reason.contains("sk-"), "{}", choice.reason);
             assert_eq!(
                 choice.lines.iter().find(|line| line.id == 5).unwrap().say,
-                "you merge, I yield"
+                "You first, I’m slowing"
             );
             assert_eq!(
                 choice.lines.iter().find(|line| line.id == 2).unwrap().say,
-                "I'll merge, thanks"
+                "Thanks, going now"
             );
         }
         let swapped = snap(5, 2);

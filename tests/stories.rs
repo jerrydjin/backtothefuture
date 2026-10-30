@@ -68,7 +68,7 @@ fn a_chain_contains_three_real_cars_and_relays_the_same_detected_emergency() {
         assert!(ex
             .lines
             .iter()
-            .all(|l| l.say.split_whitespace().count() <= 6));
+            .all(|l| l.say.split_whitespace().count() <= 8));
     }
     assert_eq!(run.priority.as_ref().unwrap().time_home_s, Some(126.5));
     assert_eq!(run.stats.overlaps + run.stats.crossing_conflicts, 0);

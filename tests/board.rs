@@ -193,7 +193,7 @@ fn board_dinner_is_red_red_green() {
     assert!(html.contains("exchangeAlpha"));
     for line in &exchange.lines {
         assert!(html.contains(&line.say), "{}", line.say);
-        assert!(line.say.split_whitespace().count() <= 6);
+        assert!(line.say.split_whitespace().count() <= 8);
     }
     assert_eq!(html.matches("\"source\":\"fallback\"").count(), 1);
 }
