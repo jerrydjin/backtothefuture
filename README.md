@@ -41,6 +41,16 @@ That path is N=6, symmetric, scripted, no API key.
 `Main has priority` still clears the cars and stays `RED` on fairness. The baseline stays red either way.
 A fair run that fails to go green exits 1.
 
+## Priority request
+
+`cargo run -- --board --priority` symbolically requests priority for the blue car.
+Cars ahead relay it through two junction agreements, yield, and clear its route.
+The home label compares 126.5 simulated seconds from the request with 141.0
+without it: 14.5 seconds sooner, zero collisions. `--priority-baseline` plays
+the same trip without the request; `cargo run -- --priority` prints the comparison.
+No API key is needed. Baseten uses the same 25-second prefetch and 45-second
+request timeout for each exchange. See [the priority proof](docs/priority-request.md).
+
 ## Loop
 
 1. Spawn one merge jam (`--cars`, `--jam`).
@@ -71,6 +81,8 @@ Fairness is the share of contested gate passages that repeated the same approach
 | `--show` | Terminal trace. Dinner path: wreck stays, jam stays, fair road clears. |
 | `--board` | Open the live birds-eye SVG network and keep its local session running. |
 | `--no-open` | With `--board`, print the local URL without launching a browser. |
+| `--priority` | Request priority for car 177 and compare its trip with no request. |
+| `--priority-baseline` | Play the same trip without requesting priority. |
 
 Structured prefs are a `Bias` on `Prefs` (`balanced`, `favor_main`, `favor_ramp`). The prompt carries them. When set, they win over the sentence. The executor never reads prefs itself.
 

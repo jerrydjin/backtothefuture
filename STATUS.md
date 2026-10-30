@@ -102,3 +102,17 @@ reply (no pending cue), and a 30.027-second mock reply (pending cue, then exchan
 yield, fade). Reversing the returned decision reverses the physical yield.
 No Baseten key is configured in the cloud environment, so live Baseten latency
 has not been measured here. Sticky remains RED / RED / GREEN time_home=69.
+
+## Priority request (JERRY-143, stacked PR #12)
+
+`cargo run -- --board --priority` asks for car 177 at recording t=200. Cars ahead
+relay the request through junctions 9 and 21 with the same readable exchange,
+physical yield, and fade. `--priority-baseline` plays the paired no-request trip.
+Car 177's remaining time-home falls from 141.00s to 126.50s (14.50s / 10.3% saved),
+on the same route. Both runs have zero same-lane overlaps and zero crossing
+conflicts at every 0.25s recorded physics step. The dinner score stays unchanged.
+
+65 cargo tests pass. Browser proof covers the complete no-key story and both
+mock model replies (19.050s, 19.035s). There is no configured Baseten key; these
+mock timings are not real model latency. See docs/priority-request.md for the
+commands, measured comparison, validation, and cuts. Judge/schema untouched.
