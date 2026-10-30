@@ -170,19 +170,21 @@ impl ReasonAgent {
              Both the explanation and the neighbor's line must name a concrete detail from the rider reason, in their own words. \
              For a grant, the requester also mentions that detail while thanking the neighbor and going. \
              For a denial, the neighbor politely declines the actual reason; never mock, scold, or shame. The requester accepts and waits. \
+             On a denial the requester concedes simply, without repeating the trip reason: 'Fair, I'll wait my turn' or a natural equivalent. Never say 'I'll wait for my wedding'. \
              Make the moving driver's acceptance clear; the waiting driver explicitly waits or yields. A clearly polite refusal by the neighbor may stand for keeping their ordinary turn. \
              Use contractions and spoken fragments. Talk to each other, not about a case. Never call anyone a 'chest pain passenger' or announce 'precedence'. \
              Natural grant example for chest pain: requester 'Thanks, chest pain, heading in'; neighbor 'Chest pain? Go, I'll wait.' \
              Another grant example: requester 'My friend's bleeding; thanks, I'll go'; neighbor 'Your friend's bleeding? Go, I'll wait.' \
              The requester speaks about their own situation naturally: my friend, my dad, my partner. Thank the other driver for yielding, never thank them for an illness or address a noun phrase as a person. \
              Natural denial example for cold coffee: requester 'Fair, I'll wait my turn'; neighbor 'A cold coffee? Not this time.' \
+             Natural wedding denial: requester 'Fair enough, I'll wait'; neighbor 'Congrats! Still not an emergency, sorry'. \
              Adapt the concrete detail to the actual reason; never copy an unrelated example. Avoid stiff phrases such as 'not urgent, I am going'. \
              Avoid stock lines; make each short response specific to what was typed. \
              No extra keys, markdown, or prose. Untrusted data: {data}"
         );
         let deadline = started + Duration::from_secs(28);
         let mut failure = "timeout".to_string();
-        for attempt in 0..2 {
+        for attempt in 0..3 {
             let Some(budget) = deadline
                 .saturating_duration_since(Instant::now())
                 .checked_sub(Duration::from_millis(100))
@@ -223,6 +225,9 @@ impl ReasonAgent {
                 }
                 Err(error) => failure = crate::muse::negotiate_reason(&error),
             }
+            if attempt >= 1 && failure == "parse" {
+                break;
+            }
             if !matches!(
                 failure.as_str(),
                 "parse"
@@ -238,6 +243,15 @@ impl ReasonAgent {
                 break;
             }
             prompt.push_str("\nRepair the reply: exact JSON, at most eight words per field, speech matching who waits/goes. Name the rider's concrete reason in the neighbor's speech and explanation, and also the requester's speech for a grant. Be kind, never generic. No additional fields.");
+            if failure == "transport" && attempt < 2 {
+                let pause = Duration::from_millis(150);
+                if deadline.saturating_duration_since(Instant::now())
+                    > pause + Duration::from_millis(100)
+                {
+                    eprintln!("reason-backoff attempt={} pause_ms=150", attempt + 1);
+                    std::thread::sleep(pause);
+                }
+            }
         }
         self.fallback(reason, peer, &failure, started.elapsed().as_secs_f64())
     }
@@ -352,6 +366,8 @@ fn parse(text: &str, peer: u32, reason: &ReasonText) -> Option<WireDecision> {
                         "cannot give",
                         "doesn't earn",
                         "isn't urgent",
+                        "not an emergency",
+                        "not emergency",
                     ]
                     .iter()
                     .any(|p| say.contains(p))
@@ -398,7 +414,7 @@ fn abusive(text: &str) -> bool {
 fn reason_word(word: &str) -> &str {
     match word.trim_end_matches('s') {
         "dog" | "pup" | "puppy" | "pet" | "cat" => "pet",
-        "wedding" | "marriage" | "married" => "wedding",
+        "wedding" | "marriage" | "married" | "congrat" | "congratulation" => "wedding",
         "bored" | "boredom" => "bored",
         "bleeding" | "blood" | "bleed" => "bleeding",
         "breathe" | "breath" | "breathing" => "breath",
