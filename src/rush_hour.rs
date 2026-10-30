@@ -1,7 +1,9 @@
 //! Paired, seeded town experiments. The policy receives claims, never truth.
 //! Only a precedence flag enters TownSim; trajectories use its existing rules.
 use crate::negotiate::{human_line, roles_match, MergeLine};
-use crate::network::{NetStats, Network, NetworkRun, ScheduledCar, TownSim};
+use crate::network::{
+    BroadcastConfig, MessageHop, NetStats, Network, NetworkRun, ScheduledCar, TownSim,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -406,6 +408,13 @@ pub struct Score {
     pub liar_win_rate: f64,
     pub third_claim_liar_win_rate: f64,
     pub history_enabled: bool,
+    pub spread_enabled: bool,
+    pub emergency_gain_vs_local: f64,
+    pub clear_ahead_m: f64,
+    pub clear_ahead_s: f64,
+    pub lead_distance_m: f64,
+    pub lead_time_s: f64,
+    pub collateral: f64,
     pub model_decisions: usize,
     pub fallback_decisions: usize,
     pub collisions: u32,
@@ -419,6 +428,7 @@ pub struct Run {
     pub home: BTreeMap<u32, f64>,
     pub town: NetworkRun,
     pub history: BTreeMap<u32, Vec<PastTrip>>,
+    pub messages: Vec<MessageHop>,
     pub history_enabled: bool,
 }
 pub struct ScoredRun {
@@ -435,6 +445,15 @@ pub fn simulate_with_history(
     policy: &dyn Policy,
     history_enabled: bool,
 ) -> Result<Run, String> {
+    simulate_with_options(seed, policy, history_enabled, None)
+}
+
+pub fn simulate_with_options(
+    seed: u64,
+    policy: &dyn Policy,
+    history_enabled: bool,
+    broadcast: Option<BroadcastConfig>,
+) -> Result<Run, String> {
     let trips = population(seed);
     let demand: Vec<_> = trips
         .iter()
@@ -445,6 +464,9 @@ pub fn simulate_with_history(
         })
         .collect();
     let mut sim = TownSim::with_schedule(seed, &demand)?;
+    if let Some(config) = broadcast {
+        sim.enable_broadcast(config)?;
+    }
     let mut stats = NetStats::default();
     let mut frames = Vec::new();
     let mut cursor = 0;
@@ -514,6 +536,7 @@ pub fn simulate_with_history(
         sim.step();
     }
     let home = sim.completed_trips();
+    let messages = sim.messages();
     let town = sim.experiment_recording(frames, stats);
     Ok(Run {
         trips,
@@ -521,6 +544,7 @@ pub fn simulate_with_history(
         home,
         town,
         history,
+        messages,
         history_enabled,
     })
 }
@@ -592,6 +616,13 @@ pub fn score(seed: u64, policy: &str, run: &Run, baseline: &Run) -> Result<Score
         liar_win_rate: liar_wins as f64 / liar_total.max(1) as f64,
         third_claim_liar_win_rate: third_wins as f64 / thirds.max(1) as f64,
         history_enabled: run.history_enabled,
+        spread_enabled: false,
+        emergency_gain_vs_local: 0.0,
+        clear_ahead_m: 0.0,
+        clear_ahead_s: 0.0,
+        lead_distance_m: 0.0,
+        lead_time_s: 0.0,
+        collateral: 0.0,
         model_decisions: run.decisions.iter().filter(|d| d.source == "model").count(),
         fallback_decisions: run
             .decisions
@@ -625,5 +656,176 @@ pub fn run_with_history(
     }
     let run = simulate_with_history(seed, policy, history_enabled)?;
     let score = score(seed, policy.name(), &run, &baseline)?;
+    Ok(ScoredRun { run, score })
+}
+
+struct RecordedPolicy {
+    decisions: BTreeMap<u32, Decision>,
+}
+impl Policy for RecordedPolicy {
+    fn name(&self) -> &str {
+        "recorded_local"
+    }
+    fn decide(&self, r: &PolicyRequest) -> Decision {
+        self.decisions
+            .get(&r.car)
+            .expect("paired request identity")
+            .clone()
+    }
+}
+
+type Traces = BTreeMap<u32, Vec<(f64, f64, f64)>>;
+fn motion_traces(run: &Run) -> Traces {
+    let mut traces: Traces = BTreeMap::new();
+    for f in &run.town.frames {
+        for c in &f.cars {
+            traces.entry(c.0).or_default().push((f.t as f64, c.2, c.3));
+        }
+    }
+    traces
+}
+fn position_at(traces: &Traces, home: &BTreeMap<u32, f64>, id: u32, at: f64) -> Option<f64> {
+    if home.get(&id).is_some_and(|t| *t <= at) {
+        return None;
+    }
+    let trace = traces.get(&id)?;
+    let n = trace.partition_point(|p| p.0 <= at);
+    n.checked_sub(1).map(|i| trace[i].1)
+}
+fn arrival_at(
+    traces: &Traces,
+    home: &BTreeMap<u32, f64>,
+    id: u32,
+    distance: f64,
+    after: f64,
+) -> Option<f64> {
+    let trace = traces.get(&id)?;
+    let i = trace.partition_point(|p| p.0 < after || p.1 < distance);
+    trace.get(i).map(|p| p.0).or_else(|| home.get(&id).copied())
+}
+fn route_intersects(net: &Network, a: &[usize], b: &[usize]) -> bool {
+    a.iter()
+        .any(|x| b.contains(x) || b.iter().any(|y| net.conflicts_of(*x).contains(y)))
+}
+
+/// Additional comparison replays exactly the same grant/deny decisions, never
+/// another model call. Actual delays and clearance lead use recorded motion.
+pub fn run_experiment(
+    seed: u64,
+    policy: &dyn Policy,
+    history_enabled: bool,
+    broadcast: Option<BroadcastConfig>,
+) -> Result<ScoredRun, String> {
+    let Some(config) = broadcast else {
+        return run_with_history(seed, policy, history_enabled);
+    };
+    let baseline = simulate_with_history(seed, &Fcfs, history_enabled)?;
+    let run = simulate_with_options(seed, policy, history_enabled, Some(config))?;
+    let replay = RecordedPolicy {
+        decisions: run.decisions.iter().map(|d| (d.car, d.clone())).collect(),
+    };
+    let local = simulate_with_history(seed, &replay, history_enabled)?;
+    let mut score = score(seed, policy.name(), &run, &baseline)?;
+    score.spread_enabled = true;
+    let gains: Vec<_> = run
+        .trips
+        .iter()
+        .filter(|t| t.truth == Truth::Emergency)
+        .filter_map(|t| Some(local.home.get(&t.car)? - run.home.get(&t.car)?))
+        .collect();
+    score.emergency_gain_vs_local = median(&gains);
+    let net = Network::town();
+    let traces = motion_traces(&run);
+    let grants: Vec<_> = run.decisions.iter().filter(|d| d.granted).collect();
+    let mut slowed = 0;
+    let mut unrelated = 0;
+    for t in &run.trips {
+        if let (Some(a), Some(b)) = (run.home.get(&t.car), local.home.get(&t.car)) {
+            if a - b <= 0.25 {
+                continue;
+            }
+            slowed += 1;
+            let relevant = grants.iter().any(|d| {
+                let beneficiary = run.trips.iter().find(|x| x.car == d.car).unwrap();
+                let active_until = run.home.get(&d.car).copied().unwrap_or(d.at_s);
+                t.depart_s <= active_until
+                    && *a >= d.at_s
+                    && route_intersects(
+                        &net,
+                        &run.town.routes[t.route],
+                        &run.town.routes[beneficiary.route],
+                    )
+            });
+            if !relevant {
+                unrelated += 1;
+            }
+        }
+    }
+    score.collateral = unrelated as f64 / (slowed.max(1) as f64);
+    for hop in &run.messages {
+        let Some(recipient) = hop.recipient_car else {
+            continue;
+        };
+        if recipient == hop.beneficiary
+            || position_at(&traces, &run.home, recipient, hop.at_s).is_none()
+        {
+            continue;
+        }
+        let beneficiary_pos =
+            position_at(&traces, &run.home, hop.beneficiary, hop.at_s).unwrap_or(0.0);
+        let ahead = (hop.route_m - beneficiary_pos).max(0.0);
+        let Some(arrival) = arrival_at(&traces, &run.home, hop.beneficiary, hop.route_m, hop.at_s)
+        else {
+            continue;
+        };
+        if ahead > score.lead_distance_m {
+            score.lead_distance_m = ahead;
+            score.lead_time_s = (arrival - hop.at_s).max(0.0);
+        }
+        let Some(conn) = hop.connector else {
+            continue;
+        };
+        if !["hold", "clear"].contains(&hop.action.as_str()) {
+            continue;
+        }
+        let trip = run.trips.iter().find(|t| t.car == recipient).unwrap();
+        let route = &run.town.routes[trip.route];
+        let Some(k) = route.iter().position(|c| *c == conn) else {
+            continue;
+        };
+        let start: f64 = route[..k].iter().map(|c| run.town.links[*c].len).sum();
+        let cleared = if hop.action == "clear" {
+            arrival_at(
+                &traces,
+                &run.home,
+                recipient,
+                start + run.town.links[conn].len + crate::world::CAR_LENGTH_M,
+                hop.at_s,
+            )
+        } else {
+            run.town
+                .frames
+                .iter()
+                .skip(hop.at_s.ceil() as usize)
+                .take_while(|f| (f.t as f64) < arrival)
+                .find(|f| {
+                    f.cars
+                        .iter()
+                        .any(|c| c.0 == recipient && c.2 < start && c.3 <= 0.5)
+                })
+                .map(|f| f.t as f64)
+        };
+        if let Some(at) = cleared.filter(|at| *at < arrival) {
+            let distance = (hop.route_m
+                - position_at(&traces, &run.home, hop.beneficiary, at).unwrap_or(hop.route_m))
+            .max(0.0);
+            if distance > score.clear_ahead_m {
+                score.clear_ahead_m = distance;
+                score.clear_ahead_s = arrival - at;
+            }
+        }
+    }
+    score.passed &= local.home.len() == run.trips.len()
+        && local.town.stats.overlaps + local.town.stats.crossing_conflicts == 0;
     Ok(ScoredRun { run, score })
 }
