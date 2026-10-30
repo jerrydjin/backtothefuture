@@ -386,6 +386,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
   #reason-form { position: fixed; bottom: 42px; left: 12px; z-index: 2; max-width: calc(100vw - 24px); }
   #reason-input { box-sizing: border-box; width: 340px; max-width: 100%; border: 0; border-bottom: 1px solid #ddd;
     border-radius: 0; padding: 6px 0; background: white; color: #333; font: 13px system-ui, sans-serif; }
+  #reason-input:focus-visible { outline: none; border-bottom: 2px solid #555; }
   #reason-status { display: block; max-width: 340px; margin-top: 5px; color: #666; font: 12px system-ui, sans-serif; }
 </style>
 </head>
@@ -1083,7 +1084,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     data.reason.decision.lines.forEach(function (line, i) {
       var at = carSpot(view, t, line.id);
       if (!at) return;
-      var x = at.x + (i ? 100 : -100), y = at.y - (i ? 35 : 65);
+      var x = Math.max(180, Math.min(view.width - 180, at.x - 100)), y = at.y + (i ? 50 : -65);
       ctx.appendChild(svgNode("line", { x1: at.x, y1: at.y - 7, x2: x, y2: y + 5, stroke: "#bbb", "stroke-width": 1 }));
       ctx.appendChild(svgNode("text", { x: x, y: y, "text-anchor": "middle", fill: "#444", stroke: "white",
         "stroke-width": 4, "paint-order": "stroke", "font-family": "system-ui, sans-serif", "font-size": 14,

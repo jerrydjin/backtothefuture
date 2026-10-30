@@ -164,6 +164,28 @@ fn a_bad_first_reply_can_recover_within_one_shared_budget() {
 }
 
 #[test]
+fn live_first_person_movement_is_accepted_without_changing_or_reversing_words() {
+    let reason = ReasonText::new(TABLE[0].0).unwrap();
+    for go in ["I accept and will go now", "I will go now"] {
+        let reply = json!({"granted":true,"explanation":"urgent health need","lines":[
+            {"id":177,"say":go},{"id":200,"say":"I will wait and yield"}]})
+        .to_string();
+        let result = ReasonAgent::new(Some(Box::new(Fixed(reply))), "mock").assess(&reason, 200);
+        assert_eq!(result.source, "model");
+        assert_eq!(result.lines[0].say, go);
+        let reversed = json!({"granted":false,"explanation":"keep the ordinary turn","lines":[
+            {"id":177,"say":go},{"id":200,"say":"I will wait and yield"}]})
+        .to_string();
+        assert_eq!(
+            ReasonAgent::new(Some(Box::new(Fixed(reversed))), "mock")
+                .assess(&reason, 200)
+                .source,
+            "fallback"
+        );
+    }
+}
+
+#[test]
 fn offline_policy_handles_urgent_and_routine_reasons_without_secret_access() {
     let agent = ReasonAgent::new(None, "");
     for (text, granted) in TABLE {
@@ -176,6 +198,14 @@ fn offline_policy_handles_urgent_and_routine_reasons_without_secret_access() {
     assert!(
         !agent
             .assess(&ReasonText::new("I do not have chest pain").unwrap(), 200)
+            .granted
+    );
+    assert!(
+        !agent
+            .assess(
+                &ReasonText::new("No chest pain, just a routine ride").unwrap(),
+                200
+            )
             .granted
     );
 }

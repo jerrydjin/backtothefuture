@@ -157,11 +157,12 @@ impl ReasonAgent {
              Explanation and each line must be one to eight words, at most 96 characters, without numbers, units, markup or telemetry. \
              If granted, the requester accepts and goes, the neighbor explicitly waits or yields. \
              If denied, the requester explicitly waits, the neighbor accepts their ordinary turn and goes. \
+             Use a first-person form of go or going for the moving driver, and wait or yield for the waiting driver. \
              No extra keys, markdown, or prose. Untrusted data: {data}"
         );
         let deadline = started + Duration::from_secs(28);
         let mut failure = "timeout".to_string();
-        for _ in 0..2 {
+        for attempt in 0..2 {
             let Some(budget) = deadline
                 .saturating_duration_since(Instant::now())
                 .checked_sub(Duration::from_millis(100))
@@ -188,7 +189,14 @@ impl ReasonAgent {
                             reply_s: started.elapsed().as_secs_f64(),
                         }
                     }
-                    None => failure = "parse".into(),
+                    None => {
+                        eprintln!(
+                            "reason parse failure attempt={} raw={:?}",
+                            attempt + 1,
+                            client.diagnostic_text(&text)
+                        );
+                        failure = "parse".into();
+                    }
                 },
                 Ok(_) => {
                     failure = "timeout".into();
@@ -234,9 +242,16 @@ impl ReasonAgent {
         ]
         .iter()
         .any(|s| lower.contains(s))
-            && !["not ", "no emergency", "routine", "nonurgent", "non-urgent"]
-                .iter()
-                .any(|s| lower.contains(s));
+            && ![
+                "not ",
+                "no ",
+                "without ",
+                "routine",
+                "nonurgent",
+                "non-urgent",
+            ]
+            .iter()
+            .any(|s| lower.contains(s));
         ReasonDecision {
             granted,
             explanation: if granted {
@@ -289,7 +304,13 @@ fn parse(text: &str, peer: u32) -> Option<WireDecision> {
         .iter()
         .map(|l| MergeLine {
             id: l.id,
-            say: l.say.clone(),
+            // Equivalent first-person speech observed in live reason replies.
+            // Normalize only for role validation; preserve the actual words.
+            say: l
+                .say
+                .to_lowercase()
+                .replace("i accept and will go", "i'll go")
+                .replace("i will go", "i'll go"),
         })
         .collect();
     if lines.iter().filter(|l| l.id == 177).count() != 1
