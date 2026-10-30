@@ -465,6 +465,7 @@ Knobs:
   --policy NAME           fcfs, keyword, mock, or live
   --seed N                fixed rush-hour demand seed
   --score FILE            write the paired rush-hour score JSON
+  --decision-log FILE     write every rush-hour decision and source
   --no-history            compare rush hour without completed rider history
   --local-only            use neighbouring-car precedence without propagation
   --message-speed X       message speed as a multiple of maximum car speed
@@ -550,9 +551,6 @@ fn run_reason(args: &Args) -> Result<(), String> {
 }
 
 fn run_rush_hour(args: &Args) -> Result<(), String> {
-    if args.board || args.save_replay.is_some() || args.reason.is_some() {
-        return Err("rush-hour currently supports headless scoring; legacy board and reason modes remain available separately".into());
-    }
     let policy = muse::rush_hour::policy(&args.policy)?;
     let config = if args.local_only {
         None
@@ -601,6 +599,49 @@ fn run_rush_hour(args: &Args) -> Result<(), String> {
         return Err(
             "incomplete, unsafe, or missing required model decisions; inspect score".into(),
         );
+    }
+    if args.board || args.save_replay.is_some() || args.reason.is_some() {
+        let mut board = muse::rush_board::from_run(&result, None)?;
+        let mut session = muse::rush_board::Session::new(
+            args.seed,
+            args.policy.clone(),
+            config,
+            &result,
+            args.save_replay.clone(),
+        );
+        if let Some(reason) = &args.reason {
+            board = session.evaluate(reason)?;
+        }
+        let typed_live = board
+            .rush
+            .as_ref()
+            .is_none_or(|r| r.score.model_decisions == r.decisions.len());
+        if args.require_live && !typed_live {
+            let rush = board.rush.as_mut().unwrap();
+            rush.score.passed = false;
+            if let Some(path) = &args.score {
+                std::fs::write(path, serde_json::to_string_pretty(&rush.score).unwrap())
+                    .map_err(|e| e.to_string())?;
+            }
+        }
+        if let Some(path) = &args.save_replay {
+            muse::replay::ReplayArchive::new(board.clone()).write(path)?;
+        }
+        if args.require_live && !typed_live {
+            return Err("typed reason used a labelled fallback; inspect score/replay".into());
+        }
+        if args.board {
+            let server =
+                muse::rush_server::RushServer::start(board, session).map_err(|e| e.to_string())?;
+            let url = format!("http://{}/", server.address);
+            println!("board: {url}");
+            if !args.no_open {
+                let _ = muse::board::open_board_url(&url);
+            }
+            loop {
+                std::thread::park_timeout(std::time::Duration::from_secs(1));
+            }
+        }
     }
     Ok(())
 }

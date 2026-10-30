@@ -502,7 +502,7 @@ fn reason_word(word: &str) -> &str {
     }
 }
 
-fn references_reason(text: &str, reason: &ReasonText) -> bool {
+pub(crate) fn references_reason(text: &str, reason: &ReasonText) -> bool {
     let stop = [
         "i",
         "i'm",
