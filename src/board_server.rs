@@ -38,6 +38,7 @@ struct Reply {
     talk: Arc<dyn MergeTalk>,
     forecasts: Vec<MergeSnap>,
     priority: Option<PriorityResult>,
+    story: Option<crate::story::StoryRun>,
     started: Vec<bool>,
     result: Arc<Mutex<State>>,
 }
@@ -57,6 +58,7 @@ impl Reply {
             talk: Arc::from(talk),
             forecasts,
             priority: town.priority.clone(),
+            story: town.story.clone(),
             started: vec![false; n],
             result: Arc::new(Mutex::new(State {
                 choices: vec![None; n],
@@ -74,6 +76,7 @@ impl Reply {
         let talk = Arc::clone(&self.talk);
         let snap = self.forecasts[event].clone();
         let priority = self.priority.clone();
+        let story = self.story.clone();
         let result = Arc::clone(&self.result);
         std::thread::spawn(move || {
             let start = Instant::now();
@@ -94,7 +97,9 @@ impl Reply {
                     state.times.clone(),
                 )
             };
-            let mut town = if let Some(p) = &priority {
+            let mut town = if let Some(story) = story {
+                crate::network::run_story_town(TOWN_SEED, story.kind, Box::new(Replay(choices)))
+            } else if let Some(p) = &priority {
                 run_priority_town(TOWN_SEED, p.request, p.enabled, Box::new(Replay(choices)))
             } else {
                 run_town_with(TOWN_SEED, Box::new(Replay(choices)))

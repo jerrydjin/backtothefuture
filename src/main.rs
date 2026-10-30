@@ -83,11 +83,25 @@ fn main() -> ExitCode {
         eprintln!("fair prefs did not go green");
         return ExitCode::from(1);
     }
-    if args.board || args.priority.is_some() {
-        let board = match args.priority {
-            Some(enabled) => muse::board::priority_board_from_run(&dinner, muse.label(), enabled),
-            None => board_from_run(&dinner, muse.label()),
+    if args.board || args.priority.is_some() || args.story.is_some() {
+        let board = if let Some(kind) = args.story {
+            muse::board::story_board_from_run(&dinner, muse.label(), kind)
+        } else {
+            match args.priority {
+                Some(enabled) => {
+                    muse::board::priority_board_from_run(&dinner, muse.label(), enabled)
+                }
+                None => board_from_run(&dinner, muse.label()),
+            }
         };
+        if let Some(story) = &board.town.story {
+            for decision in &story.decisions {
+                println!(
+                    "priority car={} granted={} reason={}",
+                    decision.claim.car_id, decision.granted, decision.explanation
+                );
+            }
+        }
         if let Some(p) = &board.town.priority {
             if let (Some(time), Some(baseline)) = (p.time_home_s, p.baseline_time_home_s) {
                 println!("priority car={} requested={} time_home={time:.2}s baseline={baseline:.2}s saved={:.2}s collisions={} negotiations={}",
@@ -117,6 +131,7 @@ struct Args {
     board: bool,
     no_open: bool,
     priority: Option<bool>,
+    story: Option<muse::story::StoryKind>,
     rewrite_every: Option<u32>,
 }
 
@@ -131,6 +146,7 @@ impl Args {
             board: false,
             no_open: false,
             priority: None,
+            story: None,
             rewrite_every: None,
         };
         let mut args = env::args().skip(1);
@@ -142,6 +158,13 @@ impl Args {
                 "--no-open" => parsed.no_open = true,
                 "--priority" => parsed.priority = Some(true),
                 "--priority-baseline" => parsed.priority = Some(false),
+                "--story" => {
+                    let value = args.next().ok_or("--story needs competing")?;
+                    parsed.story = Some(
+                        muse::story::StoryKind::parse(&value)
+                            .ok_or_else(|| format!("unknown story {value}"))?,
+                    );
+                }
                 "--cars" => {
                     let value = args.next().ok_or("--cars needs a number")?;
                     parsed.cars = value
@@ -191,6 +214,7 @@ Knobs:
   --no-open                print the board URL without opening a window (with --board)
   --priority               car 177 requests priority; cars ahead clear its path
   --priority-baseline      the same trip without its priority request
+  --story competing        simultaneous hospital and meeting requests
   --help
 
 Negotiation:

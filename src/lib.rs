@@ -19,6 +19,7 @@ pub mod negotiate;
 pub mod network;
 pub mod prefs;
 pub mod schema;
+pub mod story;
 pub mod world;
 
 pub use agents::{DumbEqual, FollowPlan, Selfish};

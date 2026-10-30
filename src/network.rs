@@ -10,6 +10,7 @@
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 
+use crate::story::{StoryKind, StoryRun};
 use serde::Serialize;
 
 use crate::negotiate::{car_pref, MergeCar, MergeLine, MergeSnap, MergeTalk, ScriptedTalk};
@@ -735,6 +736,7 @@ pub struct NetworkRun {
     /// Successive agreements for the priority story; empty on the ordinary board.
     pub exchanges: Vec<TownExchange>,
     pub priority: Option<PriorityResult>,
+    pub story: Option<StoryRun>,
 }
 
 #[derive(Clone, Copy, Debug, Serialize)]
@@ -833,6 +835,7 @@ pub struct TownSim {
     hold: Option<Hold>,
     history: Vec<Hold>,
     priority: Option<PriorityTrip>,
+    story: Option<StoryRun>,
 }
 
 impl TownSim {
@@ -873,6 +876,7 @@ impl TownSim {
             hold: None,
             history: Vec::new(),
             priority: None,
+            story: None,
         }
     }
 
@@ -1495,6 +1499,12 @@ impl TownSim {
         } else {
             None
         };
+        if let Some(story) = &self.story {
+            let context = story.explanation();
+            for car in &mut snap.cars {
+                car.pref.push_str(&format!("; {context}"));
+            }
+        }
         let choice = self.talk.agree(&snap);
         let ids = [snap.cars[0].id, snap.cars[1].id];
         if choice.yields == choice.merges
@@ -1708,6 +1718,15 @@ pub fn run_priority_town(
     enabled: bool,
     talk: Box<dyn MergeTalk>,
 ) -> NetworkRun {
+    record_town(priority_sim(seed, request, enabled, talk))
+}
+
+fn priority_sim(
+    seed: u64,
+    request: PriorityRequest,
+    enabled: bool,
+    talk: Box<dyn MergeTalk>,
+) -> TownSim {
     let mut sim = TownSim::with_talk(seed, talk);
     sim.priority = Some(PriorityTrip {
         request,
@@ -1716,6 +1735,18 @@ pub fn run_priority_town(
         home_at: None,
         served: Vec::new(),
     });
+    sim
+}
+
+pub fn run_story_town(seed: u64, kind: StoryKind, talk: Box<dyn MergeTalk>) -> NetworkRun {
+    let story = StoryRun::new(kind);
+    let winner = story.winner().expect("story has a granted request");
+    let request = PriorityRequest {
+        car_id: winner.car_id,
+        at_s: winner.at_s,
+    };
+    let mut sim = priority_sim(seed, request, true, talk);
+    sim.story = Some(story);
     record_town(sim)
 }
 
@@ -1776,6 +1807,7 @@ fn record_town(mut sim: TownSim) -> NetworkRun {
         exchange,
         exchanges,
         priority,
+        story: sim.story.clone(),
     }
 }
 

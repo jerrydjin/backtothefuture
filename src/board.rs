@@ -125,6 +125,25 @@ pub fn priority_board_from_run(run: &DinnerRun, client_label: &str, enabled: boo
     board
 }
 
+/// A rider-priority story on the existing network; dinner scores are unchanged.
+pub fn story_board_from_run(
+    run: &DinnerRun,
+    client_label: &str,
+    kind: crate::story::StoryKind,
+) -> DinnerBoard {
+    let mut board = priority_board_from_run(run, client_label, true);
+    let baseline = board
+        .town
+        .priority
+        .as_ref()
+        .and_then(|p| p.baseline_time_home_s);
+    board.town = crate::network::run_story_town(TOWN_SEED, kind, Box::new(ScriptedTalk));
+    if let Some(p) = &mut board.town.priority {
+        p.baseline_time_home_s = baseline;
+    }
+    board
+}
+
 /// Same board, with the negotiator that speaks once at one town merge.
 pub fn board_from_run_with(
     run: &DinnerRun,
@@ -872,6 +891,39 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     });
   }
 
+  function carSpot(view, t, id) {
+    var i = Math.max(0, Math.min(town.frames.length - 1, Math.floor(t)));
+    var a = town.frames[i], b = town.frames[Math.min(i + 1, town.frames.length - 1)];
+    var car = a.cars.find(function (c) { return c[0] === id; });
+    if (!car) return null;
+    var later = b.cars.find(function (c) { return c[0] === id; });
+    var d = car[2] + (later ? later[2] - car[2] : car[3]) * (t - i);
+    return toScreen(view, routeLoc(routes[car[1]], d));
+  }
+
+  function drawStory(ctx, view, t) {
+    var story = town.story;
+    if (!story) return;
+    story.claims.forEach(function (claim) {
+      if (t < claim.at_s || t > claim.at_s + 7) return;
+      var at = carSpot(view, t, claim.car_id);
+      if (!at) return;
+      var words = claim.reason === "hospital" ? "late for the hospital" : "late for a meeting";
+      ctx.appendChild(svgNode("text", { x: at.x, y: at.y - 24, "text-anchor": "middle", fill: "#555",
+        stroke: "white", "stroke-width": 4, "paint-order": "stroke", "font-family": "system-ui, sans-serif", "font-size": 13,
+        "data-claim": claim.car_id }, words));
+    });
+    var first = story.decisions.find(function (d) { return d.granted; });
+    if (!first || t < first.claim.at_s + 3) return;
+    var showing = t < first.claim.at_s + 12 || allExchanges().some(function (ex, i) { return exchangeAlpha(ex, t, i) > 0; });
+    if (!showing) return;
+    var at = carSpot(view, t, first.claim.car_id);
+    if (!at) return;
+    ctx.appendChild(svgNode("text", { x: Math.max(180, Math.min(view.width - 180, at.x)), y: at.y - 85,
+      "text-anchor": "middle", fill: "#444", stroke: "white", "stroke-width": 4, "paint-order": "stroke",
+      "font-family": "system-ui, sans-serif", "font-size": 14, "data-role": "decision-reason" }, first.explanation));
+  }
+
   function paint(now) {
     var canvas = document.getElementById("network");
     if (!canvas) return;
@@ -889,6 +941,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     if (cue && showCue) drawCue(ctx, view, cue.role);
     drawExchange(ctx, view, townTime(now));
     drawPriorityHome(ctx, view, townTime(now));
+    drawStory(ctx, view, townTime(now));
     canvas.replaceChildren(ctx);
   }
   function loop(now) {
