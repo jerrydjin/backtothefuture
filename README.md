@@ -1,5 +1,20 @@
 # Muse
 
+```bash
+cargo run -- --demo
+```
+
+One continuous white road network: normal flow, two drivers agree who goes first,
+a typed “I'm late for the hospital” request clears a path, then hospital and
+meeting priorities compete. The demo ends on the hospital decision and its
+one-line reason, in under two minutes. `BASETEN_API_KEY` uses the live model;
+without it the same story uses the scripted fallback.
+
+`cargo run -- --demo --headless` drives the same HTTP session without a browser,
+including `POST /negotiate` and `GET /result`. Add `--require-live` to require
+Baseten replies and `--gate-log runs.jsonl` to retain the run report.
+
+
 You say what matters in plain English — the traffic bends. Muse plans the merge; the cars just drive. Dumb equal stays jammed; the scoreboard goes green.
 
 Traffic here is a closed ramp merge in meters, not a renderer. Mainline and a ramp accel lane meet at one gore. A fixed priority queue cannot write the fair order before the run, because the order comes from the English (or a small structured stub) plus the jam. Muse emits that order once. Local cars only execute it, under length, speed, and gap limits. The judge scores the trajectories.

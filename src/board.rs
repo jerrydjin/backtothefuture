@@ -91,6 +91,8 @@ pub struct DinnerBoard {
     pub dinner_road: DinnerRoad,
     /// Background traffic on the town around it. Its own local sim, never scored.
     pub town: NetworkRun,
+    #[serde(default)]
+    pub demo: Option<crate::demo::DemoPlan>,
 }
 
 /// Run the dinner path and shape it for the window.
@@ -144,6 +146,24 @@ pub fn story_board_from_run(
     board
 }
 
+pub fn demo_board() -> Result<DinnerBoard, String> {
+    let dinner = crate::run_dinner(
+        &crate::Scenario::new(
+            6,
+            crate::JamType::Symmetric,
+            "Zipper fairly so both approaches get home.",
+        ),
+        &crate::FakeEcho,
+        &EpisodeOpts::default(),
+    )
+    .map_err(|e| e.to_string())?;
+    let mut board = board_from_run(&dinner, "scripted");
+    let (town, plan) = crate::network::run_demo_town(TOWN_SEED)?;
+    board.town = town;
+    board.demo = Some(plan);
+    Ok(board)
+}
+
 /// Same board, with the negotiator that speaks once at one town merge.
 pub fn board_from_run_with(
     run: &DinnerRun,
@@ -170,6 +190,7 @@ pub fn board_from_run_with(
         ],
         dinner_road: dinner_road(run, gate_s_m, home_s_m),
         town: run_town_with(TOWN_SEED, talk),
+        demo: None,
     }
 }
 
@@ -369,6 +390,8 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
 <script>
 (function () {
   var data = JSON.parse(document.getElementById("board-data").textContent);
+  var isDemo = !!data.demo && /[?&]demo=1(?:&|$)/.test(location.search);
+  var demoView = null;
   var maxTick = 0;
   data.strips.forEach(function (strip) {
     var last = strip.frames[strip.frames.length - 1];
@@ -396,7 +419,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
 
   document.getElementById("network").addEventListener("click", function (ev) {
     ev.stopPropagation();
-    togglePause();
+    if (!isDemo) togglePause();
   });
   document.getElementById("pills").addEventListener("click", function (ev) {
     var pill = ev.target.closest ? ev.target.closest(".pill") : null;
@@ -413,6 +436,10 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
 
   var animating = seekTo == null;
   function restart() {
+    if (isDemo) {
+      fetch("/demo/restart", { method: "POST" }).then(function () { demoView = null; pollDemo(); });
+      return;
+    }
     seekTo = null;
     origin = performance.now();
     paused = false;
@@ -459,7 +486,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
 
   // Forecast once, ask 25 wall seconds before the encounter, then replay the
   // returned agreement through the same local physics. Only a late reply holds time.
-  var live = seekTo == null && /[?&]live=1(?:&|$)/.test(String(location.search));
+  var live = seekTo == null && (isDemo || /[?&]live=1(?:&|$)/.test(String(location.search)));
   var initialExchanges = data.town.exchanges.length ? data.town.exchanges :
     (data.town.exchange ? [data.town.exchange] : []);
   var readyEvents = {}, requestedEvents = {}, revision = 0;
@@ -516,6 +543,11 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
   }
 
   function townTime(now) {
+    if (isDemo) {
+      var t = demoView ? demoView.sim_t : data.demo.stages[0].from_t;
+      document.getElementById("network").setAttribute("data-time", t.toFixed(3));
+      return t;
+    }
     var last = (data.town && data.town.frames.length) ? data.town.frames.length - 1 : 0;
     if (last < 1) return 0;
     if (seekTo != null) return Math.max(0, Math.min(last, seekTo));
@@ -540,6 +572,25 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     document.getElementById("network").setAttribute("data-time", t.toFixed(3));
     return t <= last ? t : t % last;
   }
+
+  var demoPolling = false;
+  function pollDemo() {
+    if (!isDemo || demoPolling) return;
+    demoPolling = true;
+    fetch("/demo/state", { cache: "no-store", signal: AbortSignal.timeout(5000) })
+      .then(function (r) { if (!r.ok) throw new Error("demo state"); return r.json(); })
+      .then(function (view) {
+        demoView = view;
+        var svg = document.getElementById("network");
+        svg.setAttribute("data-demo-stage", view.name);
+        svg.setAttribute("data-demo-phase", view.phase);
+        svg.setAttribute("data-demo-complete", String(view.complete));
+        if (view.request_event != null) askAhead(view.request_event);
+        demoPolling = false;
+        if (!view.complete) setTimeout(pollDemo, 50);
+      }).catch(function () { demoPolling = false; setTimeout(pollDemo, 200); });
+  }
+  if (isDemo) pollDemo();
 
   function sample(frames, simT) {
     if (!frames.length) return { a: null, b: null, u: 0, tick: 0 };
@@ -817,12 +868,15 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
 
   // Two short lines, one over each car, for the single town exchange. Grey on white.
   function drawExchange(ctx, view, t) {
-    allExchanges().forEach(function (ex, event) { drawOneExchange(ctx, view, t, ex, event); });
+    allExchanges().forEach(function (ex, event) {
+      if (isDemo && (!demoView || event !== demoView.event || !["dialogue", "yield", "fade", "late"].includes(demoView.phase))) return;
+      drawOneExchange(ctx, view, t, ex, event);
+    });
   }
 
   function drawOneExchange(ctx, view, t, ex, event) {
     var alpha = exchangeAlpha(ex, t, event);
-    var pending = !eventReady(event) && waitingAt === event;
+    var pending = !eventReady(event) && (isDemo ? demoView && demoView.phase === "late" : waitingAt === event);
     if (alpha <= 0 && !pending) return;
     if (pending) alpha = 1;
     var frames = town.frames;
@@ -922,7 +976,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
       drawCar(ctx, p, priority ? "#2f6fdb" : (yielding || v < 2.5 ? "#d08a2a" : (merging ? "#333" : "#7a7a7a")), car[0]);
       if (yielding) ctx.appendChild(svgNode("text", { x: p.x, y: p.y + 19, "text-anchor": "middle",
         fill: "#9b6520", "font-family": "system-ui, sans-serif", "font-size": 12, "data-role": "yield" }, "yield"));
-      if (priority) ctx.appendChild(svgNode("text", { x: p.x, y: p.y + 20, "text-anchor": "middle",
+      if (priority && !isDemo) ctx.appendChild(svgNode("text", { x: p.x, y: p.y + 20, "text-anchor": "middle",
         fill: "#2f6fdb", stroke: "white", "stroke-width": 3, "paint-order": "stroke", "font-family": "system-ui, sans-serif",
         "font-size": 13, "data-role": "priority" }, t < town.priority.request.at_s + 5 ? (town.story && town.story.detections.length ? "emergency detected" : "priority, please") : town.priority.request.car_id + " · priority"));
 
@@ -972,6 +1026,26 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
       "font-family": "system-ui, sans-serif", "font-size": 14, "data-role": activeOffer ? "counter-offer" : "decision-reason" }, explanation));
   }
 
+  function drawDemo(ctx, view, t) {
+    if (!demoView) return;
+    var stage = data.demo.stages[demoView.stage];
+    if (["typing", "approach"].includes(demoView.phase)) stage.requests.forEach(function (request) {
+      var at = carSpot(view, t, request.car_id);
+      if (!at) return;
+      var text = request.text.slice(0, Math.ceil(request.text.length * demoView.typed_progress));
+      ctx.appendChild(svgNode("text", { x: Math.max(125, Math.min(view.width - 125, at.x)), y: at.y - 28,
+        "text-anchor": "middle", fill: "#444", stroke: "white", "stroke-width": 4, "paint-order": "stroke",
+        "font-family": "system-ui, sans-serif", "font-size": 14, "data-demo-request": request.car_id }, text));
+    });
+    if (demoView.reason) {
+      var ex = town.exchanges[demoView.event];
+      var at = carSpot(view, t, ex.yields) || carSpot(view, t, 177);
+      if (at) ctx.appendChild(svgNode("text", { x: Math.max(180, Math.min(view.width - 180, at.x)), y: at.y - 90,
+        "text-anchor": "middle", fill: "#444", stroke: "white", "stroke-width": 4, "paint-order": "stroke",
+        "font-family": "system-ui, sans-serif", "font-size": 14, "data-role": "decision-reason" }, demoView.reason));
+    }
+  }
+
   function paint(now) {
     var canvas = document.getElementById("network");
     if (!canvas) return;
@@ -985,11 +1059,14 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     var strip = data.strips[active];
     if (!strip) return;
     var cue = oneCue(strip.frames, simT);
-    var showCue = drawDinner(ctx, view, strip.frames, simT, cue);
+    var showCue = !isDemo && drawDinner(ctx, view, strip.frames, simT, cue);
     if (cue && showCue) drawCue(ctx, view, cue.role);
     drawExchange(ctx, view, townTime(now));
-    drawPriorityHome(ctx, view, townTime(now));
-    drawStory(ctx, view, townTime(now));
+    if (isDemo) drawDemo(ctx, view, townTime(now));
+    else {
+      drawPriorityHome(ctx, view, townTime(now));
+      drawStory(ctx, view, townTime(now));
+    }
     canvas.replaceChildren(ctx);
   }
   function loop(now) {

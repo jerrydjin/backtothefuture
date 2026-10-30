@@ -8,6 +8,7 @@ use std::collections::{BTreeMap, BTreeSet};
 #[serde(rename_all = "kebab-case")]
 pub enum StoryKind {
     Competing,
+    Priority,
     Abuse,
     Emergency,
     Chain,
@@ -18,6 +19,7 @@ impl StoryKind {
     pub fn parse(value: &str) -> Option<Self> {
         match value {
             "competing" => Some(Self::Competing),
+            "priority" => Some(Self::Priority),
             "abuse" => Some(Self::Abuse),
             "emergency" => Some(Self::Emergency),
             "chain" => Some(Self::Chain),
@@ -237,6 +239,13 @@ impl StoryRun {
                     reason: PriorityReason::Meeting,
                 },
             ],
+            StoryKind::Priority => vec![RiderClaim {
+                rider_id: 1,
+                car_id: 177,
+                sequence: 1,
+                at_s: 200.0,
+                reason: PriorityReason::Hospital,
+            }],
             StoryKind::Emergency | StoryKind::Chain => Vec::new(),
             StoryKind::Abuse => [200.0, 232.0, 240.0]
                 .into_iter()
@@ -295,6 +304,18 @@ impl StoryRun {
             decisions,
             priority_until_s,
         }
+    }
+
+    pub fn at(mut self, at_s: f64) -> Self {
+        let shift = at_s - self.claims.first().map_or(at_s, |c| c.at_s);
+        for c in &mut self.claims {
+            c.at_s += shift;
+        }
+        for d in &mut self.decisions {
+            d.claim.at_s += shift;
+        }
+        self.priority_until_s = self.priority_until_s.map(|t| t + shift);
+        self
     }
 
     pub fn winner(&self) -> Option<&RiderClaim> {

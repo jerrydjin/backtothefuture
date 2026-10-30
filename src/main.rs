@@ -24,6 +24,21 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
+    if args.demo {
+        return match muse::demo::run(
+            args.headless,
+            !args.no_open,
+            args.require_live,
+            args.gate_log.as_deref(),
+        ) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("demo: {error}");
+                ExitCode::from(1)
+            }
+        };
+    }
+
     if let Some(path) = &args.replay {
         let archive = match muse::replay::ReplayArchive::read(path) {
             Ok(archive) => archive,
@@ -166,6 +181,10 @@ struct Args {
     prefs: String,
     show: bool,
     board: bool,
+    demo: bool,
+    headless: bool,
+    require_live: bool,
+    gate_log: Option<std::path::PathBuf>,
     no_open: bool,
     priority: Option<bool>,
     story: Option<muse::story::StoryKind>,
@@ -183,6 +202,10 @@ impl Args {
             prefs: "Zipper fairly so both approaches get home.".to_string(),
             show: false,
             board: false,
+            demo: false,
+            headless: false,
+            require_live: false,
+            gate_log: None,
             no_open: false,
             priority: None,
             story: None,
@@ -196,6 +219,12 @@ impl Args {
                 "-h" | "--help" => parsed.help = true,
                 "--show" => parsed.show = true,
                 "--board" => parsed.board = true,
+                "--demo" => parsed.demo = true,
+                "--headless" => parsed.headless = true,
+                "--require-live" => parsed.require_live = true,
+                "--gate-log" => {
+                    parsed.gate_log = Some(args.next().ok_or("--gate-log needs a file")?.into())
+                }
                 "--no-open" => parsed.no_open = true,
                 "--priority" => parsed.priority = Some(true),
                 "--priority-baseline" => parsed.priority = Some(false),
@@ -245,6 +274,19 @@ impl Args {
         if parsed.replay.is_some() && (parsed.story.is_some() || parsed.priority.is_some()) {
             return Err("--replay uses saved decisions; choose a replay or a new story".into());
         }
+        if (parsed.headless || parsed.require_live || parsed.gate_log.is_some()) && !parsed.demo {
+            return Err("--headless, --require-live, and --gate-log need --demo".into());
+        }
+        if parsed.demo
+            && (parsed.story.is_some()
+                || parsed.priority.is_some()
+                || parsed.replay.is_some()
+                || parsed.save_replay.is_some())
+        {
+            return Err(
+                "--demo plays the complete story; use story/replay flags separately".into(),
+            );
+        }
         Ok(parsed)
     }
 }
@@ -258,6 +300,10 @@ Usage:
   cargo run -- --cars 6 --jam symmetric --prefs \"Zipper fairly so both approaches get home.\"
 
 Knobs:
+  --demo                   play the finite normal/merge/priority/competing story
+  --headless               drive the same demo over HTTP without a browser
+  --require-live           fail the headless gate unless every reply is Baseten
+  --gate-log FILE          append the headless run report as JSONL
   --cars N                 fleet size, 2 to 64 (default 6)
   --jam KIND               symmetric | ramp-surge | mainline-plug
   --prefs SENTENCE         plain English merge preference

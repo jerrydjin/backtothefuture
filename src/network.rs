@@ -829,6 +829,10 @@ struct Body {
     front: f64,
 }
 
+struct DemoTrip {
+    phase: u8,
+}
+
 pub struct TownSim {
     net: Network,
     routes: Vec<Route>,
@@ -848,6 +852,7 @@ pub struct TownSim {
     history: Vec<Hold>,
     priority: Option<PriorityTrip>,
     story: Option<StoryRun>,
+    demo: Option<DemoTrip>,
 }
 
 impl TownSim {
@@ -889,6 +894,7 @@ impl TownSim {
             history: Vec::new(),
             priority: None,
             story: None,
+            demo: None,
         }
     }
 
@@ -947,6 +953,7 @@ impl TownSim {
     }
 
     pub fn step(&mut self) {
+        self.advance_demo();
         if let Some(p) = &mut self.priority {
             if self.time >= WARMUP_S + p.request.at_s && p.route.is_none() {
                 p.route = self
@@ -965,6 +972,28 @@ impl TownSim {
         self.spawn();
         self.time += NET_DT_S;
         self.note_clearance();
+    }
+
+    fn advance_demo(&mut self) {
+        let Some(phase) = self.demo.as_ref().map(|d| d.phase) else {
+            return;
+        };
+        let cleared = self.hold.as_ref().and_then(|h| h.cleared_at);
+        if phase == 0 && cleared.is_some_and(|t| self.time >= t + 4.0) {
+            let at_s = self.time - WARMUP_S;
+            self.priority = Some(PriorityTrip {
+                request: PriorityRequest { car_id: 177, at_s },
+                enabled: true,
+                route: None,
+                home_at: None,
+                served: Vec::new(),
+            });
+            self.story = Some(StoryRun::new(StoryKind::Priority).at(at_s));
+            self.demo.as_mut().unwrap().phase = 1;
+        } else if phase == 1 && self.history.len() == 1 && cleared.is_some() {
+            self.story = Some(StoryRun::new(StoryKind::Competing).at(self.time - WARMUP_S));
+            self.demo.as_mut().unwrap().phase = 2;
+        }
     }
 
     fn release_claims(&mut self) {
@@ -1464,6 +1493,9 @@ impl TownSim {
         if self.priority.is_some() && self.hold.as_ref().is_some_and(|h| h.cleared_at.is_some()) {
             self.history.push(self.hold.take().expect("completed hold"));
         }
+        if self.demo.is_some() && self.history.len() >= 3 {
+            return;
+        }
         if self.hold.is_some() || self.time < WARMUP_S {
             return;
         }
@@ -1512,6 +1544,19 @@ impl TownSim {
             return;
         };
         let mut snap = self.merge_snap(ca, cb);
+        if self.demo.as_ref().is_some_and(|d| d.phase == 0) {
+            let offer = ScriptedTalk.agree(&snap);
+            snap.priority_for = Some(offer.merges);
+            snap.cause = Some("An ordinary merge: honor the driver's offer.".into());
+            for car in &mut snap.cars {
+                car.pref = if car.id == offer.yields {
+                    "I can slow down; you go first"
+                } else {
+                    "I can go if you let me"
+                }
+                .into();
+            }
+        }
         let beneficiary = if let Some((stream, id, line)) = priority_head {
             let Some(front) = [ca, cb]
                 .into_iter()
@@ -1865,6 +1910,14 @@ pub fn run_story_town(seed: u64, kind: StoryKind, talk: Box<dyn MergeTalk>) -> N
     let mut sim = priority_sim(seed, request, true, talk);
     sim.story = Some(story);
     record_town(sim)
+}
+
+pub fn run_demo_town(seed: u64) -> Result<(NetworkRun, crate::demo::DemoPlan), String> {
+    let mut sim = TownSim::with_talk(seed, Box::new(ScriptedTalk));
+    sim.demo = Some(DemoTrip { phase: 0 });
+    let mut town = record_town(sim);
+    let plan = crate::demo::DemoPlan::from_town(&mut town)?;
+    Ok((town, plan))
 }
 
 fn record_town(mut sim: TownSim) -> NetworkRun {
