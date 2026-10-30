@@ -1,0 +1,6 @@
+{"event":0,"lines":[{"id":126,"say":"Thanks, I'll go ahead now"},{"id":226,"say":"I'll wait here, you go"}],"provider":"baseten","reply_s":1.7278020619999999,"sample":0,"source":"model"}
+{"event":1,"lines":[{"id":118,"say":"Clearing ahead for priority, I'll proceed"},{"id":200,"say":"I'll hang back, you go ahead"}],"provider":"baseten","reply_s":1.649528279,"sample":0,"source":"model"}
+{"event":0,"lines":[{"id":126,"say":"Thanks, I'll go ahead now"},{"id":226,"say":"I'll wait, you go ahead"}],"provider":"baseten","reply_s":1.6964082409999999,"sample":1,"source":"model"}
+{"event":1,"lines":[{"id":118,"say":"I'll keep going, thanks for waiting"},{"id":200,"say":"I'll wait here, you go ahead"}],"provider":"baseten","reply_s":1.8150488089999999,"sample":1,"source":"model"}
+{"event":0,"lines":[{"id":126,"say":"Appreciate it, I'll go ahead now"},{"id":226,"say":"No worries, I'll wait for you"}],"provider":"baseten","reply_s":1.817733637,"sample":2,"source":"model"}
+{"event":1,"lines":[{"id":118,"say":"I'll go ahead and clear the way"},{"id":200,"say":"I'll wait here, you go ahead"}],"provider":"baseten","reply_s":1.9661649410000002,"sample":2,"source":"model"}

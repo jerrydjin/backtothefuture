@@ -189,13 +189,15 @@ impl MergeTalk for MergeAgent {
                     }
                     Err(error) => {
                         eprintln!(
-                            "merge parse failure attempt={} reason={}",
+                            "merge parse failure attempt={} reason={} redacted_reply={:?}",
                             attempt + 1,
-                            if error.is_empty() {
-                                "parse"
-                            } else {
-                                "invalid_exchange"
-                            }
+                            match error.as_str() {
+                                "spoken roles do not match the agreement" => "spoken_roles",
+                                "line length" => "speech_contract",
+                                "yields" => "precedence",
+                                _ => "shape",
+                            },
+                            self.client.diagnostic_text(&text)
                         );
                         reason = "parse".into();
                         prompt.push_str("\nThe previous reply was invalid. Return only the complete JSON exchange. Keep the agreed order, with each driver's role explicit and each line at most eight words.\n");
@@ -288,6 +290,19 @@ pub fn choice_from_reply(snap: &MergeSnap, reply: Result<&str, &str>) -> MergeCh
 }
 
 pub fn render_merge_prompt(snap: &MergeSnap) -> String {
+    // Vary wording cues only. The forecast and agreed precedence are unchanged.
+    let styles = [
+        "relaxed and reassuring",
+        "warm and matter-of-fact",
+        "briefly appreciative",
+        "friendly and conversational",
+    ];
+    let variation = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .subsec_nanos() as usize
+        % styles.len();
+    let style = styles[variation];
     let cars: Vec<PromptCar<'_>> = snap
         .cars
         .iter()
@@ -345,8 +360,10 @@ Rules:\n\
 - lines has exactly these ids: {ids:?}; every participant must acknowledge\n\
 - each say is one to eight words in that car's own voice\n\
 - sound like two ordinary drivers talking, never like telemetry\n\
+- use {style} wording; vary the phrasing rather than repeat stock dialogue\n\
 - no digits, written numbers, units, gap, gaps, meters, or metres in speech\n\
 - the waiting driver offers to slow or wait and lets the other go; the moving driver accepts and goes\n\
+- make movement explicit in first person and yielding explicit; use everyday words, never announce 'Priority granted'\n\
 - their words must match yields; never have the moving driver tell the other to go first\n\
 - each line should reflect that car's English pref and the situation; keep measurements private\n\
 - the shared reason is: {cause}\n\

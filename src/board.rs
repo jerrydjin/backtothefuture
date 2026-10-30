@@ -1081,6 +1081,12 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
 
   function drawReason(ctx, view, t) {
     if (!isReason || !data.reason || t < 200 || t > 212) return;
+    var requester = carSpot(view, t, 177);
+    if (requester) ctx.appendChild(svgNode("text", {
+      x: Math.max(190, Math.min(view.width - 190, requester.x - 100)), y: requester.y - 90,
+      "text-anchor": "middle", fill: "#666", stroke: "white", "stroke-width": 4, "paint-order": "stroke",
+      "font-family": "system-ui, sans-serif", "font-size": 12, "data-role": "reason-explanation"
+    }, (data.reason.decision.granted ? "Granted · " : "Keep your turn · ") + data.reason.decision.explanation));
     data.reason.decision.lines.forEach(function (line, i) {
       var at = carSpot(view, t, line.id);
       if (!at) return;
