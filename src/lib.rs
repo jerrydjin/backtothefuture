@@ -10,6 +10,7 @@ pub const DINNER_SENTENCE: &str = "You say what matters in plain English — the
 
 pub mod agents;
 pub mod board;
+pub mod board_server;
 pub mod episode;
 pub mod error;
 mod judge;
@@ -21,7 +22,10 @@ pub mod schema;
 pub mod world;
 
 pub use agents::{DumbEqual, FollowPlan, Selfish};
-pub use board::{board_from_run, dinner_board, present_board, render_board_html, DinnerBoard};
+pub use board::{
+    board_from_run, board_from_run_with, dinner_board, present_board, render_board_html,
+    DinnerBoard,
+};
 pub use episode::{
     default_horizon, rollout, run_dinner, run_episode, DinnerRun, EpisodeOpts, EpisodeReport,
 };

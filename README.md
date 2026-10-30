@@ -11,12 +11,23 @@ ChemStation is not this product.
 ```bash
 cargo test
 cargo run -- --board
+BASETEN_API_KEY=... cargo run -- --board
+GEMINI_API_KEY=... cargo run -- --board
 cargo run -- --cars 6 --jam symmetric --prefs "Zipper fairly so both approaches get home."
 cargo run -- --cars 8 --jam ramp-surge --prefs "Zipper fairly so both approaches get home." --show
 cargo run -- --cars 6 --jam symmetric --prefs "Main has priority. Main first."
 ```
 
 `cargo run -- --board` opens the live birds-eye window: the dinner merge in one block of a small town, one yield or merge cue, and three tiny RED / RED / GREEN pills. Around it, background cars drive routes through a motorway, ramps, and streets, and queue at the merges in a rush hour. That town is its own local sim and never touches the score. `--show` prints that same dinner path in the terminal.
+
+One motorway merge on that board asks the two cars who yields. The input is their positions, speeds, gaps, and a short English preference. The reply is two lines, at most six words each, and which car waits. The lines draw over those cars and fade after the yield. The car that was told to yield waits; the other merges. The board opens immediately on a single white SVG network. Playback starts 28 seconds before the encounter, at one simulated second per real second. A loopback session sends the symbolic forecast 25 seconds before the merge; the key stays in Rust. A reply has up to 45 seconds. The first line appears as the cars approach, the second follows, then one car visibly yields and the lines fade. Only a late reply pauses the encounter with a small “negotiating…” cue. Ctrl-C ends the session. Use `--board --no-open` on a host without a display and open the printed URL.
+
+```bash
+BASETEN_API_KEY=... cargo run -- --board
+GEMINI_API_KEY=... cargo run -- --board
+```
+
+`BASETEN_API_KEY` is the live call. It uses the hackathon host and model, and the log line includes `provider=baseten`. `MODEL_API_MODEL` can override that model. `GEMINI_API_KEY` is the Gemini path when the Baseten key is unset. `MERGE_API_KEY` is a generic key that follows `MODEL_API_BASE`. With every key unset, or when the call fails or the reply is not the strict JSON, the same command prints `negotiate source=fallback reason=no_key` (or `timeout`, `http_400`, `parse`) and still draws the exchange. The reason is a short token. It is not the key. The sticky line stays selfish `RED`, dumb-equal `RED`, scripted `GREEN`. The judge does not read the lines. Tests do not need a key.
 
 Fair prefs: selfish and dumb-equal print `RED`, the scripted plan prints `GREEN`, process exits 0.
 
@@ -58,7 +69,8 @@ Fairness is the share of contested gate passages that repeated the same approach
 | `--prefs` | Plain English. "Zipper fairly…" balances. "Main has priority. Main first." does not. |
 | `--rewrite-every` | New plan every N ticks. |
 | `--show` | Terminal trace. Dinner path: wreck stays, jam stays, fair road clears. |
-| `--board` | Open the live birds-eye network window for that same dinner path. |
+| `--board` | Open the live birds-eye SVG network and keep its local session running. |
+| `--no-open` | With `--board`, print the local URL without launching a browser. |
 
 Structured prefs are a `Bias` on `Prefs` (`balanced`, `favor_main`, `favor_ramp`). The prompt carries them. When set, they win over the sentence. The executor never reads prefs itself.
 
