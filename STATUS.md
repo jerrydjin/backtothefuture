@@ -140,17 +140,8 @@ Sticky RED/RED/GREEN time_home=69, judge, and schema are unchanged. See
 
 ## Phase 1 live reliability (unmerged)
 
-Branch `fix/phase-1-live-reliability`, based on main `b25729f`, repairs fenced,
-prose-wrapped and smart-quoted model JSON, trims speech safely, logs redacted parse
-failures, and retries once inside the remaining reply budget. Event 0 starts
-before HTML serialization and client polling; the 28s deadline is unchanged.
+Draft PR #15 now passes five consecutive genuine Baseten live gates on `2ee9a89`: 15/15 Baseten/model exchanges, zero collisions, zero late polls. Actual replies range from 1.672645s to 3.386454s. 94 tests and cargo build pass. Parsing, retry budgets, eager first ask, observed movement wording, bounded Spark reasoning and compact headless HTTP are covered. Earlier failed attempts are preserved separately, not counted.
 
-92 tests pass. The separate real-time mock HTTP gate passes with 3/3 model
-exchanges, a 26.013571s first reply, 101.521s playback, zero collisions and zero
-late polls. Sticky remains RED/RED/GREEN time_home=69. Judge/schema, renderer and
-network physics are unchanged. See docs/phase-1-live-reliability.md and its saved
-mock JSONL for commands and actual lines.
+Sticky remains RED/RED/GREEN time_home=69. Judge/schema, renderer and network physics remain unchanged. See docs/phase-1-live-reliability.md and docs/gates/phase1-live.jsonl for exact lines, sources, timings, commands and remaining limits.
 
-**Handoff:** No Baseten key is configured, so real live latency and five-out-of-five
-reliability are unmeasured. Michael runs the five consecutive live gates; phase 2
-has not started under the requested no-key stop condition. No merge.
+**Handoff:** Jerry reviews draft PR #15 without merging. Codex proceeds to phase 2 on a separate branch and draft PR against main. No merge.
