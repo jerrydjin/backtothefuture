@@ -452,7 +452,7 @@ impl DemoServer {
                         break;
                     }
                 };
-                let _ = stream.set_read_timeout(Some(Duration::from_millis(250)));
+                let _ = stream.set_read_timeout(Some(Duration::from_secs(3)));
                 let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
                 let mut line = String::new();
                 let mut reader = BufReader::new(&mut stream);
@@ -995,5 +995,26 @@ mod tests {
                 .0,
             404
         );
+    }
+
+    #[test]
+    fn http_request_headers_tolerate_a_scheduling_pause() {
+        let board = crate::board::demo_board().unwrap();
+        let server = DemoServer::start(board, Box::new(ScriptedTalk)).unwrap();
+        let mut socket = TcpStream::connect(server.address).unwrap();
+        socket
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
+        socket.write_all(b"GET /demo/state HTTP/1.1\r\n").unwrap();
+        std::thread::sleep(Duration::from_millis(400));
+        socket
+            .write_all(b"Host: localhost\r\nConnection: close\r\n\r\n")
+            .unwrap();
+        let mut response = String::new();
+        socket.read_to_string(&mut response).unwrap();
+        assert!(response.starts_with("HTTP/1.1 200 OK\r\n"));
+        let (_, body) = response.split_once("\r\n\r\n").unwrap();
+        let view: DemoView = serde_json::from_str(body).unwrap();
+        assert_eq!(view.phase, "approach");
     }
 }
