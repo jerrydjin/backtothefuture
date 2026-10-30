@@ -5,6 +5,49 @@ use muse::story::{
 };
 
 #[test]
+fn sustained_distress_detects_an_emergency_but_noise_and_missing_samples_do_not() {
+    use muse::story::{detect_emergencies, SensorObservation};
+    let sample = |t, distress| SensorObservation {
+        car_id: 177,
+        at_s: t,
+        passenger_distress: distress,
+    };
+    assert!(
+        detect_emergencies(&[sample(0.0, true), sample(1.0, false), sample(2.0, true)]).is_empty()
+    );
+    assert!(
+        detect_emergencies(&[sample(0.0, true), sample(0.0, true), sample(2.0, true)]).is_empty()
+    );
+    assert!(
+        detect_emergencies(&[sample(0.0, true), sample(5.0, true), sample(6.0, true)]).is_empty()
+    );
+    let detected = detect_emergencies(&[
+        sample(0.0, true),
+        sample(1.0, true),
+        sample(2.0, true),
+        sample(3.0, true),
+    ]);
+    assert_eq!(detected.len(), 1);
+    assert_eq!(detected[0].at_s, 2.0);
+}
+
+#[test]
+fn detected_emergency_clears_the_route_without_a_rider_request() {
+    let run = run_story_town(7, StoryKind::Emergency, Box::new(ScriptedTalk));
+    let story = run.story.as_ref().unwrap();
+    assert!(story.claims.is_empty(), "no human request was submitted");
+    assert_eq!(story.detections.len(), 1);
+    assert_eq!(story.detections[0].at_s, 200.0);
+    assert_eq!(
+        story.winner().unwrap().reason,
+        PriorityReason::DetectedEmergency
+    );
+    assert_eq!(run.exchanges.len(), 2);
+    assert_eq!(run.priority.as_ref().unwrap().time_home_s, Some(126.5));
+    assert_eq!(run.stats.overlaps + run.stats.crossing_conflicts, 0);
+}
+
+#[test]
 fn repeated_weak_requests_stop_winning_even_with_new_ids_and_cars() {
     let mut ledger = PriorityLedger::default();
     let first = RiderClaim {

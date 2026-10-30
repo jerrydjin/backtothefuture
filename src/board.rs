@@ -890,7 +890,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
         fill: "#9b6520", "font-family": "system-ui, sans-serif", "font-size": 12, "data-role": "yield" }, "yield"));
       if (priority) ctx.appendChild(svgNode("text", { x: p.x, y: p.y + 20, "text-anchor": "middle",
         fill: "#2f6fdb", stroke: "white", "stroke-width": 3, "paint-order": "stroke", "font-family": "system-ui, sans-serif",
-        "font-size": 13, "data-role": "priority" }, t < town.priority.request.at_s + 5 ? "priority, please" : town.priority.request.car_id + " · priority"));
+        "font-size": 13, "data-role": "priority" }, t < town.priority.request.at_s + 5 ? (town.story && town.story.detections.length ? "emergency detected" : "priority, please") : town.priority.request.car_id + " · priority"));
 
     });
   }
@@ -908,6 +908,14 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
   function drawStory(ctx, view, t) {
     var story = town.story;
     if (!story) return;
+    story.detections.forEach(function (detection) {
+      if (t < detection.at_s || t > detection.at_s + 7) return;
+      var at = carSpot(view, t, detection.car_id);
+      if (!at) return;
+      ctx.appendChild(svgNode("text", { x: at.x, y: at.y - 24, "text-anchor": "middle", fill: "#555",
+        stroke: "white", "stroke-width": 4, "paint-order": "stroke", "font-family": "system-ui, sans-serif", "font-size": 13,
+        "data-role": "emergency-detection" }, "distress detected · no request"));
+    });
     story.claims.forEach(function (claim) {
       if (t < claim.at_s || t > claim.at_s + 7) return;
       var at = carSpot(view, t, claim.car_id);

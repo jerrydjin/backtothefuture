@@ -159,7 +159,9 @@ impl Args {
                 "--priority" => parsed.priority = Some(true),
                 "--priority-baseline" => parsed.priority = Some(false),
                 "--story" => {
-                    let value = args.next().ok_or("--story needs competing or abuse")?;
+                    let value = args
+                        .next()
+                        .ok_or("--story needs competing, abuse, or emergency")?;
                     parsed.story = Some(
                         muse::story::StoryKind::parse(&value)
                             .ok_or_else(|| format!("unknown story {value}"))?,
@@ -214,7 +216,7 @@ Knobs:
   --no-open                print the board URL without opening a window (with --board)
   --priority               car 177 requests priority; cars ahead clear its path
   --priority-baseline      the same trip without its priority request
-  --story competing|abuse  competing requests or repeated weak-request denials
+  --story KIND             competing | abuse | emergency
   --help
 
 Negotiation:

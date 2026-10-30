@@ -9,6 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 pub enum StoryKind {
     Competing,
     Abuse,
+    Emergency,
 }
 
 impl StoryKind {
@@ -16,6 +17,7 @@ impl StoryKind {
         match value {
             "competing" => Some(Self::Competing),
             "abuse" => Some(Self::Abuse),
+            "emergency" => Some(Self::Emergency),
             _ => None,
         }
     }
@@ -26,6 +28,7 @@ impl StoryKind {
 pub enum PriorityReason {
     Meeting,
     Hospital,
+    DetectedEmergency,
 }
 
 impl PriorityReason {
@@ -33,6 +36,7 @@ impl PriorityReason {
         match self {
             Self::Meeting => "late for a meeting",
             Self::Hospital => "late for the hospital",
+            Self::DetectedEmergency => "passenger distress detected",
         }
     }
 }
@@ -53,6 +57,61 @@ pub struct PriorityDecision {
     pub explanation: String,
 }
 
+/// A symbolic simulation observation, never a rider's urgency claim.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct SensorObservation {
+    pub car_id: u32,
+    pub at_s: f64,
+    pub passenger_distress: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct EmergencyDetection {
+    pub car_id: u32,
+    pub at_s: f64,
+    pub explanation: String,
+}
+
+/// Require three consecutive samples across at least two seconds. Missing or
+/// false samples reset the evidence; one alarm cannot manufacture priority.
+pub fn detect_emergencies(observations: &[SensorObservation]) -> Vec<EmergencyDetection> {
+    let mut ordered = observations.to_vec();
+    ordered.sort_by(|a, b| a.at_s.total_cmp(&b.at_s));
+    let mut evidence = BTreeMap::<u32, (f64, f64, u32, bool)>::new();
+    let mut detected = Vec::new();
+    for sample in ordered {
+        if !sample.at_s.is_finite() || sample.at_s < 0.0 {
+            continue;
+        }
+        let e = evidence
+            .entry(sample.car_id)
+            .or_insert((sample.at_s, sample.at_s, 0, false));
+        if !sample.passenger_distress || sample.at_s - e.1 > 1.1 {
+            *e = (sample.at_s, sample.at_s, 0, false);
+        }
+        if !sample.passenger_distress {
+            continue;
+        }
+        if e.2 == 0 {
+            e.0 = sample.at_s;
+        }
+        // Duplicate timestamps cannot add corroborating samples.
+        if e.2 == 0 || sample.at_s > e.1 {
+            e.2 += 1;
+        }
+        e.1 = sample.at_s;
+        if !e.3 && e.2 >= 3 && sample.at_s - e.0 >= 2.0 {
+            e.3 = true;
+            detected.push(EmergencyDetection {
+                car_id: sample.car_id,
+                at_s: sample.at_s,
+                explanation: "Sustained passenger distress; clear the path.".into(),
+            });
+        }
+    }
+    detected
+}
+
 /// Input order cannot give a meeting precedence over the hospital.
 fn resolve_candidates(claims: &[RiderClaim]) -> Vec<PriorityDecision> {
     let winner = claims.iter().max_by(|a, b| {
@@ -67,7 +126,11 @@ fn resolve_candidates(claims: &[RiderClaim]) -> Vec<PriorityDecision> {
             granted: winner.is_some_and(|winner| {
                 winner.rider_id == claim.rider_id && winner.sequence == claim.sequence
             }),
-            explanation: if winner.is_some_and(|winner| winner.reason == PriorityReason::Hospital)
+            explanation: if winner
+                .is_some_and(|winner| winner.reason == PriorityReason::DetectedEmergency)
+            {
+                "Sustained passenger distress; clear the path.".into()
+            } else if winner.is_some_and(|winner| winner.reason == PriorityReason::Hospital)
                 && claims.iter().any(|c| c.reason == PriorityReason::Meeting)
             {
                 "Hospital takes priority over a meeting.".into()
@@ -144,6 +207,8 @@ pub fn resolve_competing(claims: &[RiderClaim]) -> Vec<PriorityDecision> {
 pub struct StoryRun {
     pub kind: StoryKind,
     pub claims: Vec<RiderClaim>,
+    pub observations: Vec<SensorObservation>,
+    pub detections: Vec<EmergencyDetection>,
     pub decisions: Vec<PriorityDecision>,
     /// A weak first request grants a short slot, never an unlimited trip pass.
     pub priority_until_s: Option<f64>,
@@ -168,6 +233,7 @@ impl StoryRun {
                     reason: PriorityReason::Meeting,
                 },
             ],
+            StoryKind::Emergency => Vec::new(),
             StoryKind::Abuse => [200.0, 232.0, 240.0]
                 .into_iter()
                 .enumerate()
@@ -180,15 +246,37 @@ impl StoryRun {
                 })
                 .collect(),
         };
+        let observations = if kind == StoryKind::Emergency {
+            [197.0, 198.0, 199.0, 200.0, 201.0]
+                .into_iter()
+                .map(|at_s| SensorObservation {
+                    car_id: 177,
+                    at_s,
+                    passenger_distress: at_s >= 198.0,
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let detections = detect_emergencies(&observations);
+        let mut all = claims.clone();
+        all.extend(detections.iter().enumerate().map(|(i, d)| RiderClaim {
+            rider_id: u32::MAX - d.car_id,
+            car_id: d.car_id,
+            sequence: 1,
+            at_s: d.at_s,
+            reason: PriorityReason::DetectedEmergency,
+        }));
+        all.sort_by(|a, b| a.at_s.total_cmp(&b.at_s));
         let mut ledger = PriorityLedger::default();
         let mut decisions = Vec::new();
         let mut start = 0;
-        while start < claims.len() {
+        while start < all.len() {
             let mut end = start + 1;
-            while end < claims.len() && claims[end].at_s == claims[start].at_s {
+            while end < all.len() && all[end].at_s == all[start].at_s {
                 end += 1;
             }
-            decisions.extend(ledger.resolve(&claims[start..end]));
+            decisions.extend(ledger.resolve(&all[start..end]));
             start = end;
         }
         let priority_until_s = decisions
@@ -198,6 +286,8 @@ impl StoryRun {
         Self {
             kind,
             claims,
+            observations,
+            detections,
             decisions,
             priority_until_s,
         }
