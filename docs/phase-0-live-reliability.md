@@ -107,3 +107,59 @@ Code under test: `efc3e68`. Binary SHA-256:
 `b76699ce45896255851fa95d40d7dbc8e6583a994c21c5209cd7dd578f1e4d10`. Subsequent changes affect browser verification and documentation only.
 
 [Raw gates](gates/phase-0-live.jsonl), [curl/attempt/event timing and causes](gates/phase-0-timing.jsonl).
+
+## Medical fallback follow-up
+
+The user independently observed a parse fallback denying `my passenger is having
+a seizure`. The old whitelist omitted seizures, and its blanket `not`/`no`
+filter also denied critical signs such as not breathing or no pulse.
+
+Fallback now grants plausible acute medical claims broadly: seizure/stroke,
+overdose, allergic reaction/anaphylaxis, unconsciousness/unresponsiveness,
+choking, cardiac emergencies, bleeding, poisoning, breathing trouble, labour
+and severe injury. Negation applies to the individual symptom, not the whole
+input: explicit absence of chest pain still denies, while no pulse and not
+breathing grant. Uncertain medical claims favor safe precedence; no physics
+changes. The new public recognizer is available to later policy fallbacks.
+
+A fresh real call for the exact sentence again hit parse fallback after
+**4.772172376s**: this time **granted=true**, home **126.5s** vs **141.0s**
+baseline, same route, **zero overlaps/conflicts**. Its `passed=false` live gate
+is intentional: fallback never counts as model evidence.
+[Exact live report](gates/phase-0-seizure-live.jsonl).
+
+The forced-parse regression repeats that sentence through the actual safe
+trajectory. The no-key table covers eleven acute claims, including stroke,
+overdose, allergic reaction, unconsciousness, choking, not breathing, no pulse
+and labour; explicit non-emergency/absence cases stay denied. **113 tests pass**.
+
+Commands: `cargo test --offline`;
+`muse --reason 'my passenger is having a seizure' --headless --require-live --gate-log FILE`;
+`python3 scripts/reason-live-twelve.py --binary BINARY --output FILE --logs DIR`.
+
+The ten live demo runs above preceded this reason-only medical recognition
+change; demo negotiation does not invoke the typed-reason fallback. The broad
+medical fallback can over-grant uncertain symptom mentions, deliberately
+favoring safe priority over missing a plausible emergency.
+
+### Fresh twelve-reason gate after the medical fix
+
+All **12/12 are source=model**, six grants and six denials, zero collisions.
+Binary SHA-256: `a04efe23bcff58ac959592f7ba54775cfcb541f370493fd8cc300dea956c2a61`.
+
+| Reason | Result | Requester, exact line | Other car, exact line |
+| --- | --- | --- | --- |
+| My passenger has severe chest pain | Grant | Thanks for waiting, chest pain, heading in | Chest pain? Go, I'll wait |
+| My child needs urgent medical care | Grant | Thanks, my child needs care, going now | Your child needs care? Go, I'll wait |
+| I am taking a badly bleeding friend to emergency care | Grant | Thanks for waiting, bleeding friend heading in | Bleeding friend? Go, I'll wait |
+| A passenger cannot breathe and needs immediate help | Grant | Thanks, can't breathe, heading in | Can't breathe? Go, I'll wait |
+| I am taking my partner in active labor to hospital | Grant | Thanks, my partner's in labor, heading in | Your partner's in labor? Go, I'll wait |
+| My elderly father fell and needs urgent medical help | Grant | Thanks, my dad fell, heading in | Your father fell? Go, I'll wait |
+| my dog's in the back seat | Deny | Fair, I'll wait my turn | Dog in back seat? Sorry, I'll go |
+| late for my wedding | Deny | Fair enough, I'll wait my turn | Your wedding? Congrats, I'll go ahead |
+| I'm bored | Deny | Fair, I'll wait my turn | Being bored isn't urgent, I'll go |
+| I want coffee before it gets cold | Deny | Fair, I'll wait my turn | Cold coffee? Sorry, I'll go ahead |
+| I am late for a routine meeting | Deny | Fair, I'll wait my turn | Routine meeting? Sorry, I'll go ahead |
+| I have a routine hospital appointment | Deny | Fair, I'll wait my turn | Routine hospital appointment? Sorry, I'm going |
+
+[Raw fresh reasons](gates/phase-0-medical-reasons.jsonl). The separate seizure parse fallback above is not part of these twelve model replies.
