@@ -1,4 +1,6 @@
-use std::process::Command;
+use std::io::Read;
+use std::process::{Command, Output, Stdio};
+use std::time::{Duration, Instant};
 
 use crate::error::MuseError;
 use crate::prefs::{bias_from_prefs_block, Bias, Prefs};
@@ -496,7 +498,9 @@ fn curl_negotiate(
         cmd.args(["-H", header]);
     }
     cmd.args(["-d", body, "--max-time", &timeout]);
-    let output = cmd.output().map_err(|_| "transport".to_string())?;
+    // curl's timer alone does not bound process startup, pipe draining, or a
+    // wedged child. Keep a separate Rust deadline over the entire operation.
+    let output = bounded_output(&mut cmd, Duration::from_secs_f64(timeout_secs.max(0.001)))?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let timed_out =
@@ -510,6 +514,73 @@ fn curl_negotiate(
         Some(code) if code >= 400 => Err(format!("http_{code}")),
         _ => Err("transport".into()),
     }
+}
+
+fn bounded_output(cmd: &mut Command, timeout: Duration) -> Result<Output, String> {
+    let deadline = Instant::now() + timeout;
+    let mut child = cmd
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|_| "transport".to_string())?;
+    let stdout = child.stdout.take().unwrap();
+    let stderr = child.stderr.take().unwrap();
+    let (send, receive) = std::sync::mpsc::channel();
+    for (is_stdout, pipe) in [
+        (true, Box::new(stdout) as Box<dyn Read + Send>),
+        (false, Box::new(stderr) as Box<dyn Read + Send>),
+    ] {
+        let send = send.clone();
+        std::thread::spawn(move || {
+            let mut bytes = Vec::new();
+            let result = pipe
+                .take(1_048_577)
+                .read_to_end(&mut bytes)
+                .map(|_| bytes)
+                .map_err(|_| "transport");
+            let _ = send.send((is_stdout, result));
+        });
+    }
+    drop(send);
+    let result = (|| {
+        let status = loop {
+            if Instant::now() >= deadline {
+                return Err("timeout".to_string());
+            }
+            if let Some(status) = child.try_wait().map_err(|_| "transport".to_string())? {
+                break status;
+            }
+            std::thread::sleep(
+                Duration::from_millis(5).min(deadline.saturating_duration_since(Instant::now())),
+            );
+        };
+        let mut stdout = Vec::new();
+        let mut stderr = Vec::new();
+        for _ in 0..2 {
+            let (is_stdout, bytes) = receive
+                .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+                .map_err(|_| "timeout".to_string())?;
+            let bytes = bytes.map_err(str::to_string)?;
+            if bytes.len() > 1_048_576 {
+                return Err("bad_response".into());
+            }
+            if is_stdout {
+                stdout = bytes;
+            } else {
+                stderr = bytes;
+            }
+        }
+        Ok(Output {
+            status,
+            stdout,
+            stderr,
+        })
+    })();
+    if result.is_err() {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
+    result
 }
 
 const HTTP_MARK: &str = "\n__MUSE_HTTP_";
@@ -643,6 +714,18 @@ impl MuseClient for MuseKind {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn rust_deadline_kills_a_process_that_does_not_have_a_provider_timer() {
+        let start = std::time::Instant::now();
+        let error = super::bounded_output(
+            std::process::Command::new("sleep").arg("2"),
+            std::time::Duration::from_millis(100),
+        )
+        .unwrap_err();
+        assert_eq!(error, "timeout");
+        assert!(start.elapsed() < std::time::Duration::from_millis(400));
+    }
+
     use super::*;
 
     #[test]

@@ -349,6 +349,7 @@ struct Resolution {
     choice: MergeChoice,
     reply_s: f64,
 }
+#[derive(Clone)]
 struct Slot {
     started: bool,
     answer: Option<Resolution>,
@@ -363,8 +364,14 @@ fn launch_negotiation(
     client: Arc<dyn MergeTalk>,
     deadline: Instant,
 ) {
+    let start = Instant::now();
+    eprintln!(
+        "demo-timing event={i} phase=start budget_s={:.3}",
+        deadline.saturating_duration_since(start).as_secs_f64()
+    );
+    let forecast = expected.forecast.clone();
+    let (send, receive) = std::sync::mpsc::sync_channel(1);
     std::thread::spawn(move || {
-        let start = Instant::now();
         let proposed = client.agree_before(&expected.forecast, deadline);
         let choice = if proposed.yields == expected.yields
             && proposed.merges == expected.merges
@@ -382,10 +389,36 @@ fn launch_negotiation(
         } else {
             crate::negotiate::choice_from_reply(&expected.forecast, Err("parse"))
         };
+        if send.send(choice).is_err() {
+            eprintln!(
+                "demo-timing event={i} phase=discarded_late_reply elapsed_s={:.3}",
+                start.elapsed().as_secs_f64()
+            );
+        }
+    });
+    // The watchdog owns publication. Even a negotiator that ignores its
+    // deadline (or panics) cannot hold playback or the server's mutex.
+    std::thread::spawn(move || {
+        let mut choice =
+            match receive.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
+                Ok(choice) if Instant::now() < deadline => choice,
+                _ => {
+                    let mut choice = ScriptedTalk.agree(&forecast);
+                    choice.reason = "reply_deadline".into();
+                    choice
+                }
+            };
+        if choice.source != "model" && choice.reason.is_empty() {
+            choice.reason = "invalid_exchange".into();
+        }
         let answer = Resolution {
             choice,
             reply_s: start.elapsed().as_secs_f64(),
         };
+        eprintln!(
+            "demo-timing event={i} phase=resolved elapsed_s={:.3} source={} provider={} reason={}",
+            answer.reply_s, answer.choice.source, answer.choice.provider, answer.choice.reason
+        );
         let mut state = shared.lock().unwrap();
         if state[i].answer.is_none() {
             state[i].answer = Some(answer);
@@ -556,7 +589,7 @@ impl DemoServer {
                     }
                     ("GET", "/result") if event.is_some_and(|i| i < count) => {
                         let i = event.unwrap();
-                        let state = slots.lock().unwrap();
+                        let state = slots.lock().unwrap().clone();
                         if state[i].answer.is_none() {
                             (202, "application/json", "{}".into())
                         } else {
@@ -594,7 +627,10 @@ impl DemoServer {
                 if write!(stream, "HTTP/1.1 {code} OK\r\nContent-Type: {kind}\r\nContent-Length: {}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n{body}", body.len()).is_ok() {
                     if let Some(i) = delivered_event {
                         let mut state = slots.lock().unwrap();
-                        if state[i].delivered.is_none() { state[i].delivered = Some(epoch.elapsed().as_secs_f64()); }
+                        if state[i].delivered.is_none() {
+                            state[i].delivered = Some(epoch.elapsed().as_secs_f64());
+                            eprintln!("demo-timing event={i} phase=delivered server_s={:.3}", epoch.elapsed().as_secs_f64());
+                        }
                     }
                 }
             }
@@ -612,20 +648,57 @@ pub fn http(
     method: &str,
     path: &str,
 ) -> Result<(u16, serde_json::Value), String> {
-    let mut socket =
-        TcpStream::connect_timeout(&address, Duration::from_secs(3)).map_err(|e| e.to_string())?;
+    http_before(
+        address,
+        method,
+        path,
+        Instant::now() + Duration::from_secs(8),
+    )
+}
+
+fn http_before(
+    address: SocketAddr,
+    method: &str,
+    path: &str,
+    deadline: Instant,
+) -> Result<(u16, serde_json::Value), String> {
+    let remaining = || {
+        let left = deadline.saturating_duration_since(Instant::now());
+        if left.is_zero() {
+            Err("poll_deadline".to_string())
+        } else {
+            Ok(left)
+        }
+    };
+    let mut socket = TcpStream::connect_timeout(&address, remaining()?.min(Duration::from_secs(3)))
+        .map_err(|e| e.to_string())?;
     socket
         .set_read_timeout(Some(Duration::from_secs(5)))
         .map_err(|e| e.to_string())?;
     socket
-        .set_write_timeout(Some(Duration::from_secs(5)))
+        .set_write_timeout(Some(remaining()?.min(Duration::from_secs(5))))
         .map_err(|e| e.to_string())?;
     let request = format!("{method} {path} HTTP/1.1\r\nHost: {address}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
     socket
         .write_all(request.as_bytes())
         .map_err(|e| e.to_string())?;
     let mut raw = String::new();
-    socket.read_to_string(&mut raw).map_err(|e| e.to_string())?;
+    let mut bytes = Vec::new();
+    loop {
+        socket
+            .set_read_timeout(Some(remaining()?.min(Duration::from_secs(5))))
+            .map_err(|e| e.to_string())?;
+        let mut chunk = [0; 8192];
+        let n = socket.read(&mut chunk).map_err(|e| e.to_string())?;
+        if n == 0 {
+            break;
+        }
+        bytes.extend_from_slice(&chunk[..n]);
+        if bytes.len() > 64 * 1024 * 1024 {
+            return Err("poll_response_too_large".into());
+        }
+    }
+    raw.push_str(std::str::from_utf8(&bytes).map_err(|_| "poll_response_encoding")?);
     let (headers, body) = raw
         .split_once("\r\n\r\n")
         .ok_or("incomplete HTTP response")?;
@@ -655,6 +728,8 @@ pub struct GateExchange {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct GateReport {
     pub passed: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure_reason: Option<String>,
     pub length_s: f64,
     pub collisions: u32,
     pub resolved: usize,
@@ -670,6 +745,25 @@ pub struct GateReport {
     pub weak_requests: Option<Box<GateReport>>,
 }
 
+impl GateReport {
+    fn failed(reason: String) -> Self {
+        Self {
+            passed: false,
+            failure_reason: Some(reason),
+            length_s: 0.0,
+            collisions: 0,
+            resolved: 0,
+            posts: 0,
+            result_gets: 0,
+            late_polls: 0,
+            final_stage: "failed".into(),
+            final_reason: String::new(),
+            exchanges: Vec::new(),
+            weak_requests: None,
+        }
+    }
+}
+
 /// Drive the exact browser session over HTTP, with real wall time and no DOM.
 pub fn drive_headless(
     server: &DemoServer,
@@ -681,30 +775,59 @@ pub fn drive_headless(
     let mut exchanges = Vec::new();
     let mut result_gets = 0;
     let mut late_polls = 0;
-    loop {
+    let deadline = started + Duration::from_secs_f64(MAX_DEMO_S);
+    let mut last_phase = None;
+    let poll = |method: &str, path: &str| {
+        let at = Instant::now();
+        eprintln!(
+            "demo-poll phase=start method={method} path={path} run_s={:.3}",
+            started.elapsed().as_secs_f64()
+        );
+        let result = http_before(
+            server.address,
+            method,
+            path,
+            deadline.min(at + Duration::from_secs(8)),
+        );
+        eprintln!(
+            "demo-poll phase=end path={path} elapsed_s={:.3} status={}",
+            at.elapsed().as_secs_f64(),
+            result.as_ref().map(|(code, _)| *code).unwrap_or(0)
+        );
+        result
+    };
+    let outcome = (|| loop {
         if started.elapsed().as_secs_f64() > MAX_DEMO_S {
             return Err("demo exceeded its bounded wall time".into());
         }
-        let (code, state) = http(server.address, "GET", "/demo/state")?;
+        let (code, state) = poll("GET", "/demo/state")?;
         if code != 200 {
             return Err(format!("demo state HTTP {code}"));
         }
         let view: DemoView = serde_json::from_value(state).map_err(|e| e.to_string())?;
+        let phase = (view.event, view.phase.clone());
+        if last_phase.as_ref() != Some(&phase) {
+            eprintln!(
+                "demo-timing event={} phase={} run_s={:.3} posts={} result_gets={}",
+                view.event,
+                view.phase,
+                started.elapsed().as_secs_f64(),
+                posted.len(),
+                result_gets
+            );
+            last_phase = Some(phase);
+        }
         late_polls += usize::from(view.phase == "late");
         if let Some(event) = view.request_event {
             if posted.insert(event) {
-                let (code, _) = http(server.address, "POST", &format!("/negotiate?event={event}"))?;
+                let (code, _) = poll("POST", &format!("/negotiate?event={event}"))?;
                 if code != 202 {
                     return Err(format!("negotiation HTTP {code}"));
                 }
             }
             if !exchanges.iter().any(|e: &GateExchange| e.event == event) {
                 result_gets += 1;
-                let (code, result) = http(
-                    server.address,
-                    "GET",
-                    &format!("/result?event={event}&compact=1"),
-                )?;
+                let (code, result) = poll("GET", &format!("/result?event={event}&compact=1"))?;
                 if code == 200 {
                     let resolved: Vec<crate::network::TownExchange> =
                         serde_json::from_value(result["exchanges"].clone())
@@ -751,6 +874,13 @@ pub fn drive_headless(
                 (stage.name.as_str(), stage.reason.as_str())
             };
             return Ok(GateReport {
+                failure_reason: if !live_ok {
+                    Some("live_required: one or more exchanges used fallback".into())
+                } else if late_polls > 0 {
+                    Some("late_reply".into())
+                } else {
+                    None
+                },
                 passed: collisions == 0
                     && late_polls == 0
                     && exchanges.len() == board.town.exchanges.len()
@@ -765,11 +895,30 @@ pub fn drive_headless(
                 late_polls,
                 final_stage: view.name,
                 final_reason: view.reason,
-                exchanges,
+                exchanges: exchanges.clone(),
                 weak_requests: None,
             });
         }
         std::thread::sleep(Duration::from_millis(50));
+    })();
+    match outcome {
+        Ok(mut report) => {
+            if !report.passed && report.failure_reason.is_none() {
+                report.failure_reason = Some("incomplete_or_unsafe_demo".into());
+            }
+            Ok(report)
+        }
+        Err(reason) => {
+            let mut report = GateReport::failed(reason);
+            report.length_s = started.elapsed().as_secs_f64();
+            report.collisions = board.town.stats.overlaps + board.town.stats.crossing_conflicts;
+            report.resolved = exchanges.len();
+            report.exchanges = exchanges;
+            report.posts = posted.len();
+            report.result_gets = result_gets;
+            report.late_polls = late_polls;
+            Ok(report)
+        }
     }
 }
 
@@ -823,6 +972,50 @@ pub fn run(
     include_weak: bool,
     log: Option<&std::path::Path>,
 ) -> Result<(), String> {
+    let started = Instant::now();
+    let outcome = run_session(headless, open, require_live, include_weak);
+    let mut report = match outcome {
+        Ok(Some(report)) => report,
+        Ok(None) => return Ok(()),
+        Err(reason) if headless => GateReport::failed(reason),
+        Err(reason) => return Err(reason),
+    };
+    report.length_s = started.elapsed().as_secs_f64();
+    if report.length_s >= 120.0 {
+        report.passed = false;
+        report.failure_reason = Some("total_wall_budget".into());
+    }
+    let json = serde_json::to_string(&report).map_err(|e| e.to_string())?;
+    println!("demo-gate {json}");
+    if let Some(path) = log {
+        use std::fs::OpenOptions;
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .map_err(|e| format!("gate report printed; cannot open gate log: {e}"))?;
+        writeln!(file, "{json}")
+            .map_err(|e| format!("gate report printed; cannot write gate log: {e}"))?;
+    }
+    if report.passed {
+        Ok(())
+    } else {
+        Err(format!(
+            "demo gate failed: {}",
+            report
+                .failure_reason
+                .as_deref()
+                .unwrap_or("inspect its JSON report")
+        ))
+    }
+}
+
+fn run_session(
+    headless: bool,
+    open: bool,
+    require_live: bool,
+    include_weak: bool,
+) -> Result<Option<GateReport>, String> {
     if require_live
         && std::env::var("BASETEN_API_KEY")
             .ok()
@@ -856,22 +1049,7 @@ pub fn run(
         }
         report.length_s = started.elapsed().as_secs_f64();
         report.passed &= report.length_s < 120.0;
-        let json = serde_json::to_string(&report).map_err(|e| e.to_string())?;
-        println!("demo-gate {json}");
-        if let Some(path) = log {
-            use std::fs::OpenOptions;
-            let mut file = OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(path)
-                .map_err(|e| e.to_string())?;
-            writeln!(file, "{json}").map_err(|e| e.to_string())?;
-        }
-        if report.passed {
-            Ok(())
-        } else {
-            Err("demo gate failed; inspect its JSON report".into())
-        }
+        Ok(Some(report))
     } else {
         if open {
             if let Err(error) = crate::board::open_board_url(&url) {
@@ -888,6 +1066,89 @@ pub fn run(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn watchdog_publishes_without_polls_and_discards_a_client_ignoring_its_deadline() {
+        struct Stuck;
+        impl MergeTalk for Stuck {
+            fn agree(&self, snap: &crate::negotiate::MergeSnap) -> MergeChoice {
+                std::thread::sleep(Duration::from_millis(450));
+                let mut choice = ScriptedTalk.agree(snap);
+                choice.source = "model".into();
+                choice
+            }
+        }
+        let board = crate::board::demo_board().unwrap();
+        let slots = Arc::new(Mutex::new(vec![Slot {
+            started: true,
+            answer: None,
+            delivered: None,
+        }]));
+        let start = Instant::now();
+        launch_negotiation(
+            0,
+            board.town.exchanges[0].clone(),
+            Arc::clone(&slots),
+            Arc::new(Stuck),
+            start + Duration::from_millis(100),
+        );
+        while slots.lock().unwrap()[0].answer.is_none() {
+            assert!(start.elapsed() < Duration::from_millis(350));
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let answer = slots.lock().unwrap()[0].answer.clone().unwrap();
+        assert_eq!(answer.choice.source, "fallback");
+        assert_eq!(answer.choice.reason, "reply_deadline");
+        assert_eq!(answer.choice.yields, board.town.exchanges[0].yields);
+        std::thread::sleep(Duration::from_millis(500));
+        assert_eq!(
+            slots.lock().unwrap()[0]
+                .answer
+                .as_ref()
+                .unwrap()
+                .choice
+                .source,
+            "fallback"
+        );
+    }
+
+    #[test]
+    fn a_failed_state_poll_retains_a_gate_report() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let address = listener.local_addr().unwrap();
+        drop(listener);
+        let server = DemoServer {
+            address,
+            stop: Arc::new(AtomicBool::new(false)),
+            thread: None,
+        };
+        let report = drive_headless(&server, &crate::board::demo_board().unwrap(), true).unwrap();
+        assert!(!report.passed);
+        assert!(report.failure_reason.is_some());
+        assert_eq!(report.resolved, 0);
+        assert!(report.length_s < 3.0);
+    }
+
+    #[test]
+    fn trickled_http_bytes_cannot_extend_the_poll_deadline() {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+        let address = listener.local_addr().unwrap();
+        let worker = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = [0; 1024];
+            let _ = stream.read(&mut request);
+            for _ in 0..30 {
+                if stream.write_all(b"x").is_err() {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(20));
+            }
+        });
+        let start = Instant::now();
+        assert!(http_before(address, "GET", "/", start + Duration::from_millis(100)).is_err());
+        assert!(start.elapsed() < Duration::from_millis(300));
+        worker.join().unwrap();
+    }
 
     #[test]
     fn weak_request_clock_shows_both_refusals_without_another_negotiation() {
