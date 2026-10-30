@@ -1,0 +1,15 @@
+{
+  "browser": "chromium",
+  "svg": 1,
+  "inputs": 1,
+  "grant_home_s": 126.5,
+  "denied_home_s": 141,
+  "physical_yield": true,
+  "injection_http": 400,
+  "page_errors": [],
+  "screenshots": [
+    "phase2-reason-grant.png",
+    "phase2-reason-yield.png",
+    "phase2-reason-deny.png"
+  ]
+}

@@ -10,6 +10,25 @@ meeting priorities compete. The demo ends on the hospital decision and its
 one-line reason, in under two minutes. `BASETEN_API_KEY` uses the live model;
 without it the same story uses the scripted fallback.
 
+## Rider reasons (draft phase 2)
+
+`cargo run -- --board` opens the same white network with one small reason input.
+Press Enter to ask for priority. Baseten grants or denies the request and writes
+two short driver lines; only the grant flag reaches the existing safe simulation.
+Each submission starts a fresh trip for car 177. Missing credentials or a failed
+reply use the conservative scripted fallback.
+
+```bash
+cargo run -- --reason "My passenger has severe chest pain" --board
+./target/debug/muse --reason "I am late for a routine meeting" \
+  --headless --require-live --gate-log /tmp/reasons.jsonl
+```
+
+Reasons are capped at 240 characters. Invalid instructions and markup are
+rejected; driver lines and the explanation are capped at eight words. A live
+gate requires `provider=baseten, source=model` and a collision-free trip.
+[Measured ten-reason evidence and limits](docs/phase-2-reason-input.md).
+
 `cargo run -- --demo --headless` drives the same HTTP session without a browser,
 including `POST /negotiate` and `GET /result`. Add `--require-live` to require
 Baseten replies and `--gate-log runs.jsonl` to retain the run report. Driver
@@ -50,7 +69,7 @@ ChemStation is not this product.
 cargo test
 cargo run -- --board
 BASETEN_API_KEY=... cargo run -- --board
-GEMINI_API_KEY=... cargo run -- --board
+GEMINI_API_KEY=... cargo run -- --board --priority
 cargo run -- --cars 6 --jam symmetric --prefs "Zipper fairly so both approaches get home."
 cargo run -- --cars 8 --jam ramp-surge --prefs "Zipper fairly so both approaches get home." --show
 cargo run -- --cars 6 --jam symmetric --prefs "Main has priority. Main first."
@@ -58,14 +77,14 @@ cargo run -- --cars 6 --jam symmetric --prefs "Main has priority. Main first."
 
 `cargo run -- --board` opens the live birds-eye window: the dinner merge in one block of a small town, one yield or merge cue, and three tiny RED / RED / GREEN pills. Around it, background cars drive routes through a motorway, ramps, and streets, and queue at the merges in a rush hour. That town is its own local sim and never touches the score. `--show` prints that same dinner path in the terminal.
 
-One motorway merge on that board asks the two cars who yields. The input is their positions, speeds, gaps, and a short English preference. The reply is two lines, at most eight words each, and which car waits. The lines draw over those cars and fade after the yield. The car that was told to yield waits; the other merges. The board opens immediately on a single white SVG network. Playback starts 28 seconds before the encounter, at one simulated second per real second. A loopback session sends the symbolic forecast 25 seconds before the merge; the key stays in Rust. A reply has up to 45 seconds. The first line appears as the cars approach, the second follows, then one car visibly yields and the lines fade. Only a late reply pauses the encounter with a small “negotiating…” cue. Ctrl-C ends the session. Use `--board --no-open` on a host without a display and open the printed URL.
+The legacy `--board --priority` and `--board --story KIND` modes retain their forecasted merge dialogue. Positions, speeds, gaps, and short English preferences produce two short lines and an agreed yield through local physics. These modes send the forecast ahead of playback and keep provider keys in Rust. They retain the 45-second negotiation timeout and may hold a late encounter with “negotiating…”. The finite `--demo` instead has a 28-second deadline and fails its live gate for any late poll. Ctrl-C ends a board session. Use `--board --no-open` on a host without a display and open the printed URL.
 
 ```bash
-BASETEN_API_KEY=... cargo run -- --board
-GEMINI_API_KEY=... cargo run -- --board
+BASETEN_API_KEY=... cargo run -- --board --priority
+GEMINI_API_KEY=... cargo run -- --board --priority
 ```
 
-`BASETEN_API_KEY` is the live call. It uses the hackathon host and model, and the log line includes `provider=baseten`. `MODEL_API_MODEL` can override that model. `GEMINI_API_KEY` is the Gemini path when the Baseten key is unset. `MERGE_API_KEY` is a generic key that follows `MODEL_API_BASE`. With every key unset, or when the call fails or the reply is not the strict JSON, the same command prints `negotiate source=fallback reason=no_key` (or `timeout`, `http_400`, `parse`) and still draws the exchange. The reason is a short token. It is not the key. The sticky line stays selfish `RED`, dumb-equal `RED`, scripted `GREEN`. The judge does not read the lines. Tests do not need a key.
+`BASETEN_API_KEY` selects the hackathon host and model, with `provider=baseten`. `MODEL_API_MODEL` can override that model. Legacy priority/story boards also support `GEMINI_API_KEY` or generic `MERGE_API_KEY` / `MODEL_API_BASE`; the interactive reason board and finite demo use Baseten or scripted fallback. Failures retain a short token such as `no_key`, `timeout`, `http_400`, or `parse`. The key is never logged. Sticky stays selfish `RED`, dumb-equal `RED`, scripted `GREEN`. The judge does not read dialogue, and tests need no key.
 
 Fair prefs: selfish and dumb-equal print `RED`, the scripted plan prints `GREEN`, process exits 0.
 

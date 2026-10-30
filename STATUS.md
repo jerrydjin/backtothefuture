@@ -145,3 +145,13 @@ Draft PR #15 now passes five consecutive genuine Baseten live gates on `2ee9a89`
 Sticky remains RED/RED/GREEN time_home=69. Judge/schema, renderer and network physics remain unchanged. See docs/phase-1-live-reliability.md and docs/gates/phase1-live.jsonl for exact lines, sources, timings, commands and remaining limits.
 
 **Handoff:** Jerry reviews draft PR #15 without merging. Codex proceeds to phase 2 on a separate branch and draft PR against main. No merge.
+
+## Phase 2 reason input (unmerged)
+
+Draft PR #16 on `feat/phase-2-reason-input` targets main and includes the unmerged phase-1 prerequisite. One minimal reason input and `--reason` now ask Baseten to grant/deny precedence with short driver lines. Inputs are capped at 240 characters; strict output, injection boundaries, retry budgets and scripted fallback restrict the decision to existing safe physics. Every submit starts the same fresh trip for car 177; there is no persistent rider history in this mode.
+
+102 tests pass. Ten different genuine Baseten/model reasons passed: five grants (126.5s home versus 141.0s baseline), five denials (141.0s), zero overlaps/crossing conflicts, unchanged routes. Replies range 1.717144–4.524621s. Chromium verifies the actual form, physical yield, denial, injection rejection, one SVG/input and zero page errors with keys unset. See docs/phase-2-reason-input.md and its JSONL/browser artifacts. No fallback or mock counts as live.
+
+Sticky remains RED/RED/GREEN time_home=69. Judge/schema/network physics are unchanged.
+
+**Handoff:** Jerry reviews both draft PRs and their committed measured evidence without merging either. Further work should cover additional adversarial wording and persistent rider history before expanding the fixed trip.
