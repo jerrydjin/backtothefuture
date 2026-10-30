@@ -1015,4 +1015,77 @@ mod live_batch_tests {
         assert_eq!(d.fallback_reason, "timeout");
         worker.join().unwrap();
     }
+    #[test]
+    fn contemporaneous_conflicts_are_batched_and_only_rejected_items_retry() {
+        use std::io::{BufRead, BufReader, Read, Write};
+        use std::time::{Duration, Instant};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let worker = std::thread::spawn(move || {
+            let deadline = Instant::now() + Duration::from_secs(3);
+            let mut sizes = Vec::new();
+            while sizes.len() < 3 && Instant::now() < deadline {
+                let Ok((mut socket, _)) = listener.accept() else {
+                    std::thread::sleep(Duration::from_millis(5));
+                    continue;
+                };
+                socket
+                    .set_read_timeout(Some(Duration::from_secs(1)))
+                    .unwrap();
+                let mut reader = BufReader::new(&mut socket);
+                let mut length = 0;
+                loop {
+                    let mut line = String::new();
+                    reader.read_line(&mut line).unwrap();
+                    if line == "\r\n" {
+                        break;
+                    }
+                    if let Some((name, value)) = line.split_once(':') {
+                        if name.eq_ignore_ascii_case("content-length") {
+                            length = value.trim().parse::<usize>().unwrap();
+                        }
+                    }
+                }
+                let mut bytes = vec![0; length];
+                reader.read_exact(&mut bytes).unwrap();
+                drop(reader);
+                let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+                assert_eq!(body["max_tokens"], 4096);
+                let prompt = body["messages"][1]["content"].as_str().unwrap();
+                let input: Vec<PolicyRequest> =
+                    serde_json::from_str(prompt.split("Data: ").last().unwrap()).unwrap();
+                sizes.push(input.len());
+                let reject = sizes.len() == 1;
+                let output:Vec<_>=input.iter().enumerate().map(|(i,r)|serde_json::json!({"car":r.car,"granted":true,"explanation":"Seizure needs urgent care","requester":if reject&&i==0 {"I'll wait here"}else{"Thanks, I'll go for seizure care"},"other":"Seizure? Go, I'll wait"})).collect();
+                let response=serde_json::json!({"choices":[{"message":{"content":serde_json::to_string(&output).unwrap()}}]}).to_string();
+                write!(
+                    socket,
+                    "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    response.len(),
+                    response
+                )
+                .unwrap();
+            }
+            sizes
+        });
+        let client = crate::muse::GeminiChat::from_endpoint(crate::muse::TalkEndpoint {
+            provider: "fixture".into(),
+            key: "fixture-placeholder".into(),
+            base: format!("http://{address}"),
+            model: "fixture".into(),
+            openai: true,
+        });
+        let live = Live::with_client_budget(Some(client), Duration::from_secs(2));
+        let requests: Vec<_> = (1..=24).rev().map(request).collect();
+        let decisions = live.decide_batch(&requests);
+        assert_eq!(decisions.len(), 24);
+        assert!(decisions
+            .iter()
+            .zip(&requests)
+            .all(|(d, r)| d.car == r.car && d.granted && d.source == "model"));
+        let mut sizes = worker.join().unwrap();
+        sizes.sort();
+        assert_eq!(sizes, vec![1, 12, 12]);
+    }
 }

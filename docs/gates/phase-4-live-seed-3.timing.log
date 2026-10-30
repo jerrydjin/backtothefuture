@@ -1,0 +1,66 @@
+curl-timing elapsed_s=2.286 budget_s=28.000 exit=Some(0) http_status=Some(200) stderr=""
+rush-batch event_s=45.00 count=3 attempt=1 elapsed_s=2.287 remaining_s=25.713 accepted=3 pending=0 reason=ok
+rush-batch-done event_s=45.00 count=3 attempts=1 elapsed_s=2.287 model=3 fallback=0 cause=ok
+curl-timing elapsed_s=2.875 budget_s=27.999 exit=Some(0) http_status=Some(200) stderr=""
+rush-batch event_s=45.00 count=12 attempt=1 elapsed_s=2.877 remaining_s=25.123 accepted=12 pending=0 reason=ok
+rush-batch-done event_s=45.00 count=12 attempts=1 elapsed_s=2.877 model=12 fallback=0 cause=ok
+curl-timing elapsed_s=3.049 budget_s=28.000 exit=Some(0) http_status=Some(200) stderr=""
+rush-batch event_s=45.00 count=12 attempt=1 elapsed_s=3.051 remaining_s=24.949 accepted=12 pending=0 reason=ok
+rush-batch-done event_s=45.00 count=12 attempts=1 elapsed_s=3.051 model=12 fallback=0 cause=ok
+curl-timing elapsed_s=3.067 budget_s=28.000 exit=Some(0) http_status=Some(200) stderr=""
+rush-batch event_s=45.00 count=12 attempt=1 elapsed_s=3.068 remaining_s=24.932 accepted=12 pending=0 reason=ok
+rush-batch-done event_s=45.00 count=12 attempts=1 elapsed_s=3.068 model=12 fallback=0 cause=ok
+curl-timing elapsed_s=2.739 budget_s=28.000 exit=Some(0) http_status=Some(200) stderr=""
+rush-batch event_s=70.00 count=5 attempt=1 elapsed_s=2.740 remaining_s=25.260 accepted=5 pending=0 reason=ok
+rush-batch-done event_s=70.00 count=5 attempts=1 elapsed_s=2.740 model=5 fallback=0 cause=ok
+curl-timing elapsed_s=2.769 budget_s=28.000 exit=Some(0) http_status=Some(200) stderr=""
+rush-batch event_s=70.00 count=12 attempt=1 elapsed_s=2.770 remaining_s=25.230 accepted=12 pending=0 reason=ok
+rush-batch-done event_s=70.00 count=12 attempts=1 elapsed_s=2.770 model=12 fallback=0 cause=ok
+curl-timing elapsed_s=3.320 budget_s=28.000 exit=Some(0) http_status=Some(200) stderr=""
+rush-batch event_s=70.00 count=12 attempt=1 elapsed_s=3.322 remaining_s=24.678 accepted=12 pending=0 reason=ok
+rush-batch-done event_s=70.00 count=12 attempts=1 elapsed_s=3.322 model=12 fallback=0 cause=ok
+curl-timing elapsed_s=2.618 budget_s=28.000 exit=Some(0) http_status=Some(200) stderr=""
+rush-batch event_s=95.00 count=12 attempt=1 elapsed_s=2.619 remaining_s=25.381 accepted=12 pending=0 reason=ok
+rush-batch-done event_s=95.00 count=12 attempts=1 elapsed_s=2.619 model=12 fallback=0 cause=ok
+curl-timing elapsed_s=2.714 budget_s=28.000 exit=Some(0) http_status=Some(200) stderr=""
+rush-batch event_s=95.00 count=9 attempt=1 elapsed_s=2.716 remaining_s=25.284 accepted=9 pending=0 reason=ok
+rush-batch-done event_s=95.00 count=9 attempts=1 elapsed_s=2.716 model=9 fallback=0 cause=ok
+curl-timing elapsed_s=4.796 budget_s=28.000 exit=Some(0) http_status=Some(200) stderr=""
+rush-batch event_s=95.00 count=12 attempt=1 elapsed_s=4.797 remaining_s=23.203 accepted=12 pending=0 reason=ok
+rush-batch-done event_s=95.00 count=12 attempts=1 elapsed_s=4.797 model=12 fallback=0 cause=ok
+curl-timing elapsed_s=3.142 budget_s=28.000 exit=Some(0) http_status=Some(200) stderr=""
+rush-batch event_s=120.00 count=12 attempt=1 elapsed_s=3.144 remaining_s=24.856 accepted=12 pending=0 reason=ok
+rush-batch-done event_s=120.00 count=12 attempts=1 elapsed_s=3.144 model=12 fallback=0 cause=ok
+curl-timing elapsed_s=3.179 budget_s=28.000 exit=Some(0) http_status=Some(200) stderr=""
+rush-batch event_s=120.00 count=12 attempt=1 elapsed_s=3.180 remaining_s=24.820 accepted=12 pending=0 reason=ok
+rush-batch-done event_s=120.00 count=12 attempts=1 elapsed_s=3.180 model=12 fallback=0 cause=ok
+curl-timing elapsed_s=5.819 budget_s=28.000 exit=Some(0) http_status=Some(200) stderr=""
+rush-batch event_s=120.00 count=12 attempt=1 elapsed_s=5.821 remaining_s=22.179 accepted=12 pending=0 reason=ok
+rush-batch-done event_s=120.00 count=12 attempts=1 elapsed_s=5.821 model=12 fallback=0 cause=ok
+curl-timing elapsed_s=2.571 budget_s=28.000 exit=Some(0) http_status=Some(200) stderr=""
+rush-batch event_s=145.00 count=11 attempt=1 elapsed_s=2.573 remaining_s=25.427 accepted=11 pending=0 reason=ok
+rush-batch-done event_s=145.00 count=11 attempts=1 elapsed_s=2.573 model=11 fallback=0 cause=ok
+curl-timing elapsed_s=3.169 budget_s=28.000 exit=Some(0) http_status=Some(200) stderr=""
+rush-batch event_s=145.00 count=12 attempt=1 elapsed_s=3.170 remaining_s=24.830 accepted=12 pending=0 reason=ok
+rush-batch-done event_s=145.00 count=12 attempts=1 elapsed_s=3.170 model=12 fallback=0 cause=ok
+curl-timing elapsed_s=3.203 budget_s=28.000 exit=Some(0) http_status=Some(200) stderr=""
+rush-batch event_s=145.00 count=12 attempt=1 elapsed_s=3.205 remaining_s=24.795 accepted=12 pending=0 reason=ok
+rush-batch-done event_s=145.00 count=12 attempts=1 elapsed_s=3.205 model=12 fallback=0 cause=ok
+curl-timing elapsed_s=2.384 budget_s=28.000 exit=Some(0) http_status=Some(200) stderr=""
+rush-batch event_s=170.00 count=8 attempt=1 elapsed_s=2.385 remaining_s=25.615 accepted=8 pending=0 reason=ok
+rush-batch-done event_s=170.00 count=8 attempts=1 elapsed_s=2.385 model=8 fallback=0 cause=ok
+curl-timing elapsed_s=3.161 budget_s=28.000 exit=Some(0) http_status=Some(200) stderr=""
+rush-batch event_s=170.00 count=12 attempt=1 elapsed_s=3.163 remaining_s=24.837 accepted=12 pending=0 reason=ok
+rush-batch-done event_s=170.00 count=12 attempts=1 elapsed_s=3.163 model=12 fallback=0 cause=ok
+curl-timing elapsed_s=3.243 budget_s=28.000 exit=Some(0) http_status=Some(200) stderr=""
+rush-batch event_s=170.00 count=12 attempt=1 elapsed_s=3.244 remaining_s=24.756 accepted=12 pending=0 reason=ok
+rush-batch-done event_s=170.00 count=12 attempts=1 elapsed_s=3.244 model=12 fallback=0 cause=ok
+curl-timing elapsed_s=4.728 budget_s=28.000 exit=Some(0) http_status=Some(200) stderr=""
+rush-batch event_s=170.00 count=12 attempt=1 elapsed_s=4.729 remaining_s=23.271 accepted=12 pending=0 reason=ok
+rush-batch-done event_s=170.00 count=12 attempts=1 elapsed_s=4.729 model=12 fallback=0 cause=ok
+curl-timing elapsed_s=2.979 budget_s=28.000 exit=Some(0) http_status=Some(200) stderr=""
+rush-batch event_s=795.00 count=12 attempt=1 elapsed_s=2.981 remaining_s=25.019 accepted=12 pending=0 reason=ok
+rush-batch-done event_s=795.00 count=12 attempts=1 elapsed_s=2.981 model=12 fallback=0 cause=ok
+curl-timing elapsed_s=2.872 budget_s=27.999 exit=Some(0) http_status=Some(200) stderr=""
+rush-batch event_s=1545.00 count=12 attempt=1 elapsed_s=2.874 remaining_s=25.126 accepted=12 pending=0 reason=ok
+rush-batch-done event_s=1545.00 count=12 attempts=1 elapsed_s=2.874 model=12 fallback=0 cause=ok

@@ -1,0 +1,27 @@
+{
+  "seed": 3,
+  "policy": "live",
+  "trips": 240,
+  "completed": 240,
+  "peak_cars": 211,
+  "emergency_gain": 1.875,
+  "others_cost": {
+    "mean_s": 9.297453703703704,
+    "p95_s": 120.25
+  },
+  "liar_win_rate": 0.3333333333333333,
+  "third_claim_liar_win_rate": 0.0,
+  "history_enabled": true,
+  "spread_enabled": true,
+  "emergency_gain_vs_local": 1.0,
+  "clear_ahead_m": 699.1815844231,
+  "clear_ahead_s": 71.0,
+  "lead_distance_m": 1870.5789354421058,
+  "lead_time_s": 252.7374072614667,
+  "collateral": 0.0,
+  "model_decisions": 240,
+  "fallback_decisions": 0,
+  "collisions": 0,
+  "baseline_collisions": 0,
+  "passed": true
+}
