@@ -438,7 +438,7 @@ impl DemoServer {
                 Arc::clone(&talk),
                 Instant::now() + Duration::from_secs_f64(REPLY_DEADLINE_S),
             );
-            let html = crate::board::render_board_html(&board);
+            let mut html = None;
             let mut clock = None;
             while !halt.load(Ordering::Relaxed) {
                 let (mut stream, _) = match listener.accept() {
@@ -494,7 +494,12 @@ impl DemoServer {
                 let now = epoch.elapsed().as_secs_f64();
                 let mut delivered_event = None;
                 let (code, kind, body) = match (method, path) {
-                    ("GET", "/") => (200, "text/html; charset=utf-8", html.clone()),
+                    ("GET", "/") => (
+                        200,
+                        "text/html; charset=utf-8",
+                        html.get_or_insert_with(|| crate::board::render_board_html(&board))
+                            .clone(),
+                    ),
                     ("POST", "/demo/restart") => {
                         clock = Some(Clock::new(now));
                         (200, "application/json", "{}".into())
@@ -555,12 +560,12 @@ impl DemoServer {
                         if state[i].answer.is_none() {
                             (202, "application/json", "{}".into())
                         } else {
-                            let mut town = board.town.clone();
+                            let mut exchanges = board.town.exchanges.clone();
                             let mut completed = Vec::new();
                             let mut times = vec![None; count];
                             for (j, slot) in state.iter().enumerate() {
                                 if let Some(answer) = &slot.answer {
-                                    let ex = &mut town.exchanges[j];
+                                    let ex = &mut exchanges[j];
                                     ex.lines = answer.choice.lines.clone();
                                     ex.source = answer.choice.source.clone();
                                     ex.reason = answer.choice.reason.clone();
@@ -569,9 +574,19 @@ impl DemoServer {
                                     times[j] = Some(answer.reply_s);
                                 }
                             }
-                            town.exchange = town.exchanges.first().cloned();
                             delivered_event = Some(i);
-                            (200, "application/json", serde_json::json!({"town":town,"completed":completed,"reply_seconds":times}).to_string())
+                            let compact = target
+                                .split_once('?')
+                                .is_some_and(|(_, q)| q.split('&').any(|p| p == "compact=1"));
+                            let body = if compact {
+                                serde_json::json!({"exchanges":exchanges,"completed":completed,"reply_seconds":times})
+                            } else {
+                                let mut town = board.town.clone();
+                                town.exchanges = exchanges;
+                                town.exchange = town.exchanges.first().cloned();
+                                serde_json::json!({"town":town,"completed":completed,"reply_seconds":times})
+                            };
+                            (200, "application/json", body.to_string())
                         }
                     }
                     _ => (404, "text/plain", "not found".into()),
@@ -685,12 +700,16 @@ pub fn drive_headless(
             }
             if !exchanges.iter().any(|e: &GateExchange| e.event == event) {
                 result_gets += 1;
-                let (code, result) =
-                    http(server.address, "GET", &format!("/result?event={event}"))?;
+                let (code, result) = http(
+                    server.address,
+                    "GET",
+                    &format!("/result?event={event}&compact=1"),
+                )?;
                 if code == 200 {
-                    let town: NetworkRun = serde_json::from_value(result["town"].clone())
-                        .map_err(|e| e.to_string())?;
-                    let ex = &town.exchanges[event];
+                    let resolved: Vec<crate::network::TownExchange> =
+                        serde_json::from_value(result["exchanges"].clone())
+                            .map_err(|e| e.to_string())?;
+                    let ex = &resolved[event];
                     let expected = &board.town.exchanges[event];
                     if !ex
                         .lines
@@ -989,6 +1008,12 @@ mod tests {
             std::thread::sleep(Duration::from_millis(5));
         }
         assert_eq!(calls.load(Ordering::Relaxed), 1);
+        let (code, compact) = http(server.address, "GET", "/result?event=0&compact=1").unwrap();
+        assert_eq!(code, 200);
+        assert!(compact.get("town").is_none());
+        assert_eq!(compact["exchanges"].as_array().unwrap().len(), 3);
+        assert_eq!(compact["exchanges"][0]["source"], "fallback");
+        assert_eq!(compact["reply_seconds"].as_array().unwrap().len(), 3);
         assert_eq!(
             http(server.address, "POST", "/negotiate?event=999")
                 .unwrap()
