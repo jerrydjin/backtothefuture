@@ -10,9 +10,12 @@
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 
+use crate::story::{StoryKind, StoryRun};
 use serde::Serialize;
 
-use crate::negotiate::{car_pref, MergeCar, MergeLine, MergeSnap, MergeTalk, ScriptedTalk};
+use crate::negotiate::{
+    car_pref, CounterOffer, MergeCar, MergeLine, MergeSnap, MergeTalk, ScriptedTalk,
+};
 use crate::world::{
     A_MAX_MPS2, B_MAX_MPS2, CAR_LENGTH_M, CAR_WIDTH_M, LANE_WIDTH_M, MIN_GAP_M, V_MAX_MPS,
 };
@@ -52,7 +55,7 @@ const YIELD_CAP_S: f64 = 14.0;
 /// motorway, the south arterial, and the first two cross streets.
 pub const DINNER_HOME: [f64; 2] = [296.0, 286.0];
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum RoadClass {
     Motorway,
@@ -86,7 +89,7 @@ impl RoadClass {
 }
 
 /// One directed lane. A connector is the short path through a junction from one link to another.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct Link {
     pub id: usize,
     pub class: RoadClass,
@@ -646,13 +649,13 @@ struct Car {
 /// One recorded car: `[id, route, distance along route, speed]`.
 pub type NetCar = (u32, u32, f64, f64);
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct NetFrame {
     pub t: u32,
     pub cars: Vec<NetCar>,
 }
 
-#[derive(Clone, Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize, serde::Deserialize)]
 pub struct NetStats {
     pub spawned: u32,
     pub exited: u32,
@@ -669,7 +672,7 @@ pub struct NetStats {
 }
 
 /// The one spoken exchange at a motorway merge. The board fades it after the yield.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct TownExchange {
     /// Seconds from the start of the recording.
     pub t: f64,
@@ -691,6 +694,9 @@ pub struct TownExchange {
     pub priority_id: Option<u32>,
     pub junction: usize,
     pub stream_link: usize,
+    pub counter_offer: Option<CounterOffer>,
+    /// Actual activation after the accepted crossing has physically cleared.
+    pub activation_t: f64,
 }
 
 impl TownExchange {
@@ -718,12 +724,16 @@ impl TownExchange {
             "negotiate yields={} merges={}",
             self.yields, self.merges
         ));
+        if let Some(offer) = &self.counter_offer {
+            out.push_str(&format!("\ncounter-offer by={} accepted_by={} minimum_wait_s={:.1} activation_t={:.1} reason={}",
+                offer.by, offer.accepted_by, offer.wait_s, self.activation_t, offer.explanation));
+        }
         out
     }
 }
 
 /// A recorded run of the town, ready to draw.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct NetworkRun {
     pub links: Vec<Link>,
     pub routes: Vec<Vec<usize>>,
@@ -735,9 +745,10 @@ pub struct NetworkRun {
     /// Successive agreements for the priority story; empty on the ordinary board.
     pub exchanges: Vec<TownExchange>,
     pub priority: Option<PriorityResult>,
+    pub story: Option<StoryRun>,
 }
 
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Serialize, serde::Deserialize)]
 pub struct PriorityRequest {
     pub car_id: u32,
     /// Seconds from the start of the recording.
@@ -750,7 +761,7 @@ pub const PRIORITY_DEMO: PriorityRequest = PriorityRequest {
     at_s: 200.0,
 };
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct PriorityResult {
     pub request: PriorityRequest,
     pub enabled: bool,
@@ -784,6 +795,9 @@ struct Hold {
     node: usize,
     stream: usize,
     beneficiary: Option<(u32, f64)>,
+    counter_offer: Option<CounterOffer>,
+    deferred: Option<(u32, f64, f64)>,
+    activated_at: Option<f64>,
 }
 
 /// Small deterministic generator, so the board and the tests see the same town.
@@ -815,6 +829,10 @@ struct Body {
     front: f64,
 }
 
+struct DemoTrip {
+    phase: u8,
+}
+
 pub struct TownSim {
     net: Network,
     routes: Vec<Route>,
@@ -833,6 +851,8 @@ pub struct TownSim {
     hold: Option<Hold>,
     history: Vec<Hold>,
     priority: Option<PriorityTrip>,
+    story: Option<StoryRun>,
+    demo: Option<DemoTrip>,
 }
 
 impl TownSim {
@@ -873,6 +893,8 @@ impl TownSim {
             hold: None,
             history: Vec::new(),
             priority: None,
+            story: None,
+            demo: None,
         }
     }
 
@@ -931,6 +953,7 @@ impl TownSim {
     }
 
     pub fn step(&mut self) {
+        self.advance_demo();
         if let Some(p) = &mut self.priority {
             if self.time >= WARMUP_S + p.request.at_s && p.route.is_none() {
                 p.route = self
@@ -949,6 +972,28 @@ impl TownSim {
         self.spawn();
         self.time += NET_DT_S;
         self.note_clearance();
+    }
+
+    fn advance_demo(&mut self) {
+        let Some(phase) = self.demo.as_ref().map(|d| d.phase) else {
+            return;
+        };
+        let cleared = self.hold.as_ref().and_then(|h| h.cleared_at);
+        if phase == 0 && cleared.is_some_and(|t| self.time >= t + 4.0) {
+            let at_s = self.time - WARMUP_S;
+            self.priority = Some(PriorityTrip {
+                request: PriorityRequest { car_id: 177, at_s },
+                enabled: true,
+                route: None,
+                home_at: None,
+                served: Vec::new(),
+            });
+            self.story = Some(StoryRun::new(StoryKind::Priority).at(at_s));
+            self.demo.as_mut().unwrap().phase = 1;
+        } else if phase == 1 && self.history.len() == 1 && cleared.is_some() {
+            self.story = Some(StoryRun::new(StoryKind::Competing).at(self.time - WARMUP_S));
+            self.demo.as_mut().unwrap().phase = 2;
+        }
     }
 
     fn release_claims(&mut self) {
@@ -1027,6 +1072,7 @@ impl TownSim {
                 let merging = |ci: usize| {
                     self.hold.as_ref().is_some_and(|hold| {
                         hold.cleared_at.is_none()
+                            && hold.deferred.is_none()
                             && (hold.merges == self.cars[ci].id
                                 || (hold.beneficiary.is_some()
                                     && self.routes[self.cars[ci].route].links[self.cars[ci].idx]
@@ -1098,7 +1144,10 @@ impl TownSim {
             }
         }
         let reservation = self.hold.as_ref().filter(|h| {
-            h.cleared_at.is_none() && h.beneficiary.is_some() && h.node == self.net.links[link].to
+            h.cleared_at.is_none()
+                && h.deferred.is_none()
+                && h.beneficiary.is_some()
+                && h.node == self.net.links[link].to
         });
         let clearing_path = reservation.is_some_and(|h| h.stream == link);
         if let Some(h) = reservation {
@@ -1124,7 +1173,7 @@ impl TownSim {
                 continue;
             };
             let other = &self.cars[oc];
-            if other.claim.is_some() {
+            if other.claim.is_some() || self.must_yield(other.id) {
                 continue;
             }
             let Some(ok) = self.next_connector(other) else {
@@ -1206,7 +1255,11 @@ impl TownSim {
     fn drive(&mut self, index: &[Vec<Body>]) {
         let pinned = self.hold.as_ref().and_then(|hold| {
             if hold.cleared_at.is_none() {
-                Some(hold.yields)
+                Some(if hold.deferred.is_some() {
+                    hold.merges
+                } else {
+                    hold.yields
+                })
             } else {
                 None
             }
@@ -1405,15 +1458,24 @@ impl TownSim {
     }
 
     fn must_yield(&self, id: u32) -> bool {
-        self.hold
-            .as_ref()
-            .is_some_and(|hold| hold.cleared_at.is_none() && hold.yields == id)
+        self.hold.as_ref().is_some_and(|hold| {
+            hold.cleared_at.is_none()
+                && (if hold.deferred.is_some() {
+                    hold.merges
+                } else {
+                    hold.yields
+                }) == id
+        })
     }
 
     fn pin_yielder(&mut self) {
         let Some(id) = self.hold.as_ref().and_then(|hold| {
             if hold.cleared_at.is_none() {
-                Some(hold.yields)
+                Some(if hold.deferred.is_some() {
+                    hold.merges
+                } else {
+                    hold.yields
+                })
             } else {
                 None
             }
@@ -1431,11 +1493,31 @@ impl TownSim {
         if self.priority.is_some() && self.hold.as_ref().is_some_and(|h| h.cleared_at.is_some()) {
             self.history.push(self.hold.take().expect("completed hold"));
         }
+        if self.demo.is_some() && self.history.len() >= 3 {
+            return;
+        }
         if self.hold.is_some() || self.time < WARMUP_S {
             return;
         }
+        // One readable conversation at a time: let the previous speakers clear,
+        // fade, and leave room for the next request/acknowledgement sequence.
+        if self.story.is_some()
+            && self.history.last().is_some_and(|h| {
+                self.time < h.speaker_cleared_at.or(h.cleared_at).unwrap_or(h.spoken_at) + 8.0
+            })
+        {
+            return;
+        }
         let priority_head = if let Some(p) = &self.priority {
-            if !p.enabled || self.time < WARMUP_S + p.request.at_s || p.served.contains(&node) {
+            if !p.enabled
+                || self.time < WARMUP_S + p.request.at_s
+                || p.served.contains(&node)
+                || self
+                    .story
+                    .as_ref()
+                    .and_then(|s| s.priority_until_s)
+                    .is_some_and(|until| self.time >= WARMUP_S + until)
+            {
                 return;
             }
             let Some(car) = self.cars.iter().find(|c| c.id == p.request.car_id) else {
@@ -1462,6 +1544,19 @@ impl TownSim {
             return;
         };
         let mut snap = self.merge_snap(ca, cb);
+        if self.demo.as_ref().is_some_and(|d| d.phase == 0) {
+            let offer = ScriptedTalk.agree(&snap);
+            snap.priority_for = Some(offer.merges);
+            snap.cause = Some("An ordinary merge: honor the driver's offer.".into());
+            for car in &mut snap.cars {
+                car.pref = if car.id == offer.yields {
+                    "I can slow down; you go first"
+                } else {
+                    "I can go if you let me"
+                }
+                .into();
+            }
+        }
         let beneficiary = if let Some((stream, id, line)) = priority_head {
             let Some(front) = [ca, cb]
                 .into_iter()
@@ -1495,6 +1590,43 @@ impl TownSim {
         } else {
             None
         };
+        if let Some(story) = &self.story {
+            let context = story.explanation();
+            snap.cause = Some(context.into());
+            if matches!(story.kind, StoryKind::Chain | StoryKind::CounterOffer) {
+                if let Some((id, _)) = beneficiary {
+                    if !snap.cars.iter().any(|c| c.id == id) {
+                        if let Some(ci) = self.cars.iter().position(|c| c.id == id) {
+                            let mut relay = self.merge_car(ci);
+                            relay.pref = if story.kind == StoryKind::Chain {
+                                "Please relay the detected emergency ahead"
+                            } else {
+                                "Please relay my hospital priority ahead"
+                            }
+                            .into();
+                            snap.relays.push(relay);
+                        }
+                    }
+                }
+            }
+            for car in &mut snap.cars {
+                car.pref.push_str(&format!("; {context}"));
+            }
+        }
+        if self
+            .story
+            .as_ref()
+            .is_some_and(|s| s.kind == StoryKind::CounterOffer)
+            && self.history.is_empty()
+        {
+            let front = snap.priority_for.expect("priority head");
+            let peer = if self.cars[ca].id == front { cb } else { ca };
+            let index = self.index();
+            let held = vec![Vec::new(); self.net.links.len()];
+            if let Some(k) = self.next_connector(&self.cars[peer]) {
+                snap.counter_offer_allowed = self.exit_has_room(peer, k, &held, &index);
+            }
+        }
         let choice = self.talk.agree(&snap);
         let ids = [snap.cars[0].id, snap.cars[1].id];
         if choice.yields == choice.merges
@@ -1515,6 +1647,15 @@ impl TownSim {
         if let Some(p) = &mut self.priority {
             p.served.push(node);
         }
+        let deferred = choice.counter_offer.as_ref().and_then(|offer| {
+            let ci = if self.cars[ca].id == offer.by { ca } else { cb };
+            let k = self.next_connector(&self.cars[ci])?;
+            Some((
+                offer.by,
+                self.routes[self.cars[ci].route].start[k + 1],
+                self.time + offer.wait_s,
+            ))
+        });
         self.hold = Some(Hold {
             yields: choice.yields,
             merges: choice.merges,
@@ -1530,6 +1671,13 @@ impl TownSim {
             node,
             stream,
             beneficiary,
+            counter_offer: choice.counter_offer,
+            deferred,
+            activated_at: if deferred.is_some() {
+                None
+            } else {
+                Some(self.time)
+            },
         });
     }
 
@@ -1572,26 +1720,27 @@ impl TownSim {
         None
     }
 
+    fn merge_car(&self, ci: usize) -> MergeCar {
+        let car = &self.cars[ci];
+        let route = &self.routes[car.route];
+        let link = route.links[car.idx];
+        let along = (car.d - route.start[car.idx]).max(0.0);
+        let len = self.net.links[link].len;
+        let [x, y] = self.net.links[link].point_at(along.min(len));
+        MergeCar {
+            id: car.id,
+            x: round1(x),
+            y: round1(y),
+            s_to_line_m: round1((len - along).max(0.0)),
+            v_mps: round1(car.v),
+            gap_m: 0.0,
+            pref: car_pref(car.id).to_string(),
+        }
+    }
+
     fn merge_snap(&self, ca: usize, cb: usize) -> MergeSnap {
-        let view = |ci: usize| {
-            let car = &self.cars[ci];
-            let route = &self.routes[car.route];
-            let link = route.links[car.idx];
-            let along = (car.d - route.start[car.idx]).max(0.0);
-            let len = self.net.links[link].len;
-            let [x, y] = self.net.links[link].point_at(along.min(len));
-            MergeCar {
-                id: car.id,
-                x: round1(x),
-                y: round1(y),
-                s_to_line_m: round1((len - along).max(0.0)),
-                v_mps: round1(car.v),
-                gap_m: 0.0,
-                pref: car_pref(car.id).to_string(),
-            }
-        };
-        let mut a = view(ca);
-        let mut b = view(cb);
+        let mut a = self.merge_car(ca);
+        let mut b = self.merge_car(cb);
         let gap = round1((a.x - b.x).hypot(a.y - b.y));
         a.gap_m = gap;
         b.gap_m = gap;
@@ -1601,6 +1750,9 @@ impl TownSim {
         MergeSnap {
             cars: [a, b],
             priority_for: None,
+            relays: Vec::new(),
+            cause: None,
+            counter_offer_allowed: false,
         }
     }
 
@@ -1611,6 +1763,19 @@ impl TownSim {
     }
 
     fn note_clearance(&mut self) {
+        if let Some((id, line, earliest)) = self.hold.as_ref().and_then(|h| h.deferred) {
+            let clear = self
+                .cars
+                .iter()
+                .find(|c| c.id == id)
+                .is_none_or(|c| c.d - CAR_LENGTH_M > line);
+            if clear && self.time >= earliest {
+                if let Some(h) = &mut self.hold {
+                    h.deferred = None;
+                    h.activated_at = Some(self.time);
+                }
+            }
+        }
         let Some(hold) = self.hold.as_ref() else {
             return;
         };
@@ -1637,7 +1802,12 @@ impl TownSim {
             if speaker_done && hold.speaker_cleared_at.is_none() {
                 hold.speaker_cleared_at = Some(self.time);
             }
-            if (through && held) || self.time - spoken >= cap {
+            let expired = self
+                .story
+                .as_ref()
+                .and_then(|s| s.priority_until_s)
+                .is_some_and(|until| self.time >= WARMUP_S + until);
+            if (through && held) || self.time - spoken >= cap || expired {
                 hold.cleared_at = Some(self.time);
             }
         }
@@ -1669,6 +1839,8 @@ impl TownSim {
             priority_id: hold.beneficiary.map(|(id, _)| id),
             junction: hold.node,
             stream_link: hold.stream,
+            counter_offer: hold.counter_offer.clone(),
+            activation_t: round1((hold.activated_at.unwrap_or(until_at) - WARMUP_S).max(t)),
         }
     }
 
@@ -1708,6 +1880,15 @@ pub fn run_priority_town(
     enabled: bool,
     talk: Box<dyn MergeTalk>,
 ) -> NetworkRun {
+    record_town(priority_sim(seed, request, enabled, talk))
+}
+
+fn priority_sim(
+    seed: u64,
+    request: PriorityRequest,
+    enabled: bool,
+    talk: Box<dyn MergeTalk>,
+) -> TownSim {
     let mut sim = TownSim::with_talk(seed, talk);
     sim.priority = Some(PriorityTrip {
         request,
@@ -1716,7 +1897,27 @@ pub fn run_priority_town(
         home_at: None,
         served: Vec::new(),
     });
+    sim
+}
+
+pub fn run_story_town(seed: u64, kind: StoryKind, talk: Box<dyn MergeTalk>) -> NetworkRun {
+    let story = StoryRun::new(kind);
+    let winner = story.winner().expect("story has a granted request");
+    let request = PriorityRequest {
+        car_id: winner.car_id,
+        at_s: winner.at_s,
+    };
+    let mut sim = priority_sim(seed, request, true, talk);
+    sim.story = Some(story);
     record_town(sim)
+}
+
+pub fn run_demo_town(seed: u64) -> Result<(NetworkRun, crate::demo::DemoPlan), String> {
+    let mut sim = TownSim::with_talk(seed, Box::new(ScriptedTalk));
+    sim.demo = Some(DemoTrip { phase: 0 });
+    let mut town = record_town(sim);
+    let plan = crate::demo::DemoPlan::from_town(&mut town)?;
+    Ok((town, plan))
 }
 
 fn record_town(mut sim: TownSim) -> NetworkRun {
@@ -1776,6 +1977,7 @@ fn record_town(mut sim: TownSim) -> NetworkRun {
         exchange,
         exchanges,
         priority,
+        story: sim.story.clone(),
     }
 }
 
@@ -1967,8 +2169,13 @@ mod tests {
             priority_id: None,
             junction: 0,
             stream_link: 0,
+            counter_offer: None,
+            activation_t: 201.8,
             forecast: MergeSnap {
                 priority_for: None,
+                relays: Vec::new(),
+                cause: None,
+                counter_offer_allowed: false,
                 cars: [126, 226].map(|id| MergeCar {
                     id,
                     x: 0.0,

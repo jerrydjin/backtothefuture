@@ -17,7 +17,7 @@ use crate::schema::{Score, TalkPhase, WorldState, YieldRole};
 use crate::world::{CAR_LENGTH_M, CAR_WIDTH_M, LANE_WIDTH_M, TAPER_M};
 
 /// One flat car. `s` is the front bumper in meters, the same station the sim uses.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct BoardCar {
     pub id: u32,
     pub approach: String,
@@ -30,7 +30,7 @@ pub struct BoardCar {
 }
 
 /// One yield / merge line drawn on a car for this tick.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct BoardTalk {
     pub id: u32,
     pub role: String,
@@ -38,7 +38,7 @@ pub struct BoardTalk {
 }
 
 /// One sim tick, slimmed to what the canvas draws.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct BoardFrame {
     pub tick: u32,
     pub gate_blocked: bool,
@@ -51,7 +51,7 @@ pub struct BoardFrame {
 
 /// Where the dinner merge sits in the town. Same meters as the sim; `main_s0` is the
 /// station at the start of the main polyline. The ramp ends at the gore.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct DinnerRoad {
     pub main: Vec<[f64; 2]>,
     pub ramp: Vec<[f64; 2]>,
@@ -60,7 +60,7 @@ pub struct DinnerRoad {
 }
 
 /// One scored run. The side panel lists these. The map plays one at a time.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct BoardStrip {
     pub name: String,
     pub story: String,
@@ -74,7 +74,7 @@ pub struct BoardStrip {
 }
 
 /// Everything the window needs. Built from a finished dinner run.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct DinnerBoard {
     pub client: String,
     pub cars: u32,
@@ -91,6 +91,8 @@ pub struct DinnerBoard {
     pub dinner_road: DinnerRoad,
     /// Background traffic on the town around it. Its own local sim, never scored.
     pub town: NetworkRun,
+    #[serde(default)]
+    pub demo: Option<crate::demo::DemoPlan>,
 }
 
 /// Run the dinner path and shape it for the window.
@@ -125,6 +127,43 @@ pub fn priority_board_from_run(run: &DinnerRun, client_label: &str, enabled: boo
     board
 }
 
+/// A rider-priority story on the existing network; dinner scores are unchanged.
+pub fn story_board_from_run(
+    run: &DinnerRun,
+    client_label: &str,
+    kind: crate::story::StoryKind,
+) -> DinnerBoard {
+    let mut board = priority_board_from_run(run, client_label, true);
+    let baseline = board
+        .town
+        .priority
+        .as_ref()
+        .and_then(|p| p.baseline_time_home_s);
+    board.town = crate::network::run_story_town(TOWN_SEED, kind, Box::new(ScriptedTalk));
+    if let Some(p) = &mut board.town.priority {
+        p.baseline_time_home_s = baseline;
+    }
+    board
+}
+
+pub fn demo_board() -> Result<DinnerBoard, String> {
+    let dinner = crate::run_dinner(
+        &crate::Scenario::new(
+            6,
+            crate::JamType::Symmetric,
+            "Zipper fairly so both approaches get home.",
+        ),
+        &crate::FakeEcho,
+        &EpisodeOpts::default(),
+    )
+    .map_err(|e| e.to_string())?;
+    let mut board = board_from_run(&dinner, "scripted");
+    let (town, plan) = crate::network::run_demo_town(TOWN_SEED)?;
+    board.town = town;
+    board.demo = Some(plan);
+    Ok(board)
+}
+
 /// Same board, with the negotiator that speaks once at one town merge.
 pub fn board_from_run_with(
     run: &DinnerRun,
@@ -151,6 +190,7 @@ pub fn board_from_run_with(
         ],
         dinner_road: dinner_road(run, gate_s_m, home_s_m),
         town: run_town_with(TOWN_SEED, talk),
+        demo: None,
     }
 }
 
@@ -285,8 +325,11 @@ fn road_marks(run: &DinnerRun) -> (f64, f64) {
 /// The script draws a white network and moves flat cars. One yield or merge cue.
 /// One town merge draws two short grey lines over those cars, then fades.
 pub fn render_board_html(board: &DinnerBoard) -> String {
-    let json = serde_json::to_string(board).unwrap_or_else(|_| "{}".to_string());
-    let json = json.replace('<', "\\u003c");
+    let json = serde_json::to_string(board)
+        .unwrap_or_else(|_| "{}".to_string())
+        .replace('<', "\\u003c")
+        .replace('>', "\\u003e")
+        .replace('&', "\\u0026");
     let mut pills = String::new();
     for (index, strip) in board.strips.iter().enumerate() {
         if !strip.scoreboard {
@@ -335,15 +378,20 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
   .pill.red { color: #a94444; border-color: #e7cccc; }
   .pill.green { color: #2f7a4a; border-color: #c9e0d0; }
   .pill.on { color: #1c1c1c; border-color: #1c1c1c; }
+  #replay { position: fixed; bottom: 12px; left: 12px; z-index: 2; font: 10px/1 system-ui, sans-serif;
+    color: #888; border: 1px solid #ddd; border-radius: 999px; padding: 3px 7px; background: white; cursor: pointer; }
 </style>
 </head>
 <body>
 <svg id="network" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cars negotiate on a town road network"></svg>
 <div id="pills">__PILLS__</div>
+<button id="replay" type="button" title="Replay the saved words and motion (R)">replay</button>
 <script id="board-data" type="application/json">__BOARD_JSON__</script>
 <script>
 (function () {
   var data = JSON.parse(document.getElementById("board-data").textContent);
+  var isDemo = !!data.demo && /[?&]demo=1(?:&|$)/.test(location.search);
+  var demoView = null;
   var maxTick = 0;
   data.strips.forEach(function (strip) {
     var last = strip.frames[strip.frames.length - 1];
@@ -371,7 +419,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
 
   document.getElementById("network").addEventListener("click", function (ev) {
     ev.stopPropagation();
-    togglePause();
+    if (!isDemo) togglePause();
   });
   document.getElementById("pills").addEventListener("click", function (ev) {
     var pill = ev.target.closest ? ev.target.closest(".pill") : null;
@@ -385,6 +433,24 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     }
     setActive(index);
   });
+
+  var animating = seekTo == null;
+  function restart() {
+    if (isDemo) {
+      fetch("/demo/restart", { method: "POST" }).then(function () { demoView = null; pollDemo(); });
+      return;
+    }
+    seekTo = null;
+    origin = performance.now();
+    paused = false;
+    lostTime = 0;
+    waitingSince = null;
+    waitingAt = null;
+    if (!animating) { animating = true; requestAnimationFrame(loop); }
+    paint(performance.now());
+  }
+  document.getElementById("replay").addEventListener("click", restart);
+  document.addEventListener("keydown", function (ev) { if (ev.key.toLowerCase() === "r") restart(); });
 
   function setActive(index) {
     if (index < 0 || index >= data.strips.length || isNaN(index)) return;
@@ -420,7 +486,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
 
   // Forecast once, ask 25 wall seconds before the encounter, then replay the
   // returned agreement through the same local physics. Only a late reply holds time.
-  var live = seekTo == null && /[?&]live=1(?:&|$)/.test(String(location.search));
+  var live = seekTo == null && (isDemo || /[?&]live=1(?:&|$)/.test(String(location.search)));
   var initialExchanges = data.town.exchanges.length ? data.town.exchanges :
     (data.town.exchange ? [data.town.exchange] : []);
   var readyEvents = {}, requestedEvents = {}, revision = 0;
@@ -439,15 +505,19 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     requestedEvents[event] = true;
     var deadline = performance.now() + 48000;
     function fallback() {
+      if (readyEvents[event]) return;
       var ex = allExchanges()[event];
       if (ex) { ex.source = "fallback"; ex.reason = "transport"; }
       readyEvents[event] = true;
     }
     function poll() {
-      fetch("/result?event=" + event, { cache: "no-store", signal: AbortSignal.timeout(2000) }).then(function (r) {
+      if (readyEvents[event]) return;
+      fetch("/result?event=" + event, { cache: "no-store", signal: AbortSignal.timeout(5000) }).then(function (r) {
         if (r.status === 202) {
-          if (performance.now() >= deadline) fallback(); else setTimeout(poll, 150);
-          return null;
+          return r.text().then(function () {
+            if (performance.now() >= deadline) fallback(); else setTimeout(poll, 150);
+            return null;
+          });
         }
         if (!r.ok) throw new Error("board session closed");
         return r.json();
@@ -458,13 +528,26 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
           revision = reply.completed.length;
         }
         reply.completed.forEach(function (i) { readyEvents[i] = true; });
-      }).catch(fallback);
+      }).catch(function () {
+        if (performance.now() >= deadline) fallback(); else setTimeout(poll, 200);
+      });
     }
-    fetch("/negotiate?event=" + event, { method: "POST", signal: AbortSignal.timeout(2000) })
-      .then(function (r) { if (!r.ok) throw new Error("board session closed"); poll(); }).catch(fallback);
+    function start() {
+      if (readyEvents[event]) return;
+      fetch("/negotiate?event=" + event, { method: "POST", signal: AbortSignal.timeout(5000) })
+        .then(function (r) { if (!r.ok) throw new Error("board session closed"); return r.text(); })
+        .then(poll)
+        .catch(function () { if (performance.now() >= deadline) fallback(); else setTimeout(start, 200); });
+    }
+    start();
   }
 
   function townTime(now) {
+    if (isDemo) {
+      var t = demoView ? demoView.sim_t : data.demo.stages[0].from_t;
+      document.getElementById("network").setAttribute("data-time", t.toFixed(3));
+      return t;
+    }
     var last = (data.town && data.town.frames.length) ? data.town.frames.length - 1 : 0;
     if (last < 1) return 0;
     if (seekTo != null) return Math.max(0, Math.min(last, seekTo));
@@ -474,12 +557,12 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
       if (live && t >= ex.t - 25) askAhead(event);
     });
     var blocked = initialExchanges.findIndex(function (ex, event) {
-      return !eventReady(event) && t >= ex.t - 3;
+      return !eventReady(event) && t >= ex.t - (ex.forecast.relays.length ? 5 : 3);
     });
     if (blocked >= 0) {
       if (waitingSince == null) waitingSince = raw;
       waitingAt = blocked;
-      t = initialExchanges[blocked].t - 3;
+      t = initialExchanges[blocked].t - (initialExchanges[blocked].forecast.relays.length ? 5 : 3);
     } else if (waitingSince != null) {
       lostTime += raw - waitingSince;
       waitingSince = null;
@@ -489,6 +572,25 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     document.getElementById("network").setAttribute("data-time", t.toFixed(3));
     return t <= last ? t : t % last;
   }
+
+  var demoPolling = false;
+  function pollDemo() {
+    if (!isDemo || demoPolling) return;
+    demoPolling = true;
+    fetch("/demo/state", { cache: "no-store", signal: AbortSignal.timeout(5000) })
+      .then(function (r) { if (!r.ok) throw new Error("demo state"); return r.json(); })
+      .then(function (view) {
+        demoView = view;
+        var svg = document.getElementById("network");
+        svg.setAttribute("data-demo-stage", view.name);
+        svg.setAttribute("data-demo-phase", view.phase);
+        svg.setAttribute("data-demo-complete", String(view.complete));
+        if (view.request_event != null) askAhead(view.request_event);
+        demoPolling = false;
+        if (!view.complete) setTimeout(pollDemo, 50);
+      }).catch(function () { demoPolling = false; setTimeout(pollDemo, 200); });
+  }
+  if (isDemo) pollDemo();
 
   function sample(frames, simT) {
     if (!frames.length) return { a: null, b: null, u: 0, tick: 0 };
@@ -720,7 +822,10 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     var label = p.request.car_id + " home";
     if (arrived && p.time_home_s != null) {
       label = "home · " + p.time_home_s.toFixed(1) + "s";
-      if (p.enabled && p.baseline_time_home_s != null) label += " · " + (p.baseline_time_home_s - p.time_home_s).toFixed(1) + "s sooner";
+      if (p.enabled && p.baseline_time_home_s != null) {
+        var gain = p.baseline_time_home_s - p.time_home_s;
+        label += " · " + Math.abs(gain).toFixed(1) + (gain >= 0 ? "s sooner" : "s later");
+      }
     }
     ctx.appendChild(svgNode("text", { x: labelX, y: at.y + 30, "text-anchor": anchor, fill: arrived ? "#2f6fdb" : "#888",
       "font-family": "system-ui, sans-serif", "font-size": 12, "data-role": "priority-home" }, label));
@@ -754,7 +859,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
 
   function exchangeAlpha(ex, t, event) {
     if (!ex || !ex.lines || ex.lines.length < 2) return 0;
-    if (!eventReady(event) || t + 1e-6 < ex.t - 3) return 0;
+    if (!eventReady(event) || t + 1e-6 < ex.t - (ex.forecast.relays.length ? 5 : 3)) return 0;
     var fade = ex.fade_s > 0 ? ex.fade_s : 2.5;
     if (t <= ex.until) return 1;
     var u = (t - ex.until) / fade;
@@ -763,12 +868,15 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
 
   // Two short lines, one over each car, for the single town exchange. Grey on white.
   function drawExchange(ctx, view, t) {
-    allExchanges().forEach(function (ex, event) { drawOneExchange(ctx, view, t, ex, event); });
+    allExchanges().forEach(function (ex, event) {
+      if (isDemo && (!demoView || event !== demoView.event || !["dialogue", "yield", "fade", "late"].includes(demoView.phase))) return;
+      drawOneExchange(ctx, view, t, ex, event);
+    });
   }
 
   function drawOneExchange(ctx, view, t, ex, event) {
     var alpha = exchangeAlpha(ex, t, event);
-    var pending = !eventReady(event) && waitingAt === event;
+    var pending = !eventReady(event) && (isDemo ? demoView && demoView.phase === "late" : waitingAt === event);
     if (alpha <= 0 && !pending) return;
     if (pending) alpha = 1;
     var frames = town.frames;
@@ -782,6 +890,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     var spots = [];
     ex.lines.forEach(function (line) {
       if (!pending && line.id === ex.merges && t < ex.t - 1.5) return;
+      if (!pending && line.id === ex.yields && t < ex.t - 3) return;
       var car = null;
       a.cars.forEach(function (item) { if (item[0] === line.id) car = item; });
       if (!car) return;
@@ -797,11 +906,11 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     var placed = spots.map(function (s) {
       return { say: s.say, x: s.x, y: s.y - 22 };
     });
-    if (spots.length === 2 && Math.hypot(spots[1].x - spots[0].x, spots[1].y - spots[0].y) < 90) {
-      var mid = (spots[0].x + spots[1].x) / 2;
-      var top = Math.min(spots[0].y, spots[1].y);
-      placed = spots.map(function (s) {
-        return { say: s.say, x: mid, y: top - (s.id === ex.yields ? 46 : 25) };
+    if (spots.length >= 2 && spots.every(function (s) { return Math.hypot(s.x - spots[0].x, s.y - spots[0].y) < 180; })) {
+      var mid = spots.reduce(function (sum, s) { return sum + s.x; }, 0) / spots.length;
+      var top = Math.min.apply(null, spots.map(function (s) { return s.y; }));
+      placed = spots.map(function (s, index) {
+        return { say: s.say, x: mid, y: top - ((spots.length - index) * 21 + 4) };
       });
     }
     var g = svgNode("g", { opacity: alpha, "data-event": event, "data-exchange": pending ? "pending" : ex.source });
@@ -859,17 +968,82 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
         return eventReady(i) && t >= ex.t - 3 && t <= ex.until;
       });
       var ex = allExchanges()[event];
-      var yielding = ex && t >= ex.t && car[0] === ex.yields;
-      var merging = ex && car[0] === ex.merges;
-      var priority = town.priority && town.priority.enabled && t >= town.priority.request.at_s && car[0] === town.priority.request.car_id;
+      var crossingFirst = ex && ex.counter_offer && t < ex.activation_t;
+      var yielding = ex && t >= ex.t && car[0] === (crossingFirst ? ex.merges : ex.yields);
+      var merging = ex && car[0] === (crossingFirst ? ex.yields : ex.merges);
+      var priority = town.priority && town.priority.enabled && t >= town.priority.request.at_s && car[0] === town.priority.request.car_id &&
+        (!town.story || town.story.priority_until_s == null || t < town.story.priority_until_s);
       drawCar(ctx, p, priority ? "#2f6fdb" : (yielding || v < 2.5 ? "#d08a2a" : (merging ? "#333" : "#7a7a7a")), car[0]);
       if (yielding) ctx.appendChild(svgNode("text", { x: p.x, y: p.y + 19, "text-anchor": "middle",
         fill: "#9b6520", "font-family": "system-ui, sans-serif", "font-size": 12, "data-role": "yield" }, "yield"));
-      if (priority) ctx.appendChild(svgNode("text", { x: p.x, y: p.y + 20, "text-anchor": "middle",
+      if (priority && !isDemo) ctx.appendChild(svgNode("text", { x: p.x, y: p.y + 20, "text-anchor": "middle",
         fill: "#2f6fdb", stroke: "white", "stroke-width": 3, "paint-order": "stroke", "font-family": "system-ui, sans-serif",
-        "font-size": 13, "data-role": "priority" }, t < town.priority.request.at_s + 5 ? "priority, please" : town.priority.request.car_id + " · priority"));
+        "font-size": 13, "data-role": "priority" }, t < town.priority.request.at_s + 5 ? (town.story && town.story.detections.length ? "emergency detected" : "priority, please") : town.priority.request.car_id + " · priority"));
 
     });
+  }
+
+  function carSpot(view, t, id) {
+    var i = Math.max(0, Math.min(town.frames.length - 1, Math.floor(t)));
+    var a = town.frames[i], b = town.frames[Math.min(i + 1, town.frames.length - 1)];
+    var car = a.cars.find(function (c) { return c[0] === id; });
+    if (!car) return null;
+    var later = b.cars.find(function (c) { return c[0] === id; });
+    var d = car[2] + (later ? later[2] - car[2] : car[3]) * (t - i);
+    return toScreen(view, routeLoc(routes[car[1]], d));
+  }
+
+  function drawStory(ctx, view, t) {
+    var story = town.story;
+    if (!story) return;
+    story.detections.forEach(function (detection) {
+      if (t < detection.at_s || t > detection.at_s + 7) return;
+      var at = carSpot(view, t, detection.car_id);
+      if (!at) return;
+      ctx.appendChild(svgNode("text", { x: at.x, y: at.y - 24, "text-anchor": "middle", fill: "#555",
+        stroke: "white", "stroke-width": 4, "paint-order": "stroke", "font-family": "system-ui, sans-serif", "font-size": 13,
+        "data-role": "emergency-detection" }, "distress detected · no request"));
+    });
+    story.claims.forEach(function (claim) {
+      if (t < claim.at_s || t > claim.at_s + 7) return;
+      var at = carSpot(view, t, claim.car_id);
+      if (!at) return;
+      var words = claim.reason === "hospital" ? "late for the hospital" : "late for a meeting";
+      ctx.appendChild(svgNode("text", { x: at.x, y: at.y - 24, "text-anchor": "middle", fill: "#555",
+        stroke: "white", "stroke-width": 4, "paint-order": "stroke", "font-family": "system-ui, sans-serif", "font-size": 13,
+        "data-claim": claim.car_id }, words));
+    });
+    var first = story.decisions.filter(function (d) { return d.claim.at_s + 3 <= t; }).slice(-1)[0];
+    if (!first || t < first.claim.at_s + 3) return;
+    var showing = t < first.claim.at_s + 12 || allExchanges().some(function (ex, i) { return exchangeAlpha(ex, t, i) > 0; });
+    if (!showing) return;
+    var at = carSpot(view, t, first.claim.car_id);
+    if (!at) return;
+    var activeOffer = allExchanges().find(function (ex) { return ex.counter_offer && t >= ex.t - 1.5 && t <= ex.until; });
+    var explanation = activeOffer ? "Accepted: " + activeOffer.counter_offer.explanation : first.explanation;
+    ctx.appendChild(svgNode("text", { x: Math.max(180, Math.min(view.width - 180, at.x)), y: at.y - 85,
+      "text-anchor": "middle", fill: "#444", stroke: "white", "stroke-width": 4, "paint-order": "stroke",
+      "font-family": "system-ui, sans-serif", "font-size": 14, "data-role": activeOffer ? "counter-offer" : "decision-reason" }, explanation));
+  }
+
+  function drawDemo(ctx, view, t) {
+    if (!demoView) return;
+    var stage = data.demo.stages[demoView.stage];
+    if (["typing", "approach"].includes(demoView.phase)) stage.requests.forEach(function (request) {
+      var at = carSpot(view, t, request.car_id);
+      if (!at) return;
+      var text = request.text.slice(0, Math.ceil(request.text.length * demoView.typed_progress));
+      ctx.appendChild(svgNode("text", { x: Math.max(125, Math.min(view.width - 125, at.x)), y: at.y - 28,
+        "text-anchor": "middle", fill: "#444", stroke: "white", "stroke-width": 4, "paint-order": "stroke",
+        "font-family": "system-ui, sans-serif", "font-size": 14, "data-demo-request": request.car_id }, text));
+    });
+    if (demoView.reason) {
+      var ex = town.exchanges[demoView.event];
+      var at = carSpot(view, t, ex.yields) || carSpot(view, t, 177);
+      if (at) ctx.appendChild(svgNode("text", { x: Math.max(180, Math.min(view.width - 180, at.x)), y: at.y - 90,
+        "text-anchor": "middle", fill: "#444", stroke: "white", "stroke-width": 4, "paint-order": "stroke",
+        "font-family": "system-ui, sans-serif", "font-size": 14, "data-role": "decision-reason" }, demoView.reason));
+    }
   }
 
   function paint(now) {
@@ -885,10 +1059,14 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     var strip = data.strips[active];
     if (!strip) return;
     var cue = oneCue(strip.frames, simT);
-    var showCue = drawDinner(ctx, view, strip.frames, simT, cue);
+    var showCue = !isDemo && drawDinner(ctx, view, strip.frames, simT, cue);
     if (cue && showCue) drawCue(ctx, view, cue.role);
     drawExchange(ctx, view, townTime(now));
-    drawPriorityHome(ctx, view, townTime(now));
+    if (isDemo) drawDemo(ctx, view, townTime(now));
+    else {
+      drawPriorityHome(ctx, view, townTime(now));
+      drawStory(ctx, view, townTime(now));
+    }
     canvas.replaceChildren(ctx);
   }
   function loop(now) {
@@ -897,7 +1075,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
   }
   setActive(active);
   paint(performance.now());
-  if (seekTo == null) requestAnimationFrame(loop);
+  if (animating) requestAnimationFrame(loop);
 })();
 </script>
 </body>

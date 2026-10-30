@@ -2,6 +2,7 @@
 
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -34,12 +35,20 @@ struct State {
     body: Option<String>,
 }
 
+#[derive(Clone)]
+struct Recording {
+    board: Arc<DinnerBoard>,
+    path: PathBuf,
+}
+
 struct Reply {
     talk: Arc<dyn MergeTalk>,
     forecasts: Vec<MergeSnap>,
     priority: Option<PriorityResult>,
+    story: Option<crate::story::StoryRun>,
     started: Vec<bool>,
     result: Arc<Mutex<State>>,
+    recording: Option<Recording>,
 }
 
 impl Reply {
@@ -57,7 +66,9 @@ impl Reply {
             talk: Arc::from(talk),
             forecasts,
             priority: town.priority.clone(),
+            story: town.story.clone(),
             started: vec![false; n],
+            recording: None,
             result: Arc::new(Mutex::new(State {
                 choices: vec![None; n],
                 times: vec![None; n],
@@ -74,7 +85,9 @@ impl Reply {
         let talk = Arc::clone(&self.talk);
         let snap = self.forecasts[event].clone();
         let priority = self.priority.clone();
+        let story = self.story.clone();
         let result = Arc::clone(&self.result);
+        let recording = self.recording.clone();
         std::thread::spawn(move || {
             let start = Instant::now();
             let choice = talk.agree(&snap);
@@ -94,7 +107,9 @@ impl Reply {
                     state.times.clone(),
                 )
             };
-            let mut town = if let Some(p) = &priority {
+            let mut town = if let Some(story) = story {
+                crate::network::run_story_town(TOWN_SEED, story.kind, Box::new(Replay(choices)))
+            } else if let Some(p) = &priority {
                 run_priority_town(TOWN_SEED, p.request, p.enabled, Box::new(Replay(choices)))
             } else {
                 run_town_with(TOWN_SEED, Box::new(Replay(choices)))
@@ -116,6 +131,15 @@ impl Reply {
             let mut state = result.lock().expect("reply mutex");
             // Concurrent calls may finish out of order. Never replace a newer replay.
             if completed.len() >= state.completed.len() {
+                if let Some(recording) = recording {
+                    let mut board = recording.board.as_ref().clone();
+                    board.town = town;
+                    let mut archive = crate::replay::ReplayArchive::new(board);
+                    archive.reply_seconds = times;
+                    if let Err(error) = archive.write(&recording.path) {
+                        eprintln!("{error}");
+                    }
+                }
                 state.completed = completed;
                 state.body = Some(body);
             }
@@ -138,10 +162,40 @@ pub fn serve_board(
     talk: Box<dyn MergeTalk>,
     open: bool,
 ) -> std::io::Result<()> {
+    serve_session(board, Some(talk), open, None)
+}
+
+pub fn serve_board_recording(
+    board: &DinnerBoard,
+    talk: Box<dyn MergeTalk>,
+    open: bool,
+    path: Option<&Path>,
+) -> std::io::Result<()> {
+    serve_session(board, Some(talk), open, path)
+}
+
+/// A replay has no negotiator, provider, or completion endpoint.
+pub fn serve_replay(board: &DinnerBoard, open: bool) -> std::io::Result<()> {
+    serve_session(board, None, open, None)
+}
+
+fn serve_session(
+    board: &DinnerBoard,
+    talk: Option<Box<dyn MergeTalk>>,
+    open: bool,
+    path: Option<&Path>,
+) -> std::io::Result<()> {
     let listener = TcpListener::bind(("127.0.0.1", 0))?;
-    let url = format!("http://{}/?live=1", listener.local_addr()?);
+    let query = if talk.is_some() { "live=1" } else { "replay=1" };
+    let url = format!("http://{}/?{query}", listener.local_addr()?);
     let html = render_board_html(board);
-    let mut reply = Reply::new(&board.town, talk);
+    let mut reply = talk.map(|talk| Reply::new(&board.town, talk));
+    if let Some(reply) = &mut reply {
+        reply.recording = path.map(|path| Recording {
+            board: Arc::new(board.clone()),
+            path: path.to_path_buf(),
+        });
+    }
     println!("board: {url}\nboard: Ctrl-C to close the session");
     if open {
         if let Err(error) = open_board_url(&url) {
@@ -150,7 +204,7 @@ pub fn serve_board(
     }
     for stream in listener.incoming() {
         let mut stream = stream?;
-        stream.set_read_timeout(Some(Duration::from_secs(2)))?;
+        stream.set_read_timeout(Some(Duration::from_millis(250)))?;
         let mut request = [0u8; 4096];
         let Ok(n) = stream.read(&mut request) else {
             continue;
@@ -171,11 +225,20 @@ pub fn serve_board(
         let response = match (method, path) {
             ("GET", "/") => respond(&mut stream, 200, "text/html; charset=utf-8", &html),
             ("POST", "/negotiate") => {
-                reply.start(event);
-                respond(&mut stream, 202, "application/json", "{}")
+                if let Some(reply) = &mut reply {
+                    reply.start(event);
+                    respond(&mut stream, 202, "application/json", "{}")
+                } else {
+                    respond(
+                        &mut stream,
+                        404,
+                        "text/plain",
+                        "replay has no model endpoint",
+                    )
+                }
             }
             ("GET", "/result") => {
-                let result = reply.body_for(event);
+                let result = reply.as_ref().and_then(|reply| reply.body_for(event));
                 match result {
                     Some(body) => respond(&mut stream, 200, "application/json", &body),
                     None => respond(&mut stream, 202, "application/json", "{}"),
@@ -198,6 +261,53 @@ fn respond(stream: &mut TcpStream, code: u16, kind: &str, body: &str) -> std::io
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn recording_saves_the_received_model_words_and_reply_time() {
+        struct Live;
+        impl MergeTalk for Live {
+            fn agree(&self, snap: &MergeSnap) -> MergeChoice {
+                let mut c = ScriptedTalk.agree(snap);
+                c.lines[0].say = "Received, clearing this gap".into();
+                c.source = "model".into();
+                c.provider = "test".into();
+                c
+            }
+        }
+        let dinner = crate::run_dinner(
+            &crate::Scenario::new(
+                6,
+                crate::JamType::Symmetric,
+                "Zipper fairly so both approaches get home.",
+            ),
+            &crate::FakeEcho,
+            &crate::EpisodeOpts::default(),
+        )
+        .unwrap();
+        let board =
+            crate::board::story_board_from_run(&dinner, "scripted", crate::story::StoryKind::Chain);
+        let path =
+            std::env::temp_dir().join(format!("muse-live-recording-{}.json", std::process::id()));
+        let mut reply = Reply::new(&board.town, Box::new(Live));
+        reply.recording = Some(Recording {
+            board: Arc::new(board),
+            path: path.clone(),
+        });
+        reply.start(0);
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while reply.body_for(0).is_none() {
+            assert!(Instant::now() < deadline);
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        let saved = crate::replay::ReplayArchive::read(&path).unwrap();
+        assert_eq!(saved.board.town.exchanges[0].source, "model");
+        assert_eq!(
+            saved.board.town.exchanges[0].lines[0].say,
+            "Received, clearing this gap"
+        );
+        assert!(saved.reply_seconds[0].is_some());
+        std::fs::remove_file(path).unwrap();
+    }
 
     #[test]
     fn successive_priority_calls_keep_both_agreements_when_replies_overlap() {

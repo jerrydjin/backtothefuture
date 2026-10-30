@@ -1,0 +1,38 @@
+[
+  {
+    "commit": "fa3e3c6",
+    "after_commit": true,
+    "passed": 83,
+    "failed": 0
+  },
+  {
+    "commit": "fc37648",
+    "after_commit": true,
+    "passed": 85,
+    "failed": 0
+  },
+  {
+    "commit": "05c7695",
+    "after_commit": true,
+    "passed": 85,
+    "failed": 0
+  },
+  {
+    "commit": "c95cc23",
+    "after_commit": true,
+    "passed": 86,
+    "failed": 0
+  },
+  {
+    "commit": "3340bdd",
+    "after_commit": true,
+    "passed": 86,
+    "failed": 0
+  },
+  {
+    "commit": "2ac0e53",
+    "after_commit": true,
+    "passed": 86,
+    "failed": 0
+  }
+]

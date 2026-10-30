@@ -1,5 +1,43 @@
 # Muse
 
+```bash
+cargo run -- --demo
+```
+
+One continuous white road network: normal flow, two drivers agree who goes first,
+a typed “I'm late for the hospital” request clears a path, then hospital and
+meeting priorities compete. The demo ends on the hospital decision and its
+one-line reason, in under two minutes. `BASETEN_API_KEY` uses the live model;
+without it the same story uses the scripted fallback.
+
+`cargo run -- --demo --headless` drives the same HTTP session without a browser,
+including `POST /negotiate` and `GET /result`. Add `--require-live` to require
+Baseten replies and `--gate-log runs.jsonl` to retain the run report. Driver
+lines are capped at eight words; numbers, units, and telemetry language trigger
+a short fallback that preserves who waits and who goes.
+
+Run the real-time release gate (about seventeen minutes per batch):
+
+```bash
+cargo test && cargo build
+python3 scripts/demo-gate.py --output basic.jsonl
+# Only a passing basic ten-run log unlocks the expanded batch.
+python3 scripts/demo-gate.py --expanded --basic-log basic.jsonl --output expanded.jsonl
+```
+
+Each batch runs five genuine Baseten sessions, then five sessions with its key
+unset. Every session uses the browser's HTTP endpoints and wall clock, checks
+all replies resolve, checks zero collisions, and records length, reply time,
+provider, and exact lines. The expanded batch also checks the first weak-request
+grant and both repeated-request refusals through the same HTTP playback. The
+public demo continues to end on hospital versus meeting. Missing credentials
+stop the live gate explicitly. `--fallback-only` records just five no-key runs;
+it cannot unlock the expanded gate. Never count those as a complete ten-run gate.
+
+The optional PR workflow runs these two batches only when the head commit
+contains `[run-demo-gate]` and a repository `BASETEN_API_KEY` secret is available.
+
+
 You say what matters in plain English — the traffic bends. Muse plans the merge; the cars just drive. Dumb equal stays jammed; the scoreboard goes green.
 
 Traffic here is a closed ramp merge in meters, not a renderer. Mainline and a ramp accel lane meet at one gore. A fixed priority queue cannot write the fair order before the run, because the order comes from the English (or a small structured stub) plus the jam. Muse emits that order once. Local cars only execute it, under length, speed, and gap limits. The judge scores the trajectories.
@@ -20,7 +58,7 @@ cargo run -- --cars 6 --jam symmetric --prefs "Main has priority. Main first."
 
 `cargo run -- --board` opens the live birds-eye window: the dinner merge in one block of a small town, one yield or merge cue, and three tiny RED / RED / GREEN pills. Around it, background cars drive routes through a motorway, ramps, and streets, and queue at the merges in a rush hour. That town is its own local sim and never touches the score. `--show` prints that same dinner path in the terminal.
 
-One motorway merge on that board asks the two cars who yields. The input is their positions, speeds, gaps, and a short English preference. The reply is two lines, at most six words each, and which car waits. The lines draw over those cars and fade after the yield. The car that was told to yield waits; the other merges. The board opens immediately on a single white SVG network. Playback starts 28 seconds before the encounter, at one simulated second per real second. A loopback session sends the symbolic forecast 25 seconds before the merge; the key stays in Rust. A reply has up to 45 seconds. The first line appears as the cars approach, the second follows, then one car visibly yields and the lines fade. Only a late reply pauses the encounter with a small “negotiating…” cue. Ctrl-C ends the session. Use `--board --no-open` on a host without a display and open the printed URL.
+One motorway merge on that board asks the two cars who yields. The input is their positions, speeds, gaps, and a short English preference. The reply is two lines, at most eight words each, and which car waits. The lines draw over those cars and fade after the yield. The car that was told to yield waits; the other merges. The board opens immediately on a single white SVG network. Playback starts 28 seconds before the encounter, at one simulated second per real second. A loopback session sends the symbolic forecast 25 seconds before the merge; the key stays in Rust. A reply has up to 45 seconds. The first line appears as the cars approach, the second follows, then one car visibly yields and the lines fade. Only a late reply pauses the encounter with a small “negotiating…” cue. Ctrl-C ends the session. Use `--board --no-open` on a host without a display and open the printed URL.
 
 ```bash
 BASETEN_API_KEY=... cargo run -- --board
@@ -50,6 +88,24 @@ without it: 14.5 seconds sooner, zero collisions. `--priority-baseline` plays
 the same trip without the request; `cargo run -- --priority` prints the comparison.
 No API key is needed. Baseten uses the same 25-second prefetch and 45-second
 request timeout for each exchange. See [the priority proof](docs/priority-request.md).
+
+## Negotiation stories and replay
+
+`cargo run -- --board --story competing` shows hospital vs meeting requests and
+why the hospital wins. Other stories are `abuse` (repeated weak requests get no),
+`emergency` (sustained symbolic distress, no rider request), `chain` (three real
+cars acknowledge), and `counter-offer` (an accepted crossing before priority).
+Rerouting stays cut. Every story works without a key.
+
+```bash
+cargo run -- --board --story counter-offer --save-replay /tmp/traffic-replay.json
+cargo run -- --replay /tmp/traffic-replay.json
+```
+
+The saved snapshot updates with actual model words as replies arrive. Replay
+uses the saved motion and decisions with zero model calls. Press R or the small
+replay button to watch again. Add `--no-open` for a headless host.
+[Commands, measured outcomes, and proof](docs/negotiation-stories.md).
 
 ## Loop
 
@@ -83,6 +139,9 @@ Fairness is the share of contested gate passages that repeated the same approach
 | `--no-open` | With `--board`, print the local URL without launching a browser. |
 | `--priority` | Request priority for car 177 and compare its trip with no request. |
 | `--priority-baseline` | Play the same trip without requesting priority. |
+| `--story` | `competing`, `abuse`, `emergency`, `chain`, or `counter-offer`. |
+| `--save-replay` | Save the board's actual motion, dialogue, reasons, and reply times. |
+| `--replay` | Replay that file offline with zero model calls. |
 
 Structured prefs are a `Bias` on `Prefs` (`balanced`, `favor_main`, `favor_ramp`). The prompt carries them. When set, they win over the sentence. The executor never reads prefs itself.
 

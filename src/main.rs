@@ -24,6 +24,49 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
+    if args.demo {
+        return match muse::demo::run(
+            args.headless,
+            !args.no_open,
+            args.require_live,
+            args.include_weak,
+            args.gate_log.as_deref(),
+        ) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("demo: {error}");
+                ExitCode::from(1)
+            }
+        };
+    }
+
+    if let Some(path) = &args.replay {
+        let archive = match muse::replay::ReplayArchive::read(path) {
+            Ok(archive) => archive,
+            Err(error) => {
+                eprintln!("{error}");
+                return ExitCode::from(1);
+            }
+        };
+        println!("Replay: saved trajectories and dialogue; model calls=0");
+        for strip in archive.board.strips.iter().filter(|s| s.scoreboard) {
+            println!("{:<12}{}", strip.name, strip.score);
+        }
+        if let Some(path) = &args.save_replay {
+            if let Err(error) = archive.write(path) {
+                eprintln!("{error}");
+                return ExitCode::from(1);
+            }
+        }
+        return match muse::board_server::serve_replay(&archive.board, !args.no_open) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("replay: {error}");
+                ExitCode::from(1)
+            }
+        };
+    }
+
     let muse = match MuseKind::from_env() {
         Ok(muse) => muse,
         Err(error) => {
@@ -83,11 +126,25 @@ fn main() -> ExitCode {
         eprintln!("fair prefs did not go green");
         return ExitCode::from(1);
     }
-    if args.board || args.priority.is_some() {
-        let board = match args.priority {
-            Some(enabled) => muse::board::priority_board_from_run(&dinner, muse.label(), enabled),
-            None => board_from_run(&dinner, muse.label()),
+    if args.board || args.priority.is_some() || args.story.is_some() || args.save_replay.is_some() {
+        let board = if let Some(kind) = args.story {
+            muse::board::story_board_from_run(&dinner, muse.label(), kind)
+        } else {
+            match args.priority {
+                Some(enabled) => {
+                    muse::board::priority_board_from_run(&dinner, muse.label(), enabled)
+                }
+                None => board_from_run(&dinner, muse.label()),
+            }
         };
+        if let Some(story) = &board.town.story {
+            for decision in &story.decisions {
+                println!(
+                    "priority car={} granted={} reason={}",
+                    decision.claim.car_id, decision.granted, decision.explanation
+                );
+            }
+        }
         if let Some(p) = &board.town.priority {
             if let (Some(time), Some(baseline)) = (p.time_home_s, p.baseline_time_home_s) {
                 println!("priority car={} requested={} time_home={time:.2}s baseline={baseline:.2}s saved={:.2}s collisions={} negotiations={}",
@@ -95,10 +152,20 @@ fn main() -> ExitCode {
                     board.town.stats.overlaps + board.town.stats.crossing_conflicts, board.town.exchanges.len());
             }
         }
+        if let Some(path) = &args.save_replay {
+            if let Err(error) = muse::replay::ReplayArchive::new(board.clone()).write(path) {
+                eprintln!("{error}");
+                return ExitCode::from(1);
+            }
+            println!("replay: {} (updated as replies arrive)", path.display());
+        }
         if args.board {
-            if let Err(error) =
-                muse::board_server::serve_board(&board, negotiator_from_env(), !args.no_open)
-            {
+            if let Err(error) = muse::board_server::serve_board_recording(
+                &board,
+                negotiator_from_env(),
+                !args.no_open,
+                args.save_replay.as_deref(),
+            ) {
                 eprintln!("board: {error}");
                 return ExitCode::from(1);
             }
@@ -115,8 +182,16 @@ struct Args {
     prefs: String,
     show: bool,
     board: bool,
+    demo: bool,
+    headless: bool,
+    require_live: bool,
+    include_weak: bool,
+    gate_log: Option<std::path::PathBuf>,
     no_open: bool,
     priority: Option<bool>,
+    story: Option<muse::story::StoryKind>,
+    replay: Option<std::path::PathBuf>,
+    save_replay: Option<std::path::PathBuf>,
     rewrite_every: Option<u32>,
 }
 
@@ -129,8 +204,16 @@ impl Args {
             prefs: "Zipper fairly so both approaches get home.".to_string(),
             show: false,
             board: false,
+            demo: false,
+            headless: false,
+            require_live: false,
+            include_weak: false,
+            gate_log: None,
             no_open: false,
             priority: None,
+            story: None,
+            replay: None,
+            save_replay: None,
             rewrite_every: None,
         };
         let mut args = env::args().skip(1);
@@ -139,9 +222,32 @@ impl Args {
                 "-h" | "--help" => parsed.help = true,
                 "--show" => parsed.show = true,
                 "--board" => parsed.board = true,
+                "--demo" => parsed.demo = true,
+                "--headless" => parsed.headless = true,
+                "--require-live" => parsed.require_live = true,
+                "--include-weak" => parsed.include_weak = true,
+                "--gate-log" => {
+                    parsed.gate_log = Some(args.next().ok_or("--gate-log needs a file")?.into())
+                }
                 "--no-open" => parsed.no_open = true,
                 "--priority" => parsed.priority = Some(true),
                 "--priority-baseline" => parsed.priority = Some(false),
+                "--replay" => {
+                    parsed.replay = Some(args.next().ok_or("--replay needs a file")?.into())
+                }
+                "--save-replay" => {
+                    parsed.save_replay =
+                        Some(args.next().ok_or("--save-replay needs a file")?.into())
+                }
+                "--story" => {
+                    let value = args.next().ok_or(
+                        "--story needs competing, abuse, emergency, chain, or counter-offer",
+                    )?;
+                    parsed.story = Some(
+                        muse::story::StoryKind::parse(&value)
+                            .ok_or_else(|| format!("unknown story {value}"))?,
+                    );
+                }
                 "--cars" => {
                     let value = args.next().ok_or("--cars needs a number")?;
                     parsed.cars = value
@@ -169,6 +275,25 @@ impl Args {
         if !(2..=64).contains(&parsed.cars) {
             return Err("cars must be from 2 to 64".into());
         }
+        if parsed.replay.is_some() && (parsed.story.is_some() || parsed.priority.is_some()) {
+            return Err("--replay uses saved decisions; choose a replay or a new story".into());
+        }
+        if (parsed.headless || parsed.require_live || parsed.gate_log.is_some()) && !parsed.demo {
+            return Err("--headless, --require-live, and --gate-log need --demo".into());
+        }
+        if parsed.include_weak && !(parsed.demo && parsed.headless) {
+            return Err("--include-weak needs --demo --headless".into());
+        }
+        if parsed.demo
+            && (parsed.story.is_some()
+                || parsed.priority.is_some()
+                || parsed.replay.is_some()
+                || parsed.save_replay.is_some())
+        {
+            return Err(
+                "--demo plays the complete story; use story/replay flags separately".into(),
+            );
+        }
         Ok(parsed)
     }
 }
@@ -182,6 +307,11 @@ Usage:
   cargo run -- --cars 6 --jam symmetric --prefs \"Zipper fairly so both approaches get home.\"
 
 Knobs:
+  --demo                   play the finite normal/merge/priority/competing story
+  --headless               drive the same demo over HTTP without a browser
+  --require-live           fail the headless gate unless every reply is Baseten
+  --include-weak           also gate the weak-request grant and repeated refusals
+  --gate-log FILE          append the headless run report as JSONL
   --cars N                 fleet size, 2 to 64 (default 6)
   --jam KIND               symmetric | ramp-surge | mainline-plug
   --prefs SENTENCE         plain English merge preference
@@ -191,6 +321,9 @@ Knobs:
   --no-open                print the board URL without opening a window (with --board)
   --priority               car 177 requests priority; cars ahead clear its path
   --priority-baseline      the same trip without its priority request
+  --story KIND             competing | abuse | emergency | chain | counter-offer
+  --save-replay FILE       save trajectories, dialogue, reasons, and reply times
+  --replay FILE            play that saved result with zero model calls
   --help
 
 Negotiation:

@@ -116,3 +116,24 @@ conflicts at every 0.25s recorded physics step. The dinner score stays unchanged
 mock model replies (19.050s, 19.035s). There is no configured Baseten key; these
 mock timings are not real model latency. See docs/priority-request.md for the
 commands, measured comparison, validation, and cuts. Judge/schema untouched.
+
+## Negotiation stories (steps 7–12, stacked PR #13)
+
+`--story competing|abuse|emergency|chain|counter-offer` adds simultaneous hospital
+vs meeting requests with an on-map explanation, rider-history denials for weak
+spam, automatic sustained-distress detection without a rider request, three-car
+acknowledgements, and an explicitly accepted crossing before hospital priority.
+All use the existing road routes and gap/crossing physics. Rerouting is cut.
+
+`--save-replay FILE` records actual words, trajectories, reasons, source, and
+reply times, updating after each model reply. `--replay FILE` replays that data
+with zero model calls; the replay button or R restarts it. All stories have a
+no-key fallback. 80 cargo tests pass. Browser proof includes a full three-reply
+mock run (19.030s, 19.015s, 19.039s) and offline replay with unusable keys.
+Baseten is still unmeasured because no key is configured.
+
+No-request time-home is 141.00s. Hospital/emergency/chain are 126.50s; the accepted
+counter-offer is 101.50s. Weak spam earns no extension and stays 141.00s. Every
+recorded run has zero lane overlaps and crossing conflicts at 0.25s precision.
+Sticky RED/RED/GREEN time_home=69, judge, and schema are unchanged. See
+`docs/negotiation-stories.md` for complete commands, evidence, and commit counts.

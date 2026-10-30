@@ -11,6 +11,7 @@ pub const DINNER_SENTENCE: &str = "You say what matters in plain English — the
 pub mod agents;
 pub mod board;
 pub mod board_server;
+pub mod demo;
 pub mod episode;
 pub mod error;
 mod judge;
@@ -18,7 +19,9 @@ pub mod muse;
 pub mod negotiate;
 pub mod network;
 pub mod prefs;
+pub mod replay;
 pub mod schema;
+pub mod story;
 pub mod world;
 
 pub use agents::{DumbEqual, FollowPlan, Selfish};
