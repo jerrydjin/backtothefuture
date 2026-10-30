@@ -7,6 +7,101 @@ use std::time::{Duration, Instant};
 
 pub const MAX_REASON_CHARS: usize = 240;
 
+/// A failed model call must not turn a plausible acute medical claim into a
+/// denial. This deliberately favors safe priority for uncertain medical claims;
+/// explicit absence is different from critical negative signs such as no pulse.
+pub fn plausible_medical_emergency(reason: &str) -> bool {
+    let lower = reason.to_lowercase().replace(['’', '‘'], "'");
+    let normalized = lower
+        .split(|c: char| !c.is_alphanumeric() && c != '\'')
+        .filter(|w| !w.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
+    let text = format!(" {normalized} ");
+    let critical = [
+        "not breathing",
+        "isn't breathing",
+        "no pulse",
+        "not conscious",
+        "isn't conscious",
+        "not waking",
+        "can't breathe",
+        "cannot breathe",
+    ];
+    let symptoms = [
+        "medical emergency",
+        "urgent medical",
+        "urgent care",
+        "chest pain",
+        "seizure",
+        "seizures",
+        "stroke",
+        "overdose",
+        "allergic reaction",
+        "anaphylaxis",
+        "unconscious",
+        "unresponsive",
+        "choking",
+        "heart attack",
+        "cardiac arrest",
+        "bleeding",
+        "hemorrhage",
+        "haemorrhage",
+        "asthma attack",
+        "diabetic emergency",
+        "hypoglycemic",
+        "hypoglycaemic",
+        "collapsed",
+        "passed out",
+        "poisoning",
+        "active labour",
+        "active labor",
+        "in labour",
+        "in labor",
+        "water broke",
+        "seizing",
+        "convulsion",
+        "convulsions",
+        "overdosed",
+        "poisoned",
+        "hypoglycemia",
+        "hypoglycaemia",
+        "trouble breathing",
+        "breathing trouble",
+        "severe burns",
+        "severe injury",
+        "head injury",
+    ];
+    for signal in critical.iter().chain(symptoms.iter()) {
+        let needle = format!(" {signal} ");
+        for (at, _) in text.match_indices(&needle) {
+            let prefix = text[..at].trim_end();
+            let absent = [
+                "no",
+                "not",
+                "without",
+                "not have",
+                "not having",
+                "not having a",
+                "not having any",
+                "not experiencing",
+                "don't have",
+                "doesn't have",
+                "isn't having",
+                "no sign of",
+                "no signs of",
+                "no history of",
+            ]
+            .iter()
+            .any(|p| prefix == *p || prefix.ends_with(&format!(" {p}")));
+            if !absent {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 #[derive(Clone, Debug)]
 pub struct ReasonText(String);
 
@@ -263,28 +358,7 @@ impl ReasonAgent {
         failure: &str,
         reply_s: f64,
     ) -> ReasonDecision {
-        let lower = reason.as_str().to_lowercase();
-        // Offline policy is deliberately conservative; ambiguous text keeps its turn.
-        let granted = [
-            "medical emergency",
-            "chest pain",
-            "can't breathe",
-            "cannot breathe",
-            "severe bleeding",
-            "urgent medical",
-        ]
-        .iter()
-        .any(|s| lower.contains(s))
-            && ![
-                "not ",
-                "no ",
-                "without ",
-                "routine",
-                "nonurgent",
-                "non-urgent",
-            ]
-            .iter()
-            .any(|s| lower.contains(s));
+        let granted = plausible_medical_emergency(reason.as_str());
         ReasonDecision {
             granted,
             explanation: if granted {
