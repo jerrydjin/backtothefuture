@@ -51,6 +51,24 @@ the same trip without the request; `cargo run -- --priority` prints the comparis
 No API key is needed. Baseten uses the same 25-second prefetch and 45-second
 request timeout for each exchange. See [the priority proof](docs/priority-request.md).
 
+## Negotiation stories and replay
+
+`cargo run -- --board --story competing` shows hospital vs meeting requests and
+why the hospital wins. Other stories are `abuse` (repeated weak requests get no),
+`emergency` (sustained symbolic distress, no rider request), `chain` (three real
+cars acknowledge), and `counter-offer` (an accepted crossing before priority).
+Rerouting stays cut. Every story works without a key.
+
+```bash
+cargo run -- --board --story counter-offer --save-replay /tmp/traffic-replay.json
+cargo run -- --replay /tmp/traffic-replay.json
+```
+
+The saved snapshot updates with actual model words as replies arrive. Replay
+uses the saved motion and decisions with zero model calls. Press R or the small
+replay button to watch again. Add `--no-open` for a headless host.
+[Commands, measured outcomes, and proof](docs/negotiation-stories.md).
+
 ## Loop
 
 1. Spawn one merge jam (`--cars`, `--jam`).
@@ -83,6 +101,9 @@ Fairness is the share of contested gate passages that repeated the same approach
 | `--no-open` | With `--board`, print the local URL without launching a browser. |
 | `--priority` | Request priority for car 177 and compare its trip with no request. |
 | `--priority-baseline` | Play the same trip without requesting priority. |
+| `--story` | `competing`, `abuse`, `emergency`, `chain`, or `counter-offer`. |
+| `--save-replay` | Save the board's actual motion, dialogue, reasons, and reply times. |
+| `--replay` | Replay that file offline with zero model calls. |
 
 Structured prefs are a `Bias` on `Prefs` (`balanced`, `favor_main`, `favor_ramp`). The prompt carries them. When set, they win over the sentence. The executor never reads prefs itself.
 

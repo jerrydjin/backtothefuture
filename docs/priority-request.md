@@ -64,3 +64,5 @@ Sticky remains RED / RED / GREEN, `time_home=69`. `src/judge.rs` and
 The trigger and target are a fixed symbolic demo, not emergency detection or an
 arbitrary-car picker. No new dashboard, map panels, lights, pedestrians, speed
 boosts, or model control of per-tick driving. Live Baseten proof needs a key.
+
+These cuts describe PR #12. Steps 7–12 continue in [negotiation stories](negotiation-stories.md), including symbolic emergency detection, chain negotiation, counter-offers, and replay.
