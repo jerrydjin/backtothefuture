@@ -402,8 +402,9 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
 <script>
 (function () {
   var data = JSON.parse(document.getElementById("board-data").textContent);
-  var isDemo = !!data.demo && /[?&]demo=1(?:&|$)/.test(location.search);
-  var isReason = /[?&]reason=1(?:&|$)/.test(location.search);
+  var isReplay = /[?&]replay=1(?:&|$)/.test(location.search);
+  var isDemo = !!data.demo && (isReplay || /[?&]demo=1(?:&|$)/.test(location.search));
+  var isReason = !!data.reason || /[?&]reason=1(?:&|$)/.test(location.search);
   var demoView = null;
   var maxTick = 0;
   data.strips.forEach(function (strip) {
@@ -449,7 +450,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
 
   var animating = seekTo == null;
   function restart() {
-    if (isDemo) {
+    if (isDemo && !isReplay) {
       fetch("/demo/restart", { method: "POST" }).then(function () { demoView = null; pollDemo(); });
       return;
     }
@@ -502,7 +503,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
 
   // Forecast once, ask 25 wall seconds before the encounter, then replay the
   // returned agreement through the same local physics. Only a late reply holds time.
-  var live = seekTo == null && (isDemo || /[?&]live=1(?:&|$)/.test(String(location.search)));
+  var live = !isReplay && seekTo == null && (isDemo || /[?&]live=1(?:&|$)/.test(String(location.search)));
   var initialExchanges = data.town.exchanges.length ? data.town.exchanges :
     (data.town.exchange ? [data.town.exchange] : []);
   var readyEvents = {}, requestedEvents = {}, revision = 0;
@@ -517,7 +518,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     var reasonForm = document.getElementById("reason-form");
     var reasonInput = document.getElementById("reason-input");
     var reasonStatus = document.getElementById("reason-status");
-    reasonForm.hidden = false;
+    reasonForm.hidden = isReplay;
     if (data.reason) reasonInput.value = data.reason.reason;
     function showReasonStatus() {
       if (!data.reason) return;
@@ -597,6 +598,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
 
   function townTime(now) {
     if (isDemo) {
+      if (isReplay) demoView = recordedDemoView(now);
       var t = demoView ? demoView.sim_t : data.demo.stages[0].from_t;
       document.getElementById("network").setAttribute("data-time", t.toFixed(3));
       return t;
@@ -627,8 +629,37 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
   }
 
   var demoPolling = false;
+  // Saved live demos have all words already. Replay the same finite stage
+  // timing locally; no fetch, provider, or new physics decision is involved.
+  function recordedDemoView(now) {
+    var local = seekTo == null ? elapsedSec(now) : seekTo;
+    var stages = data.demo.stages, index = 0;
+    function duration(stage) { return (stage.requests.length ? 2 : 0) + 32.5; }
+    while (index + 1 < stages.length && local >= duration(stages[index])) {
+      local -= duration(stages[index++]);
+    }
+    var stage = stages[index], ex = town.exchanges[stage.event];
+    var typing = stage.requests.length ? 2 : 0;
+    var approach = local - typing;
+    var phase, t;
+    function mix(a, b, u) { return a + (b - a) * Math.max(0, Math.min(1, u)); }
+    if (local < typing) { phase = "typing"; t = mix(stage.from_t, stage.trigger_t, local / typing); }
+    else if (approach < 25) { phase = "approach"; t = mix(stage.trigger_t, ex.t - 3, approach / 25); }
+    else if (approach < 28) { phase = "dialogue"; t = mix(ex.t - 3, ex.t, (approach - 25) / 3); }
+    else if (approach < 31) { phase = "yield"; t = mix(ex.t, ex.until, (approach - 28) / 3); }
+    else if (approach < 32.5) { phase = "fade"; t = mix(ex.until, ex.until + ex.fade_s, (approach - 31) / 1.5); }
+    else { phase = "complete"; t = ex.until + ex.fade_s; }
+    var view = { stage: index, name: stage.name, event: stage.event, phase: phase, sim_t: t,
+      typed_progress: typing ? Math.min(1, local / typing) : 1,
+      reason: ["typing", "approach"].includes(phase) ? "" : stage.reason, complete: phase === "complete" };
+    var svg = document.getElementById("network");
+    svg.setAttribute("data-demo-stage", view.name);
+    svg.setAttribute("data-demo-phase", view.phase);
+    svg.setAttribute("data-demo-complete", String(view.complete));
+    return view;
+  }
   function pollDemo() {
-    if (!isDemo || demoPolling) return;
+    if (!isDemo || isReplay || demoPolling) return;
     demoPolling = true;
     fetch("/demo/state", { cache: "no-store", signal: AbortSignal.timeout(5000) })
       .then(function (r) { if (!r.ok) throw new Error("demo state"); return r.json(); })
