@@ -17,7 +17,7 @@ use crate::schema::{Score, TalkPhase, WorldState, YieldRole};
 use crate::world::{CAR_LENGTH_M, CAR_WIDTH_M, LANE_WIDTH_M, TAPER_M};
 
 /// One flat car. `s` is the front bumper in meters, the same station the sim uses.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct BoardCar {
     pub id: u32,
     pub approach: String,
@@ -30,7 +30,7 @@ pub struct BoardCar {
 }
 
 /// One yield / merge line drawn on a car for this tick.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct BoardTalk {
     pub id: u32,
     pub role: String,
@@ -38,7 +38,7 @@ pub struct BoardTalk {
 }
 
 /// One sim tick, slimmed to what the canvas draws.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct BoardFrame {
     pub tick: u32,
     pub gate_blocked: bool,
@@ -51,7 +51,7 @@ pub struct BoardFrame {
 
 /// Where the dinner merge sits in the town. Same meters as the sim; `main_s0` is the
 /// station at the start of the main polyline. The ramp ends at the gore.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct DinnerRoad {
     pub main: Vec<[f64; 2]>,
     pub ramp: Vec<[f64; 2]>,
@@ -60,7 +60,7 @@ pub struct DinnerRoad {
 }
 
 /// One scored run. The side panel lists these. The map plays one at a time.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct BoardStrip {
     pub name: String,
     pub story: String,
@@ -74,7 +74,7 @@ pub struct BoardStrip {
 }
 
 /// Everything the window needs. Built from a finished dinner run.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct DinnerBoard {
     pub client: String,
     pub cars: u32,
@@ -304,8 +304,11 @@ fn road_marks(run: &DinnerRun) -> (f64, f64) {
 /// The script draws a white network and moves flat cars. One yield or merge cue.
 /// One town merge draws two short grey lines over those cars, then fades.
 pub fn render_board_html(board: &DinnerBoard) -> String {
-    let json = serde_json::to_string(board).unwrap_or_else(|_| "{}".to_string());
-    let json = json.replace('<', "\\u003c");
+    let json = serde_json::to_string(board)
+        .unwrap_or_else(|_| "{}".to_string())
+        .replace('<', "\\u003c")
+        .replace('>', "\\u003e")
+        .replace('&', "\\u0026");
     let mut pills = String::new();
     for (index, strip) in board.strips.iter().enumerate() {
         if !strip.scoreboard {
@@ -354,11 +357,14 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
   .pill.red { color: #a94444; border-color: #e7cccc; }
   .pill.green { color: #2f7a4a; border-color: #c9e0d0; }
   .pill.on { color: #1c1c1c; border-color: #1c1c1c; }
+  #replay { position: fixed; bottom: 12px; left: 12px; z-index: 2; font: 10px/1 system-ui, sans-serif;
+    color: #888; border: 1px solid #ddd; border-radius: 999px; padding: 3px 7px; background: white; cursor: pointer; }
 </style>
 </head>
 <body>
 <svg id="network" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cars negotiate on a town road network"></svg>
 <div id="pills">__PILLS__</div>
+<button id="replay" type="button" title="Replay the saved words and motion (R)">replay</button>
 <script id="board-data" type="application/json">__BOARD_JSON__</script>
 <script>
 (function () {
@@ -404,6 +410,20 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     }
     setActive(index);
   });
+
+  var animating = seekTo == null;
+  function restart() {
+    seekTo = null;
+    origin = performance.now();
+    paused = false;
+    lostTime = 0;
+    waitingSince = null;
+    waitingAt = null;
+    if (!animating) { animating = true; requestAnimationFrame(loop); }
+    paint(performance.now());
+  }
+  document.getElementById("replay").addEventListener("click", restart);
+  document.addEventListener("keydown", function (ev) { if (ev.key.toLowerCase() === "r") restart(); });
 
   function setActive(index) {
     if (index < 0 || index >= data.strips.length || isNaN(index)) return;
@@ -458,15 +478,19 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     requestedEvents[event] = true;
     var deadline = performance.now() + 48000;
     function fallback() {
+      if (readyEvents[event]) return;
       var ex = allExchanges()[event];
       if (ex) { ex.source = "fallback"; ex.reason = "transport"; }
       readyEvents[event] = true;
     }
     function poll() {
-      fetch("/result?event=" + event, { cache: "no-store", signal: AbortSignal.timeout(2000) }).then(function (r) {
+      if (readyEvents[event]) return;
+      fetch("/result?event=" + event, { cache: "no-store", signal: AbortSignal.timeout(5000) }).then(function (r) {
         if (r.status === 202) {
-          if (performance.now() >= deadline) fallback(); else setTimeout(poll, 150);
-          return null;
+          return r.text().then(function () {
+            if (performance.now() >= deadline) fallback(); else setTimeout(poll, 150);
+            return null;
+          });
         }
         if (!r.ok) throw new Error("board session closed");
         return r.json();
@@ -477,10 +501,18 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
           revision = reply.completed.length;
         }
         reply.completed.forEach(function (i) { readyEvents[i] = true; });
-      }).catch(fallback);
+      }).catch(function () {
+        if (performance.now() >= deadline) fallback(); else setTimeout(poll, 200);
+      });
     }
-    fetch("/negotiate?event=" + event, { method: "POST", signal: AbortSignal.timeout(2000) })
-      .then(function (r) { if (!r.ok) throw new Error("board session closed"); poll(); }).catch(fallback);
+    function start() {
+      if (readyEvents[event]) return;
+      fetch("/negotiate?event=" + event, { method: "POST", signal: AbortSignal.timeout(5000) })
+        .then(function (r) { if (!r.ok) throw new Error("board session closed"); return r.text(); })
+        .then(poll)
+        .catch(function () { if (performance.now() >= deadline) fallback(); else setTimeout(start, 200); });
+    }
+    start();
   }
 
   function townTime(now) {
@@ -966,7 +998,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
   }
   setActive(active);
   paint(performance.now());
-  if (seekTo == null) requestAnimationFrame(loop);
+  if (animating) requestAnimationFrame(loop);
 })();
 </script>
 </body>

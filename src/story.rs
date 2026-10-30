@@ -4,7 +4,7 @@
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum StoryKind {
     Competing,
@@ -27,7 +27,7 @@ impl StoryKind {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum PriorityReason {
     Meeting,
@@ -45,7 +45,7 @@ impl PriorityReason {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, serde::Deserialize)]
 pub struct RiderClaim {
     pub rider_id: u32,
     pub car_id: u32,
@@ -54,7 +54,7 @@ pub struct RiderClaim {
     pub reason: PriorityReason,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, serde::Deserialize)]
 pub struct PriorityDecision {
     pub claim: RiderClaim,
     pub granted: bool,
@@ -62,14 +62,14 @@ pub struct PriorityDecision {
 }
 
 /// A symbolic simulation observation, never a rider's urgency claim.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, serde::Deserialize)]
 pub struct SensorObservation {
     pub car_id: u32,
     pub at_s: f64,
     pub passenger_distress: bool,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, serde::Deserialize)]
 pub struct EmergencyDetection {
     pub car_id: u32,
     pub at_s: f64,
@@ -207,7 +207,7 @@ pub fn resolve_competing(claims: &[RiderClaim]) -> Vec<PriorityDecision> {
     PriorityLedger::default().resolve(claims)
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct StoryRun {
     pub kind: StoryKind,
     pub claims: Vec<RiderClaim>,

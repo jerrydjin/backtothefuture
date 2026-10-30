@@ -23,7 +23,7 @@ const SAY_YIELD: &str = "you merge, I yield";
 const SAY_MERGE: &str = "I'll merge, thanks";
 
 /// One car at a merge, in meters. This is the model input. No pixels.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, serde::Deserialize)]
 pub struct MergeCar {
     pub id: u32,
     pub x: f64,
@@ -35,7 +35,7 @@ pub struct MergeCar {
 }
 
 /// The two cars at the one negotiated merge.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, serde::Deserialize)]
 pub struct MergeSnap {
     pub cars: [MergeCar; 2],
     /// The queue head carrying a priority request, if any.
@@ -47,7 +47,7 @@ pub struct MergeSnap {
 }
 
 /// One spoken line. `say` is one to six words.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, serde::Deserialize)]
 pub struct MergeLine {
     pub id: u32,
     pub say: String,

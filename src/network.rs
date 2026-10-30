@@ -55,7 +55,7 @@ const YIELD_CAP_S: f64 = 14.0;
 /// motorway, the south arterial, and the first two cross streets.
 pub const DINNER_HOME: [f64; 2] = [296.0, 286.0];
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, serde::Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum RoadClass {
     Motorway,
@@ -89,7 +89,7 @@ impl RoadClass {
 }
 
 /// One directed lane. A connector is the short path through a junction from one link to another.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct Link {
     pub id: usize,
     pub class: RoadClass,
@@ -649,13 +649,13 @@ struct Car {
 /// One recorded car: `[id, route, distance along route, speed]`.
 pub type NetCar = (u32, u32, f64, f64);
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct NetFrame {
     pub t: u32,
     pub cars: Vec<NetCar>,
 }
 
-#[derive(Clone, Debug, Default, Serialize)]
+#[derive(Clone, Debug, Default, Serialize, serde::Deserialize)]
 pub struct NetStats {
     pub spawned: u32,
     pub exited: u32,
@@ -672,7 +672,7 @@ pub struct NetStats {
 }
 
 /// The one spoken exchange at a motorway merge. The board fades it after the yield.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct TownExchange {
     /// Seconds from the start of the recording.
     pub t: f64,
@@ -733,7 +733,7 @@ impl TownExchange {
 }
 
 /// A recorded run of the town, ready to draw.
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct NetworkRun {
     pub links: Vec<Link>,
     pub routes: Vec<Vec<usize>>,
@@ -748,7 +748,7 @@ pub struct NetworkRun {
     pub story: Option<StoryRun>,
 }
 
-#[derive(Clone, Copy, Debug, Serialize)]
+#[derive(Clone, Copy, Debug, Serialize, serde::Deserialize)]
 pub struct PriorityRequest {
     pub car_id: u32,
     /// Seconds from the start of the recording.
@@ -761,7 +761,7 @@ pub const PRIORITY_DEMO: PriorityRequest = PriorityRequest {
     at_s: 200.0,
 };
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct PriorityResult {
     pub request: PriorityRequest,
     pub enabled: bool,

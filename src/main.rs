@@ -24,6 +24,33 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
+    if let Some(path) = &args.replay {
+        let archive = match muse::replay::ReplayArchive::read(path) {
+            Ok(archive) => archive,
+            Err(error) => {
+                eprintln!("{error}");
+                return ExitCode::from(1);
+            }
+        };
+        println!("Replay: saved trajectories and dialogue; model calls=0");
+        for strip in archive.board.strips.iter().filter(|s| s.scoreboard) {
+            println!("{:<12}{}", strip.name, strip.score);
+        }
+        if let Some(path) = &args.save_replay {
+            if let Err(error) = archive.write(path) {
+                eprintln!("{error}");
+                return ExitCode::from(1);
+            }
+        }
+        return match muse::board_server::serve_replay(&archive.board, !args.no_open) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("replay: {error}");
+                ExitCode::from(1)
+            }
+        };
+    }
+
     let muse = match MuseKind::from_env() {
         Ok(muse) => muse,
         Err(error) => {
@@ -83,7 +110,7 @@ fn main() -> ExitCode {
         eprintln!("fair prefs did not go green");
         return ExitCode::from(1);
     }
-    if args.board || args.priority.is_some() || args.story.is_some() {
+    if args.board || args.priority.is_some() || args.story.is_some() || args.save_replay.is_some() {
         let board = if let Some(kind) = args.story {
             muse::board::story_board_from_run(&dinner, muse.label(), kind)
         } else {
@@ -109,10 +136,20 @@ fn main() -> ExitCode {
                     board.town.stats.overlaps + board.town.stats.crossing_conflicts, board.town.exchanges.len());
             }
         }
+        if let Some(path) = &args.save_replay {
+            if let Err(error) = muse::replay::ReplayArchive::new(board.clone()).write(path) {
+                eprintln!("{error}");
+                return ExitCode::from(1);
+            }
+            println!("replay: {} (updated as replies arrive)", path.display());
+        }
         if args.board {
-            if let Err(error) =
-                muse::board_server::serve_board(&board, negotiator_from_env(), !args.no_open)
-            {
+            if let Err(error) = muse::board_server::serve_board_recording(
+                &board,
+                negotiator_from_env(),
+                !args.no_open,
+                args.save_replay.as_deref(),
+            ) {
                 eprintln!("board: {error}");
                 return ExitCode::from(1);
             }
@@ -132,6 +169,8 @@ struct Args {
     no_open: bool,
     priority: Option<bool>,
     story: Option<muse::story::StoryKind>,
+    replay: Option<std::path::PathBuf>,
+    save_replay: Option<std::path::PathBuf>,
     rewrite_every: Option<u32>,
 }
 
@@ -147,6 +186,8 @@ impl Args {
             no_open: false,
             priority: None,
             story: None,
+            replay: None,
+            save_replay: None,
             rewrite_every: None,
         };
         let mut args = env::args().skip(1);
@@ -158,6 +199,13 @@ impl Args {
                 "--no-open" => parsed.no_open = true,
                 "--priority" => parsed.priority = Some(true),
                 "--priority-baseline" => parsed.priority = Some(false),
+                "--replay" => {
+                    parsed.replay = Some(args.next().ok_or("--replay needs a file")?.into())
+                }
+                "--save-replay" => {
+                    parsed.save_replay =
+                        Some(args.next().ok_or("--save-replay needs a file")?.into())
+                }
                 "--story" => {
                     let value = args.next().ok_or(
                         "--story needs competing, abuse, emergency, chain, or counter-offer",
@@ -194,6 +242,9 @@ impl Args {
         if !(2..=64).contains(&parsed.cars) {
             return Err("cars must be from 2 to 64".into());
         }
+        if parsed.replay.is_some() && (parsed.story.is_some() || parsed.priority.is_some()) {
+            return Err("--replay uses saved decisions; choose a replay or a new story".into());
+        }
         Ok(parsed)
     }
 }
@@ -217,6 +268,8 @@ Knobs:
   --priority               car 177 requests priority; cars ahead clear its path
   --priority-baseline      the same trip without its priority request
   --story KIND             competing | abuse | emergency | chain | counter-offer
+  --save-replay FILE       save trajectories, dialogue, reasons, and reply times
+  --replay FILE            play that saved result with zero model calls
   --help
 
 Negotiation:
