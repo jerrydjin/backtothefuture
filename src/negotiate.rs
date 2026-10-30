@@ -40,6 +40,9 @@ pub struct MergeSnap {
     pub cars: [MergeCar; 2],
     /// The queue head carrying a priority request, if any.
     pub priority_for: Option<u32>,
+    /// Additional actual cars relaying the same request along the route.
+    pub relays: Vec<MergeCar>,
+    pub cause: Option<String>,
 }
 
 /// One spoken line. `say` is one to six words.
@@ -185,6 +188,7 @@ pub fn render_merge_prompt(snap: &MergeSnap) -> String {
     let cars: Vec<PromptCar<'_>> = snap
         .cars
         .iter()
+        .chain(snap.relays.iter())
         .map(|car| PromptCar {
             id: car.id,
             x: car.x,
@@ -199,22 +203,37 @@ pub fn render_merge_prompt(snap: &MergeSnap) -> String {
     let state = serde_json::to_string(&cars).unwrap_or_else(|_| "[]".to_string());
     let id0 = snap.cars[0].id;
     let id1 = snap.cars[1].id;
+    let ids: Vec<_> = snap
+        .cars
+        .iter()
+        .chain(snap.relays.iter())
+        .map(|c| c.id)
+        .collect();
+    let schema = serde_json::to_string(
+        &ids.iter()
+            .map(|id| {
+                serde_json::json!({
+                    "id":id,"say":"<1-6 words, in this car's voice, reflecting its pref>"
+                })
+            })
+            .collect::<Vec<_>>(),
+    )
+    .unwrap();
+    let cause = snap.cause.as_deref().unwrap_or("local merge");
     format!(
-        "{priority}Two cars meet at one merge. You do not drive or brake. Distances are meters.\n\
+        "{priority}Cars negotiate one shared merge path. You do not drive or brake. Distances are meters.\n\
 Reply with one JSON object and nothing else.\n\
-Schema: {{\"lines\":[{{\"id\":{id0},\"say\":\"<1-6 words, in this car's voice, reflecting its pref>\"}},{{\"id\":{id1},\"say\":\"<1-6 words, in this car's voice, reflecting its pref>\"}}],\"yields\":<id of the car that waits>}}\n\
+Schema: {{\"lines\":{schema},\"yields\":<id of the car that waits>}}\n\
 Rules:\n\
-- lines has exactly these two ids: {id0} and {id1}\n\
+- lines has exactly these ids: {ids:?}; every participant must acknowledge\n\
 - each say is one to six words in that car's own voice\n\
 - each line should reflect that car's English pref and the situation (gap, speed, distance to the line)\n\
-- yields is the id of the car that waits\n\
-- the other car merges\n\
+- the shared reason is: {cause}\n\
+- yields is one of {id0} and {id1}; the other of those two merges\n\
+- additional cars relay the request; they do not jump the queue\n\
 - no markdown and no extra keys\n\
 - do not copy the angle-bracket placeholders\n\
-\n\
-<merge>\n\
-{state}\n\
-</merge>\n"
+<merge>\n{state}\n</merge>\n"
     )
 }
 
@@ -249,15 +268,26 @@ fn parse_model_exchange(text: &str, snap: &MergeSnap) -> Result<MergeChoice, Str
         return Err("not a bare object".into());
     }
     let parsed: ModelExchange = serde_json::from_str(text).map_err(|error| error.to_string())?;
-    if parsed.lines.len() != 2 {
-        return Err("need two lines".into());
+    let ids: Vec<_> = snap
+        .cars
+        .iter()
+        .chain(snap.relays.iter())
+        .map(|c| c.id)
+        .collect();
+    if parsed.lines.len() != ids.len() {
+        return Err("every participant must acknowledge".into());
     }
-    let ids = [snap.cars[0].id, snap.cars[1].id];
-    if ids[0] == ids[1] {
+    if ids
+        .iter()
+        .copied()
+        .collect::<std::collections::BTreeSet<_>>()
+        .len()
+        != ids.len()
+    {
         return Err("cars share an id".into());
     }
-    let mut seen = [false; 2];
-    let mut lines = Vec::with_capacity(2);
+    let mut seen = vec![false; ids.len()];
+    let mut lines = Vec::with_capacity(ids.len());
     for line in parsed.lines {
         if !valid_say(&line.say) {
             return Err("line length".into());
@@ -271,10 +301,11 @@ fn parse_model_exchange(text: &str, snap: &MergeSnap) -> Result<MergeChoice, Str
             say: line.say.trim().to_string(),
         });
     }
-    if !ids.contains(&parsed.yields) || snap.priority_for == Some(parsed.yields) {
+    let mouths = [snap.cars[0].id, snap.cars[1].id];
+    if !mouths.contains(&parsed.yields) || snap.priority_for == Some(parsed.yields) {
         return Err("yields".into());
     }
-    let merges = ids
+    let merges = mouths
         .into_iter()
         .find(|id| *id != parsed.yields)
         .expect("peer");
@@ -345,6 +376,10 @@ fn scripted_choice(snap: &MergeSnap, reason: &str) -> MergeChoice {
             say: say(b.id).to_string(),
         },
     ];
+    lines.extend(snap.relays.iter().map(|car| MergeLine {
+        id: car.id,
+        say: "Please relay my emergency priority".into(),
+    }));
     lines.sort_by_key(|line| line.id);
     MergeChoice {
         yields,
@@ -613,6 +648,8 @@ mod tests {
     fn snap(a: u32, b: u32) -> MergeSnap {
         MergeSnap {
             priority_for: None,
+            relays: Vec::new(),
+            cause: None,
             cars: [car(a, 10.0, 12.0, 8.0), car(b, 28.0, 9.0, 11.0)],
         }
     }

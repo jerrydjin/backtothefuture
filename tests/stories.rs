@@ -48,6 +48,54 @@ fn detected_emergency_clears_the_route_without_a_rider_request() {
 }
 
 #[test]
+fn a_chain_contains_three_real_cars_and_relays_the_same_detected_emergency() {
+    let run = run_story_town(7, StoryKind::Chain, Box::new(ScriptedTalk));
+    assert!(run.story.as_ref().unwrap().claims.is_empty());
+    assert_eq!(run.exchanges.len(), 2);
+    for ex in &run.exchanges {
+        let ids: std::collections::BTreeSet<_> = ex.lines.iter().map(|l| l.id).collect();
+        assert!(ids.len() >= 3, "pairwise dialogue alone is not a chain");
+        assert!(ids.contains(&177));
+        assert_ne!(
+            ex.merges, 177,
+            "the requested car cannot jump past its relays"
+        );
+        assert!(ids.iter().all(|id| run.frames[ex.t.ceil() as usize]
+            .cars
+            .iter()
+            .any(|c| c.0 == *id)));
+        assert!(ex.forecast.cause.as_ref().unwrap().contains("distress"));
+        assert!(ex
+            .lines
+            .iter()
+            .all(|l| l.say.split_whitespace().count() <= 6));
+    }
+    assert_eq!(run.priority.as_ref().unwrap().time_home_s, Some(126.5));
+    assert_eq!(run.stats.overlaps + run.stats.crossing_conflicts, 0);
+}
+
+#[test]
+fn every_chain_participant_must_acknowledge_and_only_a_mouth_car_can_yield() {
+    use muse::negotiate::choice_from_reply;
+    let run = run_story_town(7, StoryKind::Chain, Box::new(ScriptedTalk));
+    let ex = &run.exchanges[0];
+    let reply = |lines: &[muse::negotiate::MergeLine], yields| {
+        serde_json::json!({"lines":lines,"yields":yields}).to_string()
+    };
+    assert_eq!(
+        choice_from_reply(&ex.forecast, Ok(&reply(&ex.lines, ex.yields))).source,
+        "model"
+    );
+    let missing = choice_from_reply(&ex.forecast, Ok(&reply(&ex.lines[..2], ex.yields)));
+    assert_eq!(missing.source, "fallback");
+    assert_eq!(missing.reason, "parse");
+    assert_eq!(missing.lines.len(), 3);
+    let jump = choice_from_reply(&ex.forecast, Ok(&reply(&ex.lines, 177)));
+    assert_eq!(jump.source, "fallback");
+    assert_eq!(jump.merges, ex.merges);
+}
+
+#[test]
 fn repeated_weak_requests_stop_winning_even_with_new_ids_and_cars() {
     let mut ledger = PriorityLedger::default();
     let first = RiderClaim {

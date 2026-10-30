@@ -1509,6 +1509,18 @@ impl TownSim {
         };
         if let Some(story) = &self.story {
             let context = story.explanation();
+            snap.cause = Some(context.into());
+            if story.kind == StoryKind::Chain {
+                if let Some((id, _)) = beneficiary {
+                    if !snap.cars.iter().any(|c| c.id == id) {
+                        if let Some(ci) = self.cars.iter().position(|c| c.id == id) {
+                            let mut relay = self.merge_car(ci);
+                            relay.pref = "Please relay the detected emergency ahead".into();
+                            snap.relays.push(relay);
+                        }
+                    }
+                }
+            }
             for car in &mut snap.cars {
                 car.pref.push_str(&format!("; {context}"));
             }
@@ -1590,26 +1602,27 @@ impl TownSim {
         None
     }
 
+    fn merge_car(&self, ci: usize) -> MergeCar {
+        let car = &self.cars[ci];
+        let route = &self.routes[car.route];
+        let link = route.links[car.idx];
+        let along = (car.d - route.start[car.idx]).max(0.0);
+        let len = self.net.links[link].len;
+        let [x, y] = self.net.links[link].point_at(along.min(len));
+        MergeCar {
+            id: car.id,
+            x: round1(x),
+            y: round1(y),
+            s_to_line_m: round1((len - along).max(0.0)),
+            v_mps: round1(car.v),
+            gap_m: 0.0,
+            pref: car_pref(car.id).to_string(),
+        }
+    }
+
     fn merge_snap(&self, ca: usize, cb: usize) -> MergeSnap {
-        let view = |ci: usize| {
-            let car = &self.cars[ci];
-            let route = &self.routes[car.route];
-            let link = route.links[car.idx];
-            let along = (car.d - route.start[car.idx]).max(0.0);
-            let len = self.net.links[link].len;
-            let [x, y] = self.net.links[link].point_at(along.min(len));
-            MergeCar {
-                id: car.id,
-                x: round1(x),
-                y: round1(y),
-                s_to_line_m: round1((len - along).max(0.0)),
-                v_mps: round1(car.v),
-                gap_m: 0.0,
-                pref: car_pref(car.id).to_string(),
-            }
-        };
-        let mut a = view(ca);
-        let mut b = view(cb);
+        let mut a = self.merge_car(ca);
+        let mut b = self.merge_car(cb);
         let gap = round1((a.x - b.x).hypot(a.y - b.y));
         a.gap_m = gap;
         b.gap_m = gap;
@@ -1619,6 +1632,8 @@ impl TownSim {
         MergeSnap {
             cars: [a, b],
             priority_for: None,
+            relays: Vec::new(),
+            cause: None,
         }
     }
 
@@ -2014,6 +2029,8 @@ mod tests {
             stream_link: 0,
             forecast: MergeSnap {
                 priority_for: None,
+                relays: Vec::new(),
+                cause: None,
                 cars: [126, 226].map(|id| MergeCar {
                     id,
                     x: 0.0,

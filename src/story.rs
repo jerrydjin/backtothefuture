@@ -10,6 +10,7 @@ pub enum StoryKind {
     Competing,
     Abuse,
     Emergency,
+    Chain,
 }
 
 impl StoryKind {
@@ -18,6 +19,7 @@ impl StoryKind {
             "competing" => Some(Self::Competing),
             "abuse" => Some(Self::Abuse),
             "emergency" => Some(Self::Emergency),
+            "chain" => Some(Self::Chain),
             _ => None,
         }
     }
@@ -233,7 +235,7 @@ impl StoryRun {
                     reason: PriorityReason::Meeting,
                 },
             ],
-            StoryKind::Emergency => Vec::new(),
+            StoryKind::Emergency | StoryKind::Chain => Vec::new(),
             StoryKind::Abuse => [200.0, 232.0, 240.0]
                 .into_iter()
                 .enumerate()
@@ -246,7 +248,7 @@ impl StoryRun {
                 })
                 .collect(),
         };
-        let observations = if kind == StoryKind::Emergency {
+        let observations = if matches!(kind, StoryKind::Emergency | StoryKind::Chain) {
             [197.0, 198.0, 199.0, 200.0, 201.0]
                 .into_iter()
                 .map(|at_s| SensorObservation {
@@ -263,7 +265,7 @@ impl StoryRun {
         all.extend(detections.iter().enumerate().map(|(i, d)| RiderClaim {
             rider_id: u32::MAX - d.car_id,
             car_id: d.car_id,
-            sequence: 1,
+            sequence: i as u32 + 1,
             at_s: d.at_s,
             reason: PriorityReason::DetectedEmergency,
         }));

@@ -493,12 +493,12 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
       if (live && t >= ex.t - 25) askAhead(event);
     });
     var blocked = initialExchanges.findIndex(function (ex, event) {
-      return !eventReady(event) && t >= ex.t - 3;
+      return !eventReady(event) && t >= ex.t - (ex.forecast.relays.length ? 5 : 3);
     });
     if (blocked >= 0) {
       if (waitingSince == null) waitingSince = raw;
       waitingAt = blocked;
-      t = initialExchanges[blocked].t - 3;
+      t = initialExchanges[blocked].t - (initialExchanges[blocked].forecast.relays.length ? 5 : 3);
     } else if (waitingSince != null) {
       lostTime += raw - waitingSince;
       waitingSince = null;
@@ -776,7 +776,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
 
   function exchangeAlpha(ex, t, event) {
     if (!ex || !ex.lines || ex.lines.length < 2) return 0;
-    if (!eventReady(event) || t + 1e-6 < ex.t - 3) return 0;
+    if (!eventReady(event) || t + 1e-6 < ex.t - (ex.forecast.relays.length ? 5 : 3)) return 0;
     var fade = ex.fade_s > 0 ? ex.fade_s : 2.5;
     if (t <= ex.until) return 1;
     var u = (t - ex.until) / fade;
@@ -804,6 +804,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     var spots = [];
     ex.lines.forEach(function (line) {
       if (!pending && line.id === ex.merges && t < ex.t - 1.5) return;
+      if (!pending && line.id === ex.yields && t < ex.t - 3) return;
       var car = null;
       a.cars.forEach(function (item) { if (item[0] === line.id) car = item; });
       if (!car) return;
@@ -819,11 +820,11 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     var placed = spots.map(function (s) {
       return { say: s.say, x: s.x, y: s.y - 22 };
     });
-    if (spots.length === 2 && Math.hypot(spots[1].x - spots[0].x, spots[1].y - spots[0].y) < 90) {
-      var mid = (spots[0].x + spots[1].x) / 2;
-      var top = Math.min(spots[0].y, spots[1].y);
-      placed = spots.map(function (s) {
-        return { say: s.say, x: mid, y: top - (s.id === ex.yields ? 46 : 25) };
+    if (spots.length >= 2 && spots.every(function (s) { return Math.hypot(s.x - spots[0].x, s.y - spots[0].y) < 180; })) {
+      var mid = spots.reduce(function (sum, s) { return sum + s.x; }, 0) / spots.length;
+      var top = Math.min.apply(null, spots.map(function (s) { return s.y; }));
+      placed = spots.map(function (s, index) {
+        return { say: s.say, x: mid, y: top - ((spots.length - index) * 21 + 4) };
       });
     }
     var g = svgNode("g", { opacity: alpha, "data-event": event, "data-exchange": pending ? "pending" : ex.source });
