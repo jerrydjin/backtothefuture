@@ -212,6 +212,7 @@ fn main() -> ExitCode {
 }
 
 struct Args {
+    decision_log: Option<std::path::PathBuf>,
     rush_hour: bool,
     no_history: bool,
     local_only: bool,
@@ -245,6 +246,7 @@ struct Args {
 impl Args {
     fn from_env() -> Result<Self, String> {
         let mut parsed = Args {
+            decision_log: None,
             rush_hour: false,
             no_history: false,
             local_only: false,
@@ -277,6 +279,10 @@ impl Args {
         let mut args = env::args().skip(1);
         while let Some(arg) = args.next() {
             match arg.as_str() {
+                "--decision-log" => {
+                    parsed.decision_log =
+                        Some(args.next().ok_or("--decision-log needs a path")?.into())
+                }
                 "--rush-hour" => parsed.rush_hour = true,
                 "--no-history" => parsed.no_history = true,
                 "--local-only" => parsed.local_only = true,
@@ -561,6 +567,13 @@ fn run_rush_hour(args: &Args) -> Result<(), String> {
         muse::rush_hour::run_experiment(args.seed, policy.as_ref(), !args.no_history, config)?;
     if args.require_live && result.score.model_decisions != result.run.decisions.len() {
         result.score.passed = false;
+    }
+    if let Some(path) = &args.decision_log {
+        std::fs::write(
+            path,
+            serde_json::to_string_pretty(&result.run.decisions).map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
     }
     let score = &result.score;
     let json = serde_json::to_string_pretty(score).map_err(|e| e.to_string())?;
