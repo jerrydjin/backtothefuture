@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "name": "Potrero southbound hospital approach",
+  "source_url": "https://sfpublicworks.org/sites/default/files/3526-13_0730_Potrero%20Stscp%20Presentation.pdf",
+  "source_title": "Potrero Corridor Complete Streets Project, Community Meeting #2, 30 July 2013",
+  "source_page": 11,
+  "published_directional_peak_range_vph": [1000, 1500],
+  "vehicles_per_hour": 1250,
+  "selection_rule": "Arithmetic midpoint of the published directional range; fixed before any Phase 13c score",
+  "source_edge": 158,
+  "sink_edge": 159,
+  "hospital_node": 4,
+  "expected_road_edges": [158, 12, 13, 14, 15, 167, 271, 155, 159],
+  "arrival_duration_s": 900,
+  "warmup_s": 300,
+  "emergency_interval_s": 60,
+  "seeds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+}
