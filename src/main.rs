@@ -23,6 +23,16 @@ fn main() -> ExitCode {
         println!("{}", usage());
         return ExitCode::SUCCESS;
     }
+    if args.reason.is_some() {
+        return match run_typed_reason(&args) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("reason: {error}");
+                ExitCode::from(1)
+            }
+        };
+    }
+
     if args.rush_hour {
         return match run_rush_hour(&args) {
             Ok(()) => ExitCode::SUCCESS,
@@ -33,13 +43,12 @@ fn main() -> ExitCode {
         };
     }
 
-    if args.reason.is_some()
-        || (args.board
-            && !args.demo
-            && args.priority.is_none()
-            && args.story.is_none()
-            && args.replay.is_none()
-            && args.save_replay.is_none())
+    if args.board
+        && !args.demo
+        && args.priority.is_none()
+        && args.story.is_none()
+        && args.replay.is_none()
+        && args.save_replay.is_none()
     {
         return match run_reason(&args) {
             Ok(()) => ExitCode::SUCCESS,
@@ -433,24 +442,20 @@ impl Args {
         }
         if parsed.demo && parsed.reason.is_some() {
             // The typed sentence plays on the boxed-in corridor, not the
-            // three-encounter story. `--demo` alone still plays that story.
+            // three-encounter stall. `--demo` alone still plays that story.
+            // `--require-live` is honored on the typed decision, not by
+            // first running a mock rush-hour table.
             parsed.demo = false;
-            parsed.boxed_in = true;
-            parsed.rush_hour = true;
-            if parsed.policy == "fcfs" {
-                parsed.policy = "mock".into();
-            }
         }
         if !(0.0..=1.0).contains(&parsed.connected_share) {
             return Err("--connected-share must be from 0 to 1".into());
         }
         if parsed.reason.is_some()
-            && (parsed.demo
-                || parsed.priority.is_some()
-                || parsed.story.is_some()
-                || parsed.replay.is_some())
+            && (parsed.priority.is_some() || parsed.story.is_some() || parsed.replay.is_some())
         {
-            return Err("--reason uses a fresh trip; choose it separately from demo, priority, story, or replay".into());
+            return Err(
+                "--reason uses a fresh boxed trip; choose it separately from priority, story, or replay".into(),
+            );
         }
         if parsed.reason.is_some() && parsed.board && parsed.headless {
             return Err("choose --board or --headless for a reason".into());
@@ -486,9 +491,9 @@ Knobs:
   --cars N                 fleet size, 2 to 64 (default 6)
   --jam KIND               symmetric | ramp-surge | mainline-plug
   --prefs SENTENCE         plain English merge preference
-  --reason SENTENCE        assess a rider reason (1–240 characters); --board shows the trip
+  --reason SENTENCE        assess a rider reason on the boxed-in corridor (1–240 characters)
   --reason-debug           log the redacted model reply when a reason fails to parse
-  --demo --reason TEXT     play that reason on the boxed-in corridor and show the payoff
+  --demo --reason TEXT     the same boxed typed payoff; --require-live uses the live model
   --connected-share F      fraction of cars that receive make-way messages (default 1)
   --rewrite-every N        ask for a new plan every N ticks
   --show                   print the ramp merge in the terminal: wreck, held jam, and cleared road
@@ -527,6 +532,159 @@ Blocker:
   MODEL_API_KEY selects the HTTP client (curl). When it is unset, the scripted plan runs (ALLOW_CHEAT).
   With a key, the client label is muse. ALLOW_CHEAT=0 with no key fails closed."
     )
+}
+
+fn run_typed_reason(args: &Args) -> Result<(), String> {
+    if args.reason_debug {
+        muse::reason::enable_reason_debug();
+    }
+    use std::io::Write;
+    let reason = args.reason.as_ref().ok_or("reason required")?;
+    let config = Some(muse::network::BroadcastConfig {
+        speed_multiple: args.message_speed,
+        hop_delay_s: args.hop_delay,
+        lookahead_s: args.lookahead_minutes * 60.0,
+        connected_share: args.connected_share,
+        ..Default::default()
+    });
+    let policy_name = if args.require_live {
+        "live".into()
+    } else if args.policy == "fcfs" || args.policy == "mock" {
+        "mock".into()
+    } else {
+        args.policy.clone()
+    };
+    let mut session =
+        muse::rush_board::Session::boxed(args.seed, policy_name, config, args.save_replay.clone())?;
+    if args.require_live {
+        let decision = session.assess(reason)?;
+        if decision.source != "model" || decision.provider != "baseten" {
+            let report = muse::reason::ReasonReport {
+                reason: reason.as_str().into(),
+                decision: muse::reason::ReasonDecision {
+                    granted: decision.granted,
+                    explanation: decision.explanation.clone(),
+                    lines: vec![
+                        muse::negotiate::MergeLine {
+                            id: decision.car,
+                            say: decision.requester.clone(),
+                        },
+                        muse::negotiate::MergeLine {
+                            id: 0,
+                            say: decision.other.clone(),
+                        },
+                    ],
+                    source: decision.source.clone(),
+                    provider: decision.provider.clone(),
+                    fallback_reason: decision.fallback_reason.clone(),
+                    reply_s: 0.0,
+                },
+                time_home_s: 0.0,
+                baseline_time_home_s: 0.0,
+                overlaps: 0,
+                crossing_conflicts: 0,
+                same_route: true,
+                passed: false,
+            };
+            let json =
+                serde_json::to_string(&report).map_err(|_| "cannot serialize reason report")?;
+            println!("reason-gate {json}");
+            if let Some(path) = &args.gate_log {
+                let mut file = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(path)
+                    .map_err(|e| e.to_string())?;
+                writeln!(file, "{json}").map_err(|e| e.to_string())?;
+            }
+            return Err(
+                "reason live gate requires a Baseten/model decision; fallback was not counted"
+                    .into(),
+            );
+        }
+    }
+    let mut board = session.evaluate(reason)?;
+    let rush = board
+        .rush
+        .as_ref()
+        .ok_or("boxed reason missing rush board")?;
+    let typed = rush
+        .typed
+        .as_ref()
+        .ok_or("boxed reason missing typed rider")?;
+    let collisions = rush.score.collisions;
+    let live_ok = typed.decision.source == "model" && typed.decision.provider == "baseten";
+    let passed = collisions == 0 && rush.score.passed && (!args.require_live || live_ok);
+    let report = muse::reason::ReasonReport {
+        reason: reason.as_str().into(),
+        decision: muse::reason::ReasonDecision {
+            granted: typed.decision.granted,
+            explanation: typed.decision.explanation.clone(),
+            lines: vec![
+                muse::negotiate::MergeLine {
+                    id: typed.car,
+                    say: typed.decision.requester.clone(),
+                },
+                muse::negotiate::MergeLine {
+                    id: 0,
+                    say: typed.decision.other.clone(),
+                },
+            ],
+            source: typed.decision.source.clone(),
+            provider: typed.decision.provider.clone(),
+            fallback_reason: typed.decision.fallback_reason.clone(),
+            reply_s: 0.0,
+        },
+        time_home_s: typed.home_at_s,
+        baseline_time_home_s: typed.home_at_s + typed.sooner_s,
+        overlaps: collisions,
+        crossing_conflicts: 0,
+        same_route: true,
+        passed,
+    };
+    board.reason = Some(report.clone());
+    let json = serde_json::to_string(&report).map_err(|_| "cannot serialize reason report")?;
+    println!("reason-gate {json}");
+    if let Some(path) = &args.gate_log {
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+            .map_err(|e| e.to_string())?;
+        writeln!(file, "{json}").map_err(|e| e.to_string())?;
+    }
+    if typed.show_payoff {
+        println!(
+            "make-way-payoff cleared {:.0}m ahead · home {:.0}s sooner · others +{:.1}s source={}",
+            typed.clear_ahead_m, typed.sooner_s, typed.others_s, typed.decision.source
+        );
+    }
+    if args.require_live && !live_ok {
+        return Err(
+            "reason live gate requires a Baseten/model decision; fallback was not counted".into(),
+        );
+    }
+    if let Some(path) = &args.save_replay {
+        let mut archive = muse::replay::ReplayArchive::new(board.clone());
+        archive.reply_seconds = vec![Some(report.decision.reply_s)];
+        archive.write(path)?;
+    }
+    for strip in board.strips.iter().filter(|s| s.scoreboard) {
+        println!("{:<12}{}", strip.name, strip.score);
+    }
+    if args.board {
+        let server =
+            muse::rush_server::RushServer::start(board, session).map_err(|e| e.to_string())?;
+        let url = format!("http://{}/", server.address);
+        println!("board: {url}");
+        if !args.no_open {
+            let _ = muse::board::open_board_url(&url);
+        }
+        loop {
+            std::thread::park_timeout(std::time::Duration::from_secs(1));
+        }
+    }
+    Ok(())
 }
 
 fn run_reason(args: &Args) -> Result<(), String> {

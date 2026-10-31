@@ -30,11 +30,16 @@ fn main() {
         .find_map(|a| a.strip_prefix("seed="))
         .and_then(|s| s.parse().ok())
         .unwrap_or(1);
-    for seed in start..=if args.iter().any(|a| a == "one") {
-        start
-    } else {
-        5
-    } {
+    let end = args
+        .iter()
+        .find_map(|a| a.strip_prefix("end="))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(if args.iter().any(|a| a == "one") {
+            start
+        } else {
+            5
+        });
+    for seed in start..=end {
         let result = if typical {
             rush_hour::run_experiment(seed, &Mock, true, Some(config))
         } else {
