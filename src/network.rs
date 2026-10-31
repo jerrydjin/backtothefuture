@@ -3104,6 +3104,12 @@ impl TownSim {
                     ex.yielding_for
                         .iter()
                         .map(|(car, (beneficiary, action))| (*car, *beneficiary, action.clone()))
+                        .chain(
+                            ex.pull_over
+                                .iter()
+                                .filter(|(_, p)| !p.released)
+                                .map(|(car, p)| (*car, p.beneficiary, "pull_over".into())),
+                        )
                         .collect()
                 })
                 .unwrap_or_default(),

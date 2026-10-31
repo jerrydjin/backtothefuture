@@ -1,0 +1,9 @@
+{
+  "fixture": "synthetic imported map; not SF",
+  "svgs": 1,
+  "emergency": 4,
+  "pulledOver": 2,
+  "cars": 39,
+  "maxRoadWidth": 2.6,
+  "errors": []
+}
