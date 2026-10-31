@@ -6,4 +6,4 @@ Seeds 1–10: all 3,125 trips finish, zero collisions. Median-of-seed FCFS delay
 
 Validation: 173 offline tests pass, 3 existing live tests ignored; Phase 13c no-incident SF JSONL and 40 town comparisons are byte-identical. judge.rs/schema.rs, demand and map are untouched. The mid-run seed-1 screenshot shows the blocked lane, real reactions and a front driven only by already-delivered timestamps; CLI/archive/message replay is exact. No live runs; Michael runs live gates.
 
-Full report and reproduction: docs/phase-13d-sf-incident.md. Frozen declaration: scenarios/sf-potrero-incident.json. This PR follows Phase 13c on main after #36 merges.
+Full report and reproduction: docs/phase-13d-sf-incident.md. Frozen declaration: scenarios/sf-potrero-incident.json. This PR targets main after Phase 13c (#36) merged. The original pre-score incident commit is preserved.
