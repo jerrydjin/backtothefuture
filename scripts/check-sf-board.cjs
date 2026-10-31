@@ -37,6 +37,7 @@ const { chromium } = require('playwright');
         attribution: document.querySelector('[data-role="map-attribution"]')?.textContent,
         emergency: document.querySelectorAll('rect[data-state="emergency"][fill="#d23b3b"]').length,
         reacting: [...document.querySelectorAll('rect[data-car]')].filter(n => ['hold', 'pull_over', 'clear'].includes(n.dataset.state)).map(n => ({ car: Number(n.dataset.car), state: n.dataset.state })),
+        received: [...document.querySelectorAll('[data-role="rush-received"]')].map(n => ({car:Number(n.dataset.car),beneficiary:Number(n.dataset.beneficiary),at:Number(n.dataset.deliveredAt)})),
         fronts: [...document.querySelectorAll('[data-role="rush-pulse"]')].map(n => ({ beneficiary: Number(n.dataset.beneficiary), head: Number(n.dataset.headM), car: Number(n.dataset.carM), width: Number(n.getAttribute('stroke-width')), evidence: n.dataset.evidence })),
         maxRoadWidth: Math.max(...[...document.querySelectorAll('#network path[stroke="#e2e2e2"]')].map(n => Number(n.getAttribute('stroke-width')))),
         svgs: document.querySelectorAll('svg').length
@@ -44,6 +45,9 @@ const { chromium } = require('playwright');
       assert.equal(measured.svgs, 1); assert.match(measured.attribution, /OpenStreetMap.*ODbL/);
       assert.ok(measured.maxRoadWidth <= 2.6);
       for (const reaction of measured.reacting) assert.ok(messages.events.some(h => h.recipient_car === reaction.car && h.action === (reaction.state === 'pull_over' ? 'lane_change' : reaction.state) && h.at_s <= t));
+      for (const receipt of measured.received) {
+        assert.ok(messages.events.some(h => h.action === 'relay' && h.recipient_car === receipt.car && h.beneficiary === receipt.beneficiary && h.at_s === receipt.at && h.at_s <= t && t < h.at_s + 1), 'receipt cue before recorded delivery');
+      }
       for (const front of measured.fronts) {
         assert.equal(front.width, 1); assert.equal(front.evidence, 'save-messages'); assert.ok(front.head > front.car);
         const request = messages.requests.find(r => r.issuer === front.beneficiary && r.issued_at <= t && t < r.expires_at);
@@ -57,19 +61,19 @@ const { chromium } = require('playwright');
       }
       samples.push(measured); return measured;
     }
-    const actions = messages.events.filter(h => h.at_s >= startS && ['hold', 'clear', 'lane_change'].includes(h.action));
+    const actions = messages.events.filter(h => h.at_s >= startS && (['hold', 'clear', 'lane_change'].includes(h.action) || (h.action === 'relay' && h.recipient_car != null)));
     const times = [...new Set(actions.slice(0, 4).flatMap(h => [Math.max(0, h.at_s - .01), h.at_s, Math.ceil(h.at_s)]))];
     for (const t of times) await inspect(t);
     let screenshot;
-    for (const t of [...new Set(actions.map(h => Math.ceil(h.at_s)))].concat([startS + 45, startS + 60, startS + 90, startS + 120]).slice(0, 35)) {
+    for (const t of [...new Set(actions.flatMap(h => [h.at_s + .01, Math.ceil(h.at_s)]))].concat([startS + 45, startS + 60, startS + 90, startS + 120]).slice(0, 35)) {
       const measured = await inspect(t);
-      if (measured.emergency >= 1 && measured.reacting.length && measured.fronts.some(f => f.head - f.car > 100)) {
+      if (measured.emergency >= 1 && (measured.reacting.length || measured.received.length) && measured.fronts.some(f => f.head - f.car > 100)) {
         await page.screenshot({ path: pngPath }); screenshot = measured; break;
       }
     }
     assert.ok(screenshot, 'no real SF message front ahead of red car');
     assert.equal(errors.length, 0);
-    const report = { source: 'maps/sf-zsfg.osm', score: rush.score, checkedStates, screenshot, samples, errors };
+    const report = { drivingManeuvers: messages.events.filter(h => h.action !== 'relay').length, receiptCuesChecked: samples.reduce((n,s)=>n+s.received.length,0), source: 'maps/sf-zsfg.osm', score: rush.score, checkedStates, screenshot, samples, errors };
     fs.writeFileSync(reportPath, JSON.stringify(report, null, 2) + '\n');
     console.log(JSON.stringify({ checkedStates, screenshotTime: screenshot.time, fronts: screenshot.fronts, errors }));
   } finally { await browser.close(); server.close(); }

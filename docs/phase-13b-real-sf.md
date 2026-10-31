@@ -1,5 +1,7 @@
 # Phase 13b: real SF import and message-front board
 
+> Phase 13c now adds an explicit cited Potrero demand profile to the same geometry. This page records the earlier Phase 13b scenario; current results and reproduction are in [Phase 13c](phase-13c-sf-demand.md).
+
 The requested OSM extract now imports locally and deterministically. Its SF
 board replays real simulated motion and delivery timestamps, with attribution.
 This follows #34; no live policy was invoked. Michael runs every live gate.

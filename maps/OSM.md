@@ -55,8 +55,10 @@ The optional `hospital_node` map field records that POI match explicitly; old
 maps omit it and retain their original sink semantics. Demand/sinks may be
 placed at internal intersections as well as endpoints. Opposite separately
 tagged directions are offset and excluded from U-turn connectors.
-Geometric extremes supply demand. These demand defaults are independent of
-scored seeds. Maps with no native motorway/ramp corridor use their actual
+Geometric extremes supply default demand. An explicit `demand_profile`, when
+present, supplies its declared corridor and cited rate instead. The current SF
+map embeds the Phase 13c profile; raw import itself adds no demand profile.
+These choices are independent of scored seeds. Maps with no native motorway/ramp corridor use their actual
 multi-edge hospital routes for boxed demand. No city identity enters make_way.
 
 ## SF extract status and attribution
@@ -69,7 +71,7 @@ The exact URL, bbox and hospital OSM IDs are in `sf-zsfg.provenance.json`;
 Michael's earlier 31 October fetch had a different hash; this is a new OSM
 snapshot, not a reconstructed copy. No subsequent network fetch is needed.
 
-The deterministic import is `maps/sf-zsfg.json`: 238 nodes, 297 edges, hospital
+The deterministic geometry in `maps/sf-zsfg.json` has 238 nodes, 297 edges, hospital
 node 4 at (37.7561683, -122.4067178), matched from the area centroid of hospital
 way 24446045. Attribution is embedded in the map, carried into recordings,
 and drawn as a link on the board:
@@ -82,21 +84,25 @@ Fetched hospital box: (-122.416,37.750)–(-122.400,37.764), around Zuckerberg
 San Francisco General. No source coordinates or driving parameters will be
 chosen based on the held-out scores.
 
+Use the committed extract; do not re-fetch it to reproduce results. Importing
+it again produces the same geometry. To reproduce the annotated SF map, attach
+the already-committed profile after conversion:
+
 ```sh
-curl --fail 'https://api.openstreetmap.org/api/0.6/map?bbox=-122.416,37.750,-122.400,37.764' -o maps/sf-zsfg.osm
-sha256sum maps/sf-zsfg.osm
-cargo run --release -- import-osm maps/sf-zsfg.osm --out maps/sf-zsfg.json
-cargo run --release -- import-osm maps/sf-zsfg.osm --out /tmp/sf-zsfg-again.json
-cmp maps/sf-zsfg.json /tmp/sf-zsfg-again.json
-cargo run --release --example osm_gate -- maps/sf-zsfg.json 1 10 > docs/gates/phase-13b-sf-scores.jsonl
+sha256sum -c maps/sf-zsfg.osm.sha256
+cargo run --release --offline -- import-osm maps/sf-zsfg.osm --out /tmp/sf-geometry.json
+python3 - <<'PYTHON'
+import json
+m = json.load(open('/tmp/sf-geometry.json'))
+m['demand_profile'] = json.load(open('maps/sf-zsfg-demand.json'))
+assert m == json.load(open('maps/sf-zsfg.json'))
+PYTHON
+cargo run --release --offline --example sf_corridor_gate -- maps/sf-zsfg.json > /tmp/sf-peak-scores.jsonl
 ```
 
-The reporter defaults to held-out seeds 11–20; explicit `1 10` selects the
-requested Phase 13b set. It reports boxed and typical mock policy scores,
-local-only mock scores, and broadcast gain over local by route type. Empty
-route groups or missing paired completions produce null gain, not a fabricated
-zero. Each group includes its emergency count and completion coverage. Route
-type describes the first bottleneck road: two lanes = pull-over-able, one =
-single-lane. Scores include FCFS comparisons from the existing paired runner.
-These runs use no live policy. See `docs/phase-13b-real-sf.md` for the measured
-results, limitations, replay and screenshot.
+The Phase 13c reporter uses the seeds in the preregistered profile (1–10),
+retains the same FCFS/local/broadcast runs for route-level comparisons, and
+measures FCFS emergency delay against solo trips. No extra traffic is added
+for emergency probes. Empty route groups produce null metrics with zero
+samples. See `docs/phase-13c-sf-demand.md` for the fixed rate, complete scores,
+limits, screenshot and replay. The Phase 13b evidence remains historical.

@@ -43,7 +43,19 @@ that graph for typed follow-up and grant/deny counterfactuals too. Geometry,
 routes, arrival times, scores and action counts round-trip exactly for the town.
 Invalid IDs/references, unsupported lane counts, nonpositive speeds/lengths,
 zero-length geometry, invalid coordinates and unsupported versions fail before
-simulation. Unknown JSON fields are rejected. No migration or OSM importer is
-included.
+simulation. Unknown JSON fields are rejected.
 
 For deterministic local OSM XML import and documented defaults, see [OSM.md](OSM.md).
+
+An optional `demand_profile` embeds a cited, explicit corridor experiment. It
+names a source edge, a hospital sink edge, an ordered road-edge path, directional
+vehicles/hour, arrival duration, warm-up, request offset and probe interval.
+The loader validates the path and adds its source; it never changes geometry,
+lane counts or speeds. The demand generator replaces existing scheduled trips
+with emergency probes, preserving the cited total rate. Maps without the field
+keep their original population rules and serialized format.
+
+`sf-zsfg.json` embeds the preregistered profile in `sf-zsfg-demand.json`.
+For that map, `--rush-hour` and `--scenario boxed-in` select the same cited
+Potrero peak experiment. Source, pre-score commits and measured results:
+[Phase 13c](../docs/phase-13c-sf-demand.md).
