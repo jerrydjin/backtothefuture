@@ -1,0 +1,38 @@
+   Compiling muse v0.1.0 (/workspace/backtothefuture)
+    Finished `release` profile [optimized] target(s) in 7.52s
+     Running tests/board.rs (target/release/deps/board-fba0cab53600e863)
+
+running 3 tests
+test cli_labels_the_stub_scripted ... ok
+test help_points_at_the_board_without_fakeecho ... ok
+test board_dinner_is_red_red_green ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/incidents.rs (target/release/deps/incidents-e93d29ed9b7ef4ec)
+
+running 6 tests
+test activation_allows_existing_occupants_to_clear_but_stops_followers ... ok
+test cars_stop_for_the_obstacle_and_resume_after_its_fixed_end ... ok
+test incident_metadata_never_enters_the_model_request ... ok
+test a_grant_cannot_bypass_the_block_and_all_lane_changes_remain_physical ... ok
+test invalid_and_duplicate_physical_inputs_are_rejected ... ok
+test incident_metadata_roundtrips_and_bad_replay_references_fail ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/map_board.rs (target/release/deps/map_board-199a325512b328e4)
+
+running 1 test
+test loaded_map_demo_reason_and_saved_replay_preserve_projected_motion ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.83s
+
+     Running tests/rush_board.rs (target/release/deps/rush_board-a99b2676c1b26222)
+
+running 2 tests
+test dense_replay_preserves_measured_motion_and_causal_bulletins ... ok
+test typed_rider_is_unknown_then_actual_completed_gym_trips_catch_third_claim ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.52s
+

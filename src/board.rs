@@ -1270,19 +1270,22 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     });
     // A receipt is an acknowledgment, not a driving maneuver. In a free-flow
     // run the host can deliver a bulletin and correctly choose to keep driving.
-    var receiptSeen={};
+    var receiptSeen={},receiptLabelShown=false;
     (rush.message_log ? rush.message_log.events : rush.messages).slice().sort(function(a,b){return b.at_s-a.at_s;}).forEach(function(h){
       if(h.action!=="relay" || h.recipient_car==null || h.at_s>t || t>=h.at_s+1 || receiptSeen[h.recipient_car])return;
       var at=carSpot(view,t,h.recipient_car);if(!at)return;
       receiptSeen[h.recipient_car]=true;
       ctx.appendChild(svgNode("circle",{cx:at.x,cy:at.y,r:5,fill:"none",stroke:"#6a93ae","stroke-width":1,"data-role":"rush-received","data-car":h.recipient_car,"data-beneficiary":h.beneficiary,"data-delivered-at":h.at_s}));
-      ctx.appendChild(svgNode("text",{x:at.x+8,y:at.y-8,fill:"#567287",stroke:"white","stroke-width":3,"paint-order":"stroke","font-family":"system-ui, sans-serif","font-size":10,"data-role":"rush-received-label"},"received · continuing"));
+      if(!receiptLabelShown){
+        ctx.appendChild(svgNode("text",{x:at.x+8,y:at.y-8,fill:"#567287",stroke:"white","stroke-width":3,"paint-order":"stroke","font-family":"system-ui, sans-serif","font-size":10,"data-role":"rush-received-label"},"received · continuing"));
+        receiptLabelShown=true;
+      }
     });
     var farthestCue=null;
     (frame.make_way||[]).forEach(function(state){
       var c=cars[state[0]],urgent=cars[state[1]];
       if(!c||!urgent||(state[2]==="hold"&&c[3]>.5))return;
-      var h=rush.messages.find(function(h){return h.recipient_car===c[0]&&h.beneficiary===urgent[0]&&h.action===state[2]&&h.at_s<=t&&h.route_m>urgent[2];});
+      var h=rush.messages.find(function(h){return h.recipient_car===c[0]&&h.beneficiary===urgent[0]&&h.action===(state[2]==="pull_over"?"lane_change":state[2])&&h.at_s<=t&&h.route_m>urgent[2];});
       if(!h)return;
       var at=rushPoint(view,c[1],c[2]-2.2);
       ctx.appendChild(svgNode("circle",{cx:at.x,cy:at.y,r:6,fill:"none",stroke:"#b49c6d","stroke-width":1,"data-role":"rush-make-way","data-action":state[2],"data-car":c[0],"data-beneficiary":h.beneficiary,"data-ahead-m":(h.route_m-urgent[2]).toFixed(1)}));
@@ -1305,6 +1308,22 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     if(typed&&typed.claim_number>=3&&!decision.granted)document.getElementById("network").dataset.liarCaught="true";
   }
 
+  function drawIncidents(ctx,view,t) {
+    (town.incidents||[]).forEach(function(record){
+      var i=record.definition;
+      if(t<i.start_s || t>=i.start_s+i.duration_s)return;
+      var road=links[record.link];if(!road)return;
+      var rear=toScreen(view,pointOn(road,i.position_m));
+      var front=toScreen(view,pointOn(road,i.position_m+i.length_m));
+      var group=svgNode("g",{"data-role":"lane-blockage","data-incident":i.id,"data-link":record.link,"data-position-m":i.position_m,"data-length-m":i.length_m,"data-start-s":i.start_s,"data-end-s":i.start_s+i.duration_s});
+      group.appendChild(svgNode("path",{d:"M"+rear.x+" "+rear.y+" L"+front.x+" "+front.y,fill:"none",stroke:"#6e4434","stroke-width":Math.max(4,LANE_W*view.sc),"data-role":"blocked-footprint"}));
+      var x=(rear.x+front.x)/2,y=(rear.y+front.y)/2;
+      group.appendChild(svgNode("path",{d:"M"+(x-5)+" "+(y-5)+" L"+(x+5)+" "+(y+5)+" M"+(x-5)+" "+(y+5)+" L"+(x+5)+" "+(y-5),fill:"none",stroke:"#b76438","stroke-width":2}));
+      group.appendChild(svgNode("text",{x:x+12,y:y+20,fill:"#8e4e2f",stroke:"white","stroke-width":3,"paint-order":"stroke","font-family":"system-ui, sans-serif","font-size":11},"lane blocked · until "+(i.start_s+i.duration_s)+"s"));
+      ctx.appendChild(group);
+    });
+  }
+
   function paint(now) {
     var canvas = document.getElementById("network");
     if (!canvas) return;
@@ -1314,6 +1333,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     drawRoads(ctx, view);
     if(!isRush)drawHome(ctx, view);
     drawTown(ctx, view, townTime(now));
+    drawIncidents(ctx,view,townTime(now));
     var simT = simTime(now);
     var strip = data.strips[active];
     if (!strip) return;

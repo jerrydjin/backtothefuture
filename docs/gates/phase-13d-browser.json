@@ -1,0 +1,3155 @@
+{
+  "blockedLaneSamplesChecked": 2880,
+  "drivingManeuvers": 164,
+  "receiptCuesChecked": 88,
+  "source": "maps/sf-zsfg.osm",
+  "score": {
+    "actions": {
+      "1000": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1001": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1002": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1003": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1004": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1005": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1006": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1007": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1008": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1009": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1010": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1011": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1012": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1013": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1014": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1015": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1016": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1017": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1018": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1019": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1020": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1021": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1022": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1023": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1024": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1025": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1026": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1027": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1028": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1029": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1030": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1031": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1032": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1033": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1034": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1035": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1036": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1037": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1038": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1039": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1040": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1041": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1042": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1043": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1044": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1045": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1046": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1047": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1048": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1049": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1050": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1051": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1052": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1053": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1054": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1055": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1056": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1057": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1058": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1059": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1060": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1061": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1062": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1063": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1064": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1065": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1066": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1067": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1068": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1069": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1070": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1071": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1072": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1073": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1074": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1075": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1076": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1077": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1078": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1079": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1080": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1081": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1082": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1083": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1084": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1085": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1086": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1087": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1088": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1089": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1090": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1091": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1092": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1093": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1094": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1095": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1096": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1097": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1098": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1099": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1100": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1101": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1102": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1103": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1104": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1105": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1106": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1107": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1108": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1109": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1110": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1111": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1112": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1113": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1114": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1115": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1116": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1117": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1118": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1119": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1120": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1121": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1122": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1123": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1124": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1125": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1126": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1127": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1128": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1129": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1130": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1131": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1132": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1133": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1134": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1135": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1136": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1137": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1138": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1139": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1140": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1141": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1142": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1143": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1144": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1145": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1146": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1147": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1148": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1149": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1150": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1151": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1152": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1153": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1154": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1155": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1156": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1157": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1158": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1159": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1160": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1161": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1162": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1163": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1164": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1165": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1166": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1167": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1168": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1169": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1170": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1171": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1172": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1173": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1174": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1175": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1176": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1177": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1178": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1179": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1180": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1181": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1182": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1183": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1184": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1185": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1186": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1187": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1188": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1189": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1190": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1191": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1192": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1193": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1194": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1195": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1196": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1197": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1198": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1199": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1200": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1201": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1202": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1203": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1204": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1205": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1206": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1207": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1208": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1209": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1210": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1211": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1212": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1213": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1214": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1215": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1216": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1217": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1218": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1219": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1220": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1221": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1222": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1223": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1224": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1225": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1226": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1227": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1228": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1229": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1230": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1231": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1232": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1233": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1234": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1235": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1236": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1237": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1238": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1239": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1240": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1241": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1242": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1243": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1244": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1245": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1246": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1247": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1248": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1249": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1250": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1251": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1252": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1253": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1254": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1255": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1256": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1257": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1258": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1259": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1260": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1261": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1262": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1263": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1264": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1265": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1266": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1267": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1268": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1269": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1270": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1271": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1272": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1273": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1274": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1275": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1276": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1277": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1278": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1279": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1280": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1281": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1282": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1283": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1284": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1285": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1286": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1287": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1288": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1289": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1290": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1291": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1292": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1293": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1294": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1295": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1296": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1297": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1298": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1299": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1300": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1301": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1302": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1303": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1304": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1305": {
+        "lane_changes": 1,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1306": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1307": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1308": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1309": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1310": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1311": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1312": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      }
+    },
+    "seed": 1,
+    "policy": "mock",
+    "trips": 313,
+    "completed": 313,
+    "peak_cars": 52,
+    "emergency_gain": 13.5,
+    "others_cost": {
+      "mean_s": 13.830033003300331,
+      "p95_s": 84
+    },
+    "liar_win_rate": 0,
+    "third_claim_liar_win_rate": 0,
+    "history_enabled": true,
+    "spread_enabled": true,
+    "emergency_gain_vs_local": 13.5,
+    "clear_ahead_m": 331.4837538458406,
+    "clear_ahead_s": 71,
+    "lead_distance_m": 585.6485993267196,
+    "lead_time_s": 238.3956760044888,
+    "collateral": 0,
+    "model_decisions": 0,
+    "fallback_decisions": 0,
+    "collisions": 0,
+    "baseline_collisions": 0,
+    "passed": true
+  },
+  "checkedStates": 9431,
+  "screenshot": {
+    "time": 348,
+    "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+    "emergency": 1,
+    "reacting": [
+      {
+        "car": 1177,
+        "state": "clear"
+      },
+      {
+        "car": 1212,
+        "state": "pull_over"
+      }
+    ],
+    "received": [
+      {
+        "car": 1229,
+        "beneficiary": 1164,
+        "at": 347.9886869656752
+      },
+      {
+        "car": 1119,
+        "beneficiary": 1164,
+        "at": 347.84538697760814
+      },
+      {
+        "car": 1196,
+        "beneficiary": 1164,
+        "at": 347.70208663647156
+      },
+      {
+        "car": 1122,
+        "beneficiary": 1164,
+        "at": 347.55878643945096
+      },
+      {
+        "car": 1200,
+        "beneficiary": 1164,
+        "at": 347.415485972961
+      },
+      {
+        "car": 1281,
+        "beneficiary": 1164,
+        "at": 347.27218570804695
+      },
+      {
+        "car": 1307,
+        "beneficiary": 1164,
+        "at": 347.12888555143854
+      }
+    ],
+    "fronts": [
+      {
+        "beneficiary": 1164,
+        "head": 264.9813964908947,
+        "car": 149.5,
+        "width": 1,
+        "evidence": "save-messages"
+      }
+    ],
+    "maxRoadWidth": 2.3956825063878138,
+    "incidents": [
+      {
+        "id": "potrero-stalled-truck",
+        "link": 27,
+        "position": 80,
+        "length": 8,
+        "start": 240,
+        "end": 540
+      }
+    ],
+    "svgs": 1
+  },
+  "samples": [
+    {
+      "time": 239.999,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 0,
+      "reacting": [],
+      "received": [],
+      "fronts": [],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [],
+      "svgs": 1
+    },
+    {
+      "time": 240,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 0,
+      "reacting": [],
+      "received": [],
+      "fronts": [],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    {
+      "time": 539.999,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [
+        {
+          "car": 1259,
+          "state": "clear"
+        },
+        {
+          "car": 1295,
+          "state": "clear"
+        },
+        {
+          "car": 1037,
+          "state": "clear"
+        },
+        {
+          "car": 1199,
+          "state": "clear"
+        },
+        {
+          "car": 1245,
+          "state": "clear"
+        },
+        {
+          "car": 1297,
+          "state": "clear"
+        },
+        {
+          "car": 1142,
+          "state": "clear"
+        },
+        {
+          "car": 1181,
+          "state": "clear"
+        },
+        {
+          "car": 1308,
+          "state": "clear"
+        },
+        {
+          "car": 1011,
+          "state": "clear"
+        },
+        {
+          "car": 1079,
+          "state": "clear"
+        },
+        {
+          "car": 1215,
+          "state": "clear"
+        },
+        {
+          "car": 1154,
+          "state": "clear"
+        },
+        {
+          "car": 1146,
+          "state": "clear"
+        },
+        {
+          "car": 1246,
+          "state": "clear"
+        },
+        {
+          "car": 1058,
+          "state": "clear"
+        },
+        {
+          "car": 1286,
+          "state": "clear"
+        },
+        {
+          "car": 1080,
+          "state": "clear"
+        },
+        {
+          "car": 1229,
+          "state": "clear"
+        },
+        {
+          "car": 1119,
+          "state": "clear"
+        },
+        {
+          "car": 1196,
+          "state": "clear"
+        },
+        {
+          "car": 1122,
+          "state": "clear"
+        },
+        {
+          "car": 1200,
+          "state": "clear"
+        },
+        {
+          "car": 1281,
+          "state": "clear"
+        },
+        {
+          "car": 1307,
+          "state": "clear"
+        },
+        {
+          "car": 1310,
+          "state": "clear"
+        },
+        {
+          "car": 1140,
+          "state": "clear"
+        },
+        {
+          "car": 1236,
+          "state": "clear"
+        },
+        {
+          "car": 1284,
+          "state": "clear"
+        },
+        {
+          "car": 1305,
+          "state": "clear"
+        },
+        {
+          "car": 1114,
+          "state": "clear"
+        },
+        {
+          "car": 1027,
+          "state": "clear"
+        },
+        {
+          "car": 1177,
+          "state": "clear"
+        }
+      ],
+      "received": [],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 588.8743670330693,
+          "car": 153.2,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    {
+      "time": 540,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [
+        {
+          "car": 1259,
+          "state": "clear"
+        },
+        {
+          "car": 1295,
+          "state": "clear"
+        },
+        {
+          "car": 1037,
+          "state": "clear"
+        },
+        {
+          "car": 1199,
+          "state": "clear"
+        },
+        {
+          "car": 1245,
+          "state": "clear"
+        },
+        {
+          "car": 1297,
+          "state": "clear"
+        },
+        {
+          "car": 1142,
+          "state": "clear"
+        },
+        {
+          "car": 1181,
+          "state": "clear"
+        },
+        {
+          "car": 1308,
+          "state": "clear"
+        },
+        {
+          "car": 1011,
+          "state": "clear"
+        },
+        {
+          "car": 1079,
+          "state": "clear"
+        },
+        {
+          "car": 1215,
+          "state": "clear"
+        },
+        {
+          "car": 1154,
+          "state": "clear"
+        },
+        {
+          "car": 1146,
+          "state": "clear"
+        },
+        {
+          "car": 1246,
+          "state": "clear"
+        },
+        {
+          "car": 1058,
+          "state": "clear"
+        },
+        {
+          "car": 1286,
+          "state": "clear"
+        },
+        {
+          "car": 1080,
+          "state": "clear"
+        },
+        {
+          "car": 1229,
+          "state": "clear"
+        },
+        {
+          "car": 1119,
+          "state": "clear"
+        },
+        {
+          "car": 1196,
+          "state": "clear"
+        },
+        {
+          "car": 1122,
+          "state": "clear"
+        },
+        {
+          "car": 1200,
+          "state": "clear"
+        },
+        {
+          "car": 1281,
+          "state": "clear"
+        },
+        {
+          "car": 1307,
+          "state": "clear"
+        },
+        {
+          "car": 1310,
+          "state": "clear"
+        },
+        {
+          "car": 1140,
+          "state": "clear"
+        },
+        {
+          "car": 1236,
+          "state": "clear"
+        },
+        {
+          "car": 1284,
+          "state": "clear"
+        },
+        {
+          "car": 1305,
+          "state": "clear"
+        },
+        {
+          "car": 1114,
+          "state": "clear"
+        },
+        {
+          "car": 1027,
+          "state": "clear"
+        },
+        {
+          "car": 1177,
+          "state": "clear"
+        }
+      ],
+      "received": [],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 588.8743670330693,
+          "car": 153.2,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [],
+      "svgs": 1
+    },
+    {
+      "time": 345.633,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [],
+      "received": [],
+      "fronts": [],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    {
+      "time": 345.643,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [],
+      "received": [
+        {
+          "car": 1212,
+          "beneficiary": 1164,
+          "at": 345.6432993768689
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 153.1732581699525,
+          "car": 146.7,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    {
+      "time": 346,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [],
+      "received": [
+        {
+          "car": 1177,
+          "beneficiary": 1164,
+          "at": 345.7865987794201
+        },
+        {
+          "car": 1212,
+          "beneficiary": 1164,
+          "at": 345.6432993768689
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 162.1629587417038,
+          "car": 146.7,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    {
+      "time": 345.777,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [],
+      "received": [
+        {
+          "car": 1212,
+          "beneficiary": 1164,
+          "at": 345.6432993768689
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 153.1732581699525,
+          "car": 146.7,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    {
+      "time": 345.787,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [],
+      "received": [
+        {
+          "car": 1177,
+          "beneficiary": 1164,
+          "at": 345.7865987794201
+        },
+        {
+          "car": 1212,
+          "beneficiary": 1164,
+          "at": 345.6432993768689
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 159.66816855262638,
+          "car": 146.7,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    {
+      "time": 346.116,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [],
+      "received": [
+        {
+          "car": 1177,
+          "beneficiary": 1164,
+          "at": 345.7865987794201
+        },
+        {
+          "car": 1212,
+          "beneficiary": 1164,
+          "at": 345.6432993768689
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 162.1629587417038,
+          "car": 146.79262816132302,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    {
+      "time": 346.126,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [],
+      "received": [
+        {
+          "car": 1027,
+          "beneficiary": 1164,
+          "at": 346.1257852016538
+        },
+        {
+          "car": 1177,
+          "beneficiary": 1164,
+          "at": 345.7865987794201
+        },
+        {
+          "car": 1212,
+          "beneficiary": 1164,
+          "at": 345.6432993768689
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 180.5461318876783,
+          "car": 146.80062816132303,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    {
+      "time": 347,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [
+        {
+          "car": 1177,
+          "state": "clear"
+        },
+        {
+          "car": 1212,
+          "state": "pull_over"
+        }
+      ],
+      "received": [
+        {
+          "car": 1310,
+          "beneficiary": 1164,
+          "at": 346.98558557057925
+        },
+        {
+          "car": 1140,
+          "beneficiary": 1164,
+          "at": 346.8422853907884
+        },
+        {
+          "car": 1236,
+          "beneficiary": 1164,
+          "at": 346.6989850764767
+        },
+        {
+          "car": 1284,
+          "beneficiary": 1164,
+          "at": 346.5556848934291
+        },
+        {
+          "car": 1305,
+          "beneficiary": 1164,
+          "at": 346.4123845694792
+        },
+        {
+          "car": 1114,
+          "beneficiary": 1164,
+          "at": 346.26908435809213
+        },
+        {
+          "car": 1027,
+          "beneficiary": 1164,
+          "at": 346.1257852016538
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 219.51618722649636,
+          "car": 147.5,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    {
+      "time": 346.259,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [],
+      "received": [
+        {
+          "car": 1027,
+          "beneficiary": 1164,
+          "at": 346.1257852016538
+        },
+        {
+          "car": 1177,
+          "beneficiary": 1164,
+          "at": 345.7865987794201
+        },
+        {
+          "car": 1212,
+          "beneficiary": 1164,
+          "at": 345.6432993768689
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 180.5461318876783,
+          "car": 146.9072674864737,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    {
+      "time": 346.269,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [],
+      "received": [
+        {
+          "car": 1114,
+          "beneficiary": 1164,
+          "at": 346.26908435809213
+        },
+        {
+          "car": 1027,
+          "beneficiary": 1164,
+          "at": 346.1257852016538
+        },
+        {
+          "car": 1177,
+          "beneficiary": 1164,
+          "at": 345.7865987794201
+        },
+        {
+          "car": 1212,
+          "beneficiary": 1164,
+          "at": 345.6432993768689
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 187.0410053534295,
+          "car": 146.9152674864737,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    {
+      "time": 345.653,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [],
+      "received": [
+        {
+          "car": 1212,
+          "beneficiary": 1164,
+          "at": 345.6432993768689
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 153.1732581699525,
+          "car": 146.7,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    {
+      "time": 346,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [],
+      "received": [
+        {
+          "car": 1177,
+          "beneficiary": 1164,
+          "at": 345.7865987794201
+        },
+        {
+          "car": 1212,
+          "beneficiary": 1164,
+          "at": 345.6432993768689
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 162.1629587417038,
+          "car": 146.7,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    {
+      "time": 345.797,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [],
+      "received": [
+        {
+          "car": 1177,
+          "beneficiary": 1164,
+          "at": 345.7865987794201
+        },
+        {
+          "car": 1212,
+          "beneficiary": 1164,
+          "at": 345.6432993768689
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 159.66816855262638,
+          "car": 146.7,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    {
+      "time": 346.136,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [],
+      "received": [
+        {
+          "car": 1027,
+          "beneficiary": 1164,
+          "at": 346.1257852016538
+        },
+        {
+          "car": 1177,
+          "beneficiary": 1164,
+          "at": 345.7865987794201
+        },
+        {
+          "car": 1212,
+          "beneficiary": 1164,
+          "at": 345.6432993768689
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 180.5461318876783,
+          "car": 146.808628161323,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    {
+      "time": 347,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [
+        {
+          "car": 1177,
+          "state": "clear"
+        },
+        {
+          "car": 1212,
+          "state": "pull_over"
+        }
+      ],
+      "received": [
+        {
+          "car": 1310,
+          "beneficiary": 1164,
+          "at": 346.98558557057925
+        },
+        {
+          "car": 1140,
+          "beneficiary": 1164,
+          "at": 346.8422853907884
+        },
+        {
+          "car": 1236,
+          "beneficiary": 1164,
+          "at": 346.6989850764767
+        },
+        {
+          "car": 1284,
+          "beneficiary": 1164,
+          "at": 346.5556848934291
+        },
+        {
+          "car": 1305,
+          "beneficiary": 1164,
+          "at": 346.4123845694792
+        },
+        {
+          "car": 1114,
+          "beneficiary": 1164,
+          "at": 346.26908435809213
+        },
+        {
+          "car": 1027,
+          "beneficiary": 1164,
+          "at": 346.1257852016538
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 219.51618722649636,
+          "car": 147.5,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    {
+      "time": 346.279,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [],
+      "received": [
+        {
+          "car": 1114,
+          "beneficiary": 1164,
+          "at": 346.26908435809213
+        },
+        {
+          "car": 1027,
+          "beneficiary": 1164,
+          "at": 346.1257852016538
+        },
+        {
+          "car": 1177,
+          "beneficiary": 1164,
+          "at": 345.7865987794201
+        },
+        {
+          "car": 1212,
+          "beneficiary": 1164,
+          "at": 345.6432993768689
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 187.0410053534295,
+          "car": 146.9232674864737,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    {
+      "time": 346.422,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [],
+      "received": [
+        {
+          "car": 1305,
+          "beneficiary": 1164,
+          "at": 346.4123845694792
+        },
+        {
+          "car": 1114,
+          "beneficiary": 1164,
+          "at": 346.26908435809213
+        },
+        {
+          "car": 1027,
+          "beneficiary": 1164,
+          "at": 346.1257852016538
+        },
+        {
+          "car": 1177,
+          "beneficiary": 1164,
+          "at": 345.7865987794201
+        },
+        {
+          "car": 1212,
+          "beneficiary": 1164,
+          "at": 345.6432993768689
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 193.5360370614859,
+          "car": 147.03790765558333,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    {
+      "time": 346.566,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [],
+      "received": [
+        {
+          "car": 1284,
+          "beneficiary": 1164,
+          "at": 346.5556848934291
+        },
+        {
+          "car": 1305,
+          "beneficiary": 1164,
+          "at": 346.4123845694792
+        },
+        {
+          "car": 1114,
+          "beneficiary": 1164,
+          "at": 346.26908435809213
+        },
+        {
+          "car": 1027,
+          "beneficiary": 1164,
+          "at": 346.1257852016538
+        },
+        {
+          "car": 1177,
+          "beneficiary": 1164,
+          "at": 345.7865987794201
+        },
+        {
+          "car": 1212,
+          "beneficiary": 1164,
+          "at": 345.6432993768689
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 200.03108565396923,
+          "car": 147.15254791474325,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    {
+      "time": 346.709,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [],
+      "received": [
+        {
+          "car": 1236,
+          "beneficiary": 1164,
+          "at": 346.6989850764767
+        },
+        {
+          "car": 1284,
+          "beneficiary": 1164,
+          "at": 346.5556848934291
+        },
+        {
+          "car": 1305,
+          "beneficiary": 1164,
+          "at": 346.4123845694792
+        },
+        {
+          "car": 1114,
+          "beneficiary": 1164,
+          "at": 346.26908435809213
+        },
+        {
+          "car": 1027,
+          "beneficiary": 1164,
+          "at": 346.1257852016538
+        },
+        {
+          "car": 1177,
+          "beneficiary": 1164,
+          "at": 345.7865987794201
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 206.52611311110616,
+          "car": 147.26718806118132,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    {
+      "time": 346.852,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [],
+      "received": [
+        {
+          "car": 1140,
+          "beneficiary": 1164,
+          "at": 346.8422853907884
+        },
+        {
+          "car": 1236,
+          "beneficiary": 1164,
+          "at": 346.6989850764767
+        },
+        {
+          "car": 1284,
+          "beneficiary": 1164,
+          "at": 346.5556848934291
+        },
+        {
+          "car": 1305,
+          "beneficiary": 1164,
+          "at": 346.4123845694792
+        },
+        {
+          "car": 1114,
+          "beneficiary": 1164,
+          "at": 346.26908435809213
+        },
+        {
+          "car": 1027,
+          "beneficiary": 1164,
+          "at": 346.1257852016538
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 213.02116025786466,
+          "car": 147.38182831263072,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    {
+      "time": 346.996,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [],
+      "received": [
+        {
+          "car": 1310,
+          "beneficiary": 1164,
+          "at": 346.98558557057925
+        },
+        {
+          "car": 1140,
+          "beneficiary": 1164,
+          "at": 346.8422853907884
+        },
+        {
+          "car": 1236,
+          "beneficiary": 1164,
+          "at": 346.6989850764767
+        },
+        {
+          "car": 1284,
+          "beneficiary": 1164,
+          "at": 346.5556848934291
+        },
+        {
+          "car": 1305,
+          "beneficiary": 1164,
+          "at": 346.4123845694792
+        },
+        {
+          "car": 1114,
+          "beneficiary": 1164,
+          "at": 346.26908435809213
+        },
+        {
+          "car": 1027,
+          "beneficiary": 1164,
+          "at": 346.1257852016538
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 219.51618722649636,
+          "car": 147.4964684564634,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    {
+      "time": 347.139,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [
+        {
+          "car": 1177,
+          "state": "clear"
+        },
+        {
+          "car": 1212,
+          "state": "pull_over"
+        }
+      ],
+      "received": [
+        {
+          "car": 1307,
+          "beneficiary": 1164,
+          "at": 347.12888555143854
+        },
+        {
+          "car": 1310,
+          "beneficiary": 1164,
+          "at": 346.98558557057925
+        },
+        {
+          "car": 1140,
+          "beneficiary": 1164,
+          "at": 346.8422853907884
+        },
+        {
+          "car": 1236,
+          "beneficiary": 1164,
+          "at": 346.6989850764767
+        },
+        {
+          "car": 1284,
+          "beneficiary": 1164,
+          "at": 346.5556848934291
+        },
+        {
+          "car": 1305,
+          "beneficiary": 1164,
+          "at": 346.4123845694792
+        },
+        {
+          "car": 1114,
+          "beneficiary": 1164,
+          "at": 346.26908435809213
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 226.0111843553937,
+          "car": 147.77777110287707,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    {
+      "time": 348,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [
+        {
+          "car": 1177,
+          "state": "clear"
+        },
+        {
+          "car": 1212,
+          "state": "pull_over"
+        }
+      ],
+      "received": [
+        {
+          "car": 1229,
+          "beneficiary": 1164,
+          "at": 347.9886869656752
+        },
+        {
+          "car": 1119,
+          "beneficiary": 1164,
+          "at": 347.84538697760814
+        },
+        {
+          "car": 1196,
+          "beneficiary": 1164,
+          "at": 347.70208663647156
+        },
+        {
+          "car": 1122,
+          "beneficiary": 1164,
+          "at": 347.55878643945096
+        },
+        {
+          "car": 1200,
+          "beneficiary": 1164,
+          "at": 347.415485972961
+        },
+        {
+          "car": 1281,
+          "beneficiary": 1164,
+          "at": 347.27218570804695
+        },
+        {
+          "car": 1307,
+          "beneficiary": 1164,
+          "at": 347.12888555143854
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 264.9813964908947,
+          "car": 149.5,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    }
+  ],
+  "errors": []
+}

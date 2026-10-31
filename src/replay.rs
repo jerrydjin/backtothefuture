@@ -107,6 +107,18 @@ impl ReplayArchive {
                 return Err("replay has an invalid road link".into());
             }
         }
+        let mut incident_ids = BTreeSet::new();
+        for incident in &town.incidents {
+            incident.definition.validate()?;
+            if !incident_ids.insert(&incident.definition.id)
+                || incident.link >= town.links.len()
+                || town.links[incident.link].class == crate::network::RoadClass::Connector
+                || incident.definition.position_m + incident.definition.length_m
+                    > town.links[incident.link].len
+            {
+                return Err("replay has an invalid physical incident".into());
+            }
+        }
         let mut totals = Vec::new();
         for route in &town.routes {
             if route.is_empty() || route.iter().any(|&id| id >= town.links.len()) {
