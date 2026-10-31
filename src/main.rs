@@ -214,6 +214,7 @@ fn main() -> ExitCode {
 struct Args {
     decision_log: Option<std::path::PathBuf>,
     rush_hour: bool,
+    boxed_in: bool,
     no_history: bool,
     local_only: bool,
     message_speed: f64,
@@ -248,6 +249,7 @@ impl Args {
         let mut parsed = Args {
             decision_log: None,
             rush_hour: false,
+            boxed_in: false,
             no_history: false,
             local_only: false,
             message_speed: 10.0,
@@ -284,6 +286,13 @@ impl Args {
                         Some(args.next().ok_or("--decision-log needs a path")?.into())
                 }
                 "--rush-hour" => parsed.rush_hour = true,
+                "--scenario" => {
+                    if args.next().as_deref() != Some("boxed-in") {
+                        return Err("scenario must be boxed-in".into());
+                    }
+                    parsed.boxed_in = true;
+                    parsed.rush_hour = true;
+                }
                 "--no-history" => parsed.no_history = true,
                 "--local-only" => parsed.local_only = true,
                 "--message-speed" => {
@@ -561,8 +570,11 @@ fn run_rush_hour(args: &Args) -> Result<(), String> {
             lookahead_s: args.lookahead_minutes * 60.0,
         })
     };
-    let mut result =
-        muse::rush_hour::run_experiment(args.seed, policy.as_ref(), !args.no_history, config)?;
+    let mut result = if args.boxed_in {
+        muse::rush_hour::run_boxed(args.seed, policy.as_ref(), !args.no_history, config)?
+    } else {
+        muse::rush_hour::run_experiment(args.seed, policy.as_ref(), !args.no_history, config)?
+    };
     if args.require_live && result.score.model_decisions != result.run.decisions.len() {
         result.score.passed = false;
     }

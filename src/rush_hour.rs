@@ -523,6 +523,68 @@ pub fn population(seed: u64) -> Vec<Trip> {
     trips
 }
 
+/// Boxed-in demand rule is preregistered in docs/phase-6-boxed-in.md.
+pub fn boxed_population(seed: u64) -> Vec<Trip> {
+    let mut trips = population(seed);
+    trips.sort_by_key(|t| {
+        (
+            match t.truth {
+                Truth::Ordinary => 0,
+                Truth::Emergency => 1,
+                Truth::Liar => 2,
+            },
+            t.car,
+        )
+    });
+    let mut rng = Rng(seed.max(1));
+    let (mut ordinary, mut emergency, mut liar) = (0, 0, 0);
+    for t in &mut trips {
+        let departure = match t.truth {
+            Truth::Ordinary => {
+                let i = ordinary;
+                ordinary += 1;
+                t.route = if i < 120 { 3 } else { 9 };
+                if i < 120 {
+                    i as f64
+                } else {
+                    2.0 * (i - 120) as f64
+                }
+            }
+            Truth::Emergency => {
+                let i = emergency;
+                emergency += 1;
+                t.route = 15;
+                120.0 + 2.0 * i as f64
+            }
+            Truth::Liar => {
+                let i = liar;
+                liar += 1;
+                t.route = 16;
+                40.0 + 2.0 * (i % 12) as f64 + 750.0 * (t.claim_number - 1) as f64
+            }
+        };
+        t.depart_s = departure + rng.pick(1000) as f64 / 1000.0;
+        t.request_s = t.depart_s;
+        t.destination = if t.truth == Truth::Liar {
+            "gym"
+        } else {
+            "hospital"
+        }
+        .into();
+    }
+    trips.sort_by(|a, b| a.request_s.total_cmp(&b.request_s).then(a.car.cmp(&b.car)));
+    trips
+}
+
+pub fn run_boxed(
+    seed: u64,
+    policy: &dyn Policy,
+    history: bool,
+    broadcast: Option<BroadcastConfig>,
+) -> Result<ScoredRun, String> {
+    run_custom(seed, policy, history, broadcast, boxed_population(seed))
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct OthersCost {
     pub mean_s: f64,
