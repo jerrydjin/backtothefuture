@@ -1,0 +1,19 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.01s
+     Running tests/live_adapter.rs (target/debug/deps/live_adapter-41f8b34dae9bc273)
+
+running 1 test
+merge-timing cars=126,226 attempt=1 phase=start budget_s=1.900
+curl-timing elapsed_s=0.016 budget_s=1.900 exit=Some(52) http_status=Some(0) stderr="curl: (52) Empty reply from server\n"
+merge-timing cars=126,226 attempt=1 phase=returned elapsed_s=0.016 remaining_s=1.984 result=transport
+merge-backoff attempt=1 pause_ms=150
+merge-timing cars=126,226 attempt=2 phase=start budget_s=1.733
+curl-timing elapsed_s=0.016 budget_s=1.733 exit=Some(52) http_status=Some(0) stderr="curl: (52) Empty reply from server\n"
+merge-timing cars=126,226 attempt=2 phase=returned elapsed_s=0.016 remaining_s=1.817 result=transport
+merge-backoff attempt=2 pause_ms=150
+merge-timing cars=126,226 attempt=3 phase=start budget_s=1.567
+curl-timing elapsed_s=0.011 budget_s=1.567 exit=Some(0) http_status=Some(200) stderr=""
+merge-timing cars=126,226 attempt=3 phase=returned elapsed_s=0.011 remaining_s=1.656 result=reply
+test two_transport_errors_back_off_and_recover_inside_one_budget ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.97s
+

@@ -168,6 +168,62 @@ impl Completer for Fixed {
 }
 
 #[test]
+fn seizure_parse_failure_grants_safe_priority_and_never_claims_to_be_live() {
+    let reason = ReasonText::new("my passenger is having a seizure").unwrap();
+    let agent = ReasonAgent::new(Some(Box::new(Fixed("not JSON".into()))), "baseten");
+    let (town, report) = reason::evaluate(&reason, &agent, &reason::baseline()).unwrap();
+    assert_eq!(report.decision.source, "fallback");
+    assert_eq!(report.decision.fallback_reason, "parse");
+    assert!(report.decision.granted);
+    assert_eq!(report.time_home_s, 126.5);
+    assert!(report.same_route && report.passed);
+    assert_eq!((town.stats.overlaps, town.stats.crossing_conflicts), (0, 0));
+}
+
+#[test]
+fn fallback_covers_plausible_medical_claims_and_critical_negative_signs() {
+    let agent = ReasonAgent::new(None, "");
+    for text in [
+        "my passenger is having a seizure",
+        "My dad is having a stroke",
+        "My friend took an overdose",
+        "My child has an allergic reaction",
+        "My passenger is unconscious",
+        "My passenger is choking",
+        "My child is not breathing",
+        "My passenger has no pulse",
+        "My partner is in active labour",
+        "My child is bleeding badly",
+        "My passenger is unresponsive",
+    ] {
+        let decision = agent.assess(&ReasonText::new(text).unwrap(), 200);
+        assert!(decision.granted, "medical fallback denied: {text}");
+        assert_eq!(decision.source, "fallback");
+        assert_eq!(decision.fallback_reason, "no_key");
+    }
+    for text in [
+        "I do not have chest pain",
+        "No chest pain, just a routine ride",
+        "My passenger is not having a seizure",
+        "I have a routine hospital appointment",
+        "I'm bored",
+    ] {
+        assert!(
+            !agent.assess(&ReasonText::new(text).unwrap(), 200).granted,
+            "{text}"
+        );
+    }
+    assert!(
+        agent
+            .assess(
+                &ReasonText::new("No chest pain, but my passenger is having a seizure").unwrap(),
+                200
+            )
+            .granted
+    );
+}
+
+#[test]
 fn speech_answers_the_actual_reason_and_polite_refusals_keep_the_spoken_roles() {
     let reason = ReasonText::new("I want coffee before it gets cold").unwrap();
     let valid = json!({"granted":false,"explanation":"Cold coffee can wait","lines":[

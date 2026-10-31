@@ -12,6 +12,7 @@ const assert = require('assert');
   const browser = await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
   try {
     const page = await browser.newPage({viewport:{width:1440,height:1000}});
+    await page.clock.install();
     const errors=[], requests=[];
     page.on('pageerror', e => errors.push(e.message));
     page.on('request', r => requests.push(r.url()));
@@ -27,13 +28,13 @@ const assert = require('assert');
       }
     }
     await page.goto(base+'/demo.html?replay=1');
-    await page.clock.install();
     await page.clock.fastForward(102000);
     await page.waitForURL('**/grant.html?replay=1');
     await page.clock.fastForward(35100);
     await page.waitForURL('**/deny.html?replay=1');
     await page.clock.fastForward(14100);
     assert.equal(await page.locator('#network').getAttribute('data-recording-complete'),'true');
+    await page.clock.resume();
     for (const clip of ['grant','deny']) {
       const saved=JSON.parse(fs.readFileSync('recordings/'+clip+'.json'));
       await page.goto(base+'/'+clip+'.html?replay=1&t=205');

@@ -542,6 +542,27 @@ impl DemoServer {
                         let mut state = slots.lock().unwrap();
                         let readiness: Vec<_> = state.iter().map(|s| s.delivered).collect();
                         let view = clock.view(now, &board, &readiness);
+                        // The next forecast is already known. Start during this
+                        // dialogue so its 28s budget, including a retry, ends
+                        // before the next encounter reaches its speaking point.
+                        let next = view.event + 1;
+                        if matches!(view.phase.as_str(), "dialogue" | "yield" | "fade")
+                            && next < count
+                            && !state[next].started
+                        {
+                            state[next].started = true;
+                            eprintln!(
+                                "demo-timing event={next} phase=early_ask preceding_event={}",
+                                view.event
+                            );
+                            launch_negotiation(
+                                next,
+                                board.town.exchanges[next].clone(),
+                                Arc::clone(&slots),
+                                Arc::clone(&talk),
+                                Instant::now() + Duration::from_secs_f64(REPLY_DEADLINE_S),
+                            );
+                        }
                         let stage = &board.demo.as_ref().unwrap().stages[view.stage];
                         if now - clock.stage_start >= stage.typing_s() + REPLY_DEADLINE_S
                             && state[view.event].answer.is_none()

@@ -347,7 +347,7 @@ impl GeminiChat {
                 format!("x-goog-api-key: {}", self.api_key),
             )
         };
-        let text = curl_negotiate(&url, &[header], &body, timeout.as_secs_f64())
+        let text = curl_negotiate(&url, &[header], &body, timeout.as_secs_f64(), &self.api_key)
             .map_err(|error| negotiate_reason(&error))?;
         completion_text(&text).map_err(|error| negotiate_reason(&error))
     }
@@ -481,6 +481,7 @@ fn curl_negotiate(
     headers: &[String],
     body: &str,
     timeout_secs: f64,
+    api_key: &str,
 ) -> Result<String, String> {
     let timeout = timeout_secs.max(0.001).to_string();
     let mut cmd = Command::new("curl");
@@ -500,15 +501,25 @@ fn curl_negotiate(
     cmd.args(["-d", body, "--max-time", &timeout]);
     // curl's timer alone does not bound process startup, pipe draining, or a
     // wedged child. Keep a separate Rust deadline over the entire operation.
-    let output = bounded_output(&mut cmd, Duration::from_secs_f64(timeout_secs.max(0.001)))?;
+    let started = Instant::now();
+    let output = match bounded_output(&mut cmd, Duration::from_secs_f64(timeout_secs.max(0.001))) {
+        Ok(output) => output,
+        Err(error) => {
+            eprintln!("curl-timing elapsed_s={:.3} budget_s={timeout_secs:.3} exit=unavailable http_status=unavailable reason={error}", started.elapsed().as_secs_f64());
+            return Err(error);
+        }
+    };
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let (body, status) = split_http_marker(&stdout);
+    let stderr = redact(&String::from_utf8_lossy(&output.stderr), api_key);
+    let stderr: String = stderr.chars().take(768).collect();
+    eprintln!("curl-timing elapsed_s={:.3} budget_s={timeout_secs:.3} exit={:?} http_status={:?} stderr={stderr:?}", started.elapsed().as_secs_f64(), output.status.code(), status);
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let timed_out =
             output.status.code() == Some(28) || stderr.to_ascii_lowercase().contains("timed out");
         return Err(if timed_out { "timeout" } else { "transport" }.to_string());
     }
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let (body, status) = split_http_marker(&stdout);
     match status {
         Some(code) if (200..300).contains(&code) => Ok(body),
         Some(code) if code >= 400 => Err(format!("http_{code}")),

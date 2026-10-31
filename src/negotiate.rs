@@ -161,7 +161,7 @@ impl MergeTalk for MergeAgent {
     fn agree_before(&self, snap: &MergeSnap, deadline: Instant) -> MergeChoice {
         let mut prompt = render_merge_prompt(snap);
         let mut reason = "timeout".to_string();
-        for attempt in 0..2 {
+        for attempt in 0..3 {
             // Leave room for parsing and publishing the answer before playback expires.
             let remaining = deadline.saturating_duration_since(Instant::now());
             let Some(budget) = remaining.checked_sub(Duration::from_millis(100)) else {
@@ -205,6 +205,9 @@ impl MergeTalk for MergeAgent {
                 },
                 Err(error) => reason = negotiate_reason(&error),
             }
+            if attempt >= 1 && reason == "parse" {
+                break;
+            }
             if !matches!(
                 reason.as_str(),
                 "parse"
@@ -218,6 +221,15 @@ impl MergeTalk for MergeAgent {
                     | "http_504"
             ) {
                 break;
+            }
+            if reason == "transport" && attempt < 2 {
+                let pause = Duration::from_millis(150);
+                if deadline.saturating_duration_since(Instant::now())
+                    > pause + Duration::from_millis(100)
+                {
+                    eprintln!("merge-backoff attempt={} pause_ms=150", attempt + 1);
+                    std::thread::sleep(pause);
+                }
             }
         }
         let mut choice = scripted_choice(snap, &reason);
@@ -689,105 +701,113 @@ pub fn roles_match(
         ) && has(&go, &["agreed", "okay", "alright", "sure", "deal", "yes"])
             && has(&go, &["wait", "after", "then", "your crossing"]);
     }
-    let invitations = [
-        "you first",
-        "after you",
-        "you go",
-        "go ahead",
-        "your turn",
-        "i'll wait",
-        "i will wait",
-        "i can wait",
-        "i'm slowing",
-        "i am slowing",
-        "i'll slow",
-        "i yield",
-        "i'll yield",
-        "i'm waiting",
-        "i'm holding",
-        "you can go",
-        "i'll let you through",
-        "hang back",
-        "hold back",
-        "i'll hold",
+    let (wait_moves, wait_waits, wait_invites) = speech_intent(&wait);
+    let (go_moves, go_waits, go_invites) = speech_intent(&go);
+    (wait_waits || wait_invites)
+        && !wait_moves
+        && (go_moves || has(&go, &["thanks", "thank you", "on my way"]))
+        && !go_waits
+        && !go_invites
+}
+
+/// Recognize first-person actions, independently of the car's assigned role.
+/// Acknowledgement and second-person invitations do not become self-movement.
+fn speech_intent(text: &str) -> (bool, bool, bool) {
+    let normalized = text
+        .replace("i'll", "i will")
+        .replace("i'm", "i am")
+        .replace("i'd", "i would")
+        .replace("i’ve", "i have");
+    let tokens: Vec<_> = normalized
+        .split(|c: char| !c.is_alphabetic())
+        .filter(|s| !s.is_empty())
+        .collect();
+    let moving = [
+        "go",
+        "going",
+        "proceed",
+        "proceeding",
+        "head",
+        "heading",
+        "move",
+        "moving",
+        "merge",
+        "merging",
+        "clear",
+        "clearing",
+        "continue",
+        "continuing",
+        "drive",
+        "driving",
+        "roll",
+        "rolling",
+        "pull",
+        "pulling",
+        "take",
+        "taking",
+        "cross",
+        "crossing",
     ];
-    // Live Baseten also describes its own movement as clearing/proceeding.
-    // Treat those phrases as movement on *both* sides of the agreement, so
-    // accepting them cannot conceal a contradictory promise by the waiter.
-    let movement = [
+    let waiting = [
+        "wait", "waiting", "yield", "yielding", "hold", "holding", "stop", "stopping", "stay",
+        "staying", "pause", "pausing", "slow", "slowing", "hang", "hanging", "let",
+    ];
+    let auxiliaries = [
+        "will", "am", "can", "would", "shall", "just", "still", "keep", "be", "here", "right",
+        "happily", "gladly",
+    ];
+    let mut moves = false;
+    let mut waits = false;
+    moves |= [
         "clearing ahead",
         "clearing the route",
         "clearing route",
         "proceeding ahead",
         "proceeding through",
         "proceeding to clear",
-        "i'll clear ahead",
-        "i will clear ahead",
-    ];
-    let selfish = [
-        "i go first",
-        "i'll go first",
-        "i'm going first",
         "going now",
         "merging now",
-        "i'll merge now",
-        "i'll go",
-        "i will go",
-        "i'm going",
-        "i go",
-        "i'll take",
-        "i'm merging",
-    ];
-    // "I'll go ahead" is accepting the turn; "Thanks, go ahead" gives
-    // it away. A courtesy word alone must not hide a reversed spoken role.
-    let go_without_self_acceptance = go
-        .replace("i'll go ahead", "")
+    ]
+    .iter()
+    .any(|p| normalized.contains(p));
+    for (i, token) in tokens.iter().enumerate() {
+        if *token != "i" {
+            continue;
+        }
+        let mut j = i + 1;
+        while j < tokens.len() && auxiliaries.contains(&tokens[j]) {
+            j += 1;
+        }
+        if let Some(verb) = tokens.get(j) {
+            moves |= moving.contains(verb);
+            waits |= waiting.contains(verb);
+        }
+    }
+    // Short, subjectless spoken fragments also have a role, e.g. "Proceeding
+    // now" or "Holding here"; never match an action addressed to 'you'.
+    if let Some(first) = tokens.first() {
+        moves |= moving.contains(first) && !["go", "let", "take"].contains(first);
+        waits |= waiting.contains(first) && !["wait", "stop", "slow", "let"].contains(first);
+    }
+    let self_acceptance = normalized
         .replace("i will go ahead", "")
-        .replace("i go ahead", "");
-    has(&wait, &invitations)
-        && !has(&wait, &selfish)
-        && !has(&wait, &movement)
-        && (has(&go, &movement)
-            || has(
-                &go,
-                &[
-                    "thanks",
-                    "thank you",
-                    "going",
-                    "i'll go",
-                    "i go",
-                    "merging",
-                    "coming through",
-                    "i'll take",
-                    "taking",
-                    "on my way",
-                ],
-            ))
-        && !has(
-            &go_without_self_acceptance,
-            &[
-                "you first",
-                "after you",
-                "you go",
-                "you can go",
-                "go ahead",
-                "your turn",
-                "i'll wait",
-                "i will wait",
-                "i can wait",
-                "i'm waiting",
-                "i'm holding",
-                "i'll slow",
-                "i'll hold",
-                "i'll let you through",
-                "i'm slowing",
-                "i am slowing",
-                "i yield",
-                "i'll yield",
-                "hold back",
-                "hang back",
-            ],
-        )
+        .replace("i can go ahead", "")
+        .replace("i go ahead", "")
+        .replace("i will take my turn", "");
+    let invites = [
+        "you first",
+        "after you",
+        "you go",
+        "you can go",
+        "go ahead",
+        "your turn",
+        "let you through",
+        "hold back",
+        "hang back",
+    ]
+    .iter()
+    .any(|p| self_acceptance.contains(p));
+    (moves, waits, invites)
 }
 
 fn scripted_choice(snap: &MergeSnap, reason: &str) -> MergeChoice {
@@ -1089,6 +1109,50 @@ fn role_for(me: u32, them: u32, turn: u32) -> YieldRole {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn natural_proceed_heading_and_holding_lines_keep_their_actual_roles() {
+        for go in [
+            "I'll proceed now, heading to hospital",
+            "I'm heading to the hospital",
+            "I will keep moving",
+            "I'll roll through now",
+            "Proceeding now, thanks",
+            "I can continue now",
+        ] {
+            for wait in [
+                "I'll wait right here",
+                "I'm staying put, you go",
+                "I will hold here",
+                "I'll pause, please go ahead",
+                "Holding here, go ahead",
+            ] {
+                let lines = vec![
+                    MergeLine {
+                        id: 2,
+                        say: wait.into(),
+                    },
+                    MergeLine {
+                        id: 5,
+                        say: go.into(),
+                    },
+                ];
+                assert!(roles_match(&lines, 2, 5, None), "{wait} / {go}");
+                assert!(!roles_match(&lines, 5, 2, None), "reversed {wait} / {go}");
+            }
+        }
+        let both = vec![
+            MergeLine {
+                id: 2,
+                say: "I'll wait; I will proceed now".into(),
+            },
+            MergeLine {
+                id: 5,
+                say: "I'll go".into(),
+            },
+        ];
+        assert!(!roles_match(&both, 2, 5, None));
+    }
     use crate::schema::Approach;
 
     #[test]

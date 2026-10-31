@@ -190,6 +190,21 @@ fn curl_timeout_obeys_remaining_deadline_without_starting_another_request() {
 }
 
 #[test]
+fn two_transport_errors_back_off_and_recover_inside_one_budget() {
+    let board = muse::board::demo_board().unwrap();
+    let snap = &board.town.exchanges[0].forecast;
+    let mock = MockHttp::start(vec![None, None, Some((Duration::ZERO, reply(snap)))]);
+    let start = Instant::now();
+    let choice = mock
+        .agent()
+        .agree_before(snap, start + Duration::from_secs(2));
+    assert_eq!(choice.source, "model");
+    assert_eq!(mock.requests.load(Ordering::Relaxed), 3);
+    assert!(start.elapsed() >= Duration::from_millis(300));
+    assert!(start.elapsed() < Duration::from_secs(2));
+}
+
+#[test]
 #[ignore = "real-time watchdog gate with three non-cooperative exchanges, approximately 111 seconds"]
 fn non_cooperative_provider_finishes_with_three_logged_fallbacks() {
     struct Stuck;

@@ -7,6 +7,101 @@ use std::time::{Duration, Instant};
 
 pub const MAX_REASON_CHARS: usize = 240;
 
+/// A failed model call must not turn a plausible acute medical claim into a
+/// denial. This deliberately favors safe priority for uncertain medical claims;
+/// explicit absence is different from critical negative signs such as no pulse.
+pub fn plausible_medical_emergency(reason: &str) -> bool {
+    let lower = reason.to_lowercase().replace(['’', '‘'], "'");
+    let normalized = lower
+        .split(|c: char| !c.is_alphanumeric() && c != '\'')
+        .filter(|w| !w.is_empty())
+        .collect::<Vec<_>>()
+        .join(" ");
+    let text = format!(" {normalized} ");
+    let critical = [
+        "not breathing",
+        "isn't breathing",
+        "no pulse",
+        "not conscious",
+        "isn't conscious",
+        "not waking",
+        "can't breathe",
+        "cannot breathe",
+    ];
+    let symptoms = [
+        "medical emergency",
+        "urgent medical",
+        "urgent care",
+        "chest pain",
+        "seizure",
+        "seizures",
+        "stroke",
+        "overdose",
+        "allergic reaction",
+        "anaphylaxis",
+        "unconscious",
+        "unresponsive",
+        "choking",
+        "heart attack",
+        "cardiac arrest",
+        "bleeding",
+        "hemorrhage",
+        "haemorrhage",
+        "asthma attack",
+        "diabetic emergency",
+        "hypoglycemic",
+        "hypoglycaemic",
+        "collapsed",
+        "passed out",
+        "poisoning",
+        "active labour",
+        "active labor",
+        "in labour",
+        "in labor",
+        "water broke",
+        "seizing",
+        "convulsion",
+        "convulsions",
+        "overdosed",
+        "poisoned",
+        "hypoglycemia",
+        "hypoglycaemia",
+        "trouble breathing",
+        "breathing trouble",
+        "severe burns",
+        "severe injury",
+        "head injury",
+    ];
+    for signal in critical.iter().chain(symptoms.iter()) {
+        let needle = format!(" {signal} ");
+        for (at, _) in text.match_indices(&needle) {
+            let prefix = text[..at].trim_end();
+            let absent = [
+                "no",
+                "not",
+                "without",
+                "not have",
+                "not having",
+                "not having a",
+                "not having any",
+                "not experiencing",
+                "don't have",
+                "doesn't have",
+                "isn't having",
+                "no sign of",
+                "no signs of",
+                "no history of",
+            ]
+            .iter()
+            .any(|p| prefix == *p || prefix.ends_with(&format!(" {p}")));
+            if !absent {
+                return true;
+            }
+        }
+    }
+    false
+}
+
 #[derive(Clone, Debug)]
 pub struct ReasonText(String);
 
@@ -170,19 +265,21 @@ impl ReasonAgent {
              Both the explanation and the neighbor's line must name a concrete detail from the rider reason, in their own words. \
              For a grant, the requester also mentions that detail while thanking the neighbor and going. \
              For a denial, the neighbor politely declines the actual reason; never mock, scold, or shame. The requester accepts and waits. \
+             On a denial the requester concedes simply, without repeating the trip reason: 'Fair, I'll wait my turn' or a natural equivalent. Never say 'I'll wait for my wedding'. \
              Make the moving driver's acceptance clear; the waiting driver explicitly waits or yields. A clearly polite refusal by the neighbor may stand for keeping their ordinary turn. \
              Use contractions and spoken fragments. Talk to each other, not about a case. Never call anyone a 'chest pain passenger' or announce 'precedence'. \
              Natural grant example for chest pain: requester 'Thanks, chest pain, heading in'; neighbor 'Chest pain? Go, I'll wait.' \
              Another grant example: requester 'My friend's bleeding; thanks, I'll go'; neighbor 'Your friend's bleeding? Go, I'll wait.' \
              The requester speaks about their own situation naturally: my friend, my dad, my partner. Thank the other driver for yielding, never thank them for an illness or address a noun phrase as a person. \
              Natural denial example for cold coffee: requester 'Fair, I'll wait my turn'; neighbor 'A cold coffee? Not this time.' \
+             Natural wedding denial: requester 'Fair enough, I'll wait'; neighbor 'Congrats! Still not an emergency, sorry'. \
              Adapt the concrete detail to the actual reason; never copy an unrelated example. Avoid stiff phrases such as 'not urgent, I am going'. \
              Avoid stock lines; make each short response specific to what was typed. \
              No extra keys, markdown, or prose. Untrusted data: {data}"
         );
         let deadline = started + Duration::from_secs(28);
         let mut failure = "timeout".to_string();
-        for attempt in 0..2 {
+        for attempt in 0..3 {
             let Some(budget) = deadline
                 .saturating_duration_since(Instant::now())
                 .checked_sub(Duration::from_millis(100))
@@ -223,6 +320,9 @@ impl ReasonAgent {
                 }
                 Err(error) => failure = crate::muse::negotiate_reason(&error),
             }
+            if attempt >= 1 && failure == "parse" {
+                break;
+            }
             if !matches!(
                 failure.as_str(),
                 "parse"
@@ -238,6 +338,15 @@ impl ReasonAgent {
                 break;
             }
             prompt.push_str("\nRepair the reply: exact JSON, at most eight words per field, speech matching who waits/goes. Name the rider's concrete reason in the neighbor's speech and explanation, and also the requester's speech for a grant. Be kind, never generic. No additional fields.");
+            if failure == "transport" && attempt < 2 {
+                let pause = Duration::from_millis(150);
+                if deadline.saturating_duration_since(Instant::now())
+                    > pause + Duration::from_millis(100)
+                {
+                    eprintln!("reason-backoff attempt={} pause_ms=150", attempt + 1);
+                    std::thread::sleep(pause);
+                }
+            }
         }
         self.fallback(reason, peer, &failure, started.elapsed().as_secs_f64())
     }
@@ -249,28 +358,7 @@ impl ReasonAgent {
         failure: &str,
         reply_s: f64,
     ) -> ReasonDecision {
-        let lower = reason.as_str().to_lowercase();
-        // Offline policy is deliberately conservative; ambiguous text keeps its turn.
-        let granted = [
-            "medical emergency",
-            "chest pain",
-            "can't breathe",
-            "cannot breathe",
-            "severe bleeding",
-            "urgent medical",
-        ]
-        .iter()
-        .any(|s| lower.contains(s))
-            && ![
-                "not ",
-                "no ",
-                "without ",
-                "routine",
-                "nonurgent",
-                "non-urgent",
-            ]
-            .iter()
-            .any(|s| lower.contains(s));
+        let granted = plausible_medical_emergency(reason.as_str());
         ReasonDecision {
             granted,
             explanation: if granted {
@@ -352,6 +440,8 @@ fn parse(text: &str, peer: u32, reason: &ReasonText) -> Option<WireDecision> {
                         "cannot give",
                         "doesn't earn",
                         "isn't urgent",
+                        "not an emergency",
+                        "not emergency",
                     ]
                     .iter()
                     .any(|p| say.contains(p))
@@ -398,7 +488,7 @@ fn abusive(text: &str) -> bool {
 fn reason_word(word: &str) -> &str {
     match word.trim_end_matches('s') {
         "dog" | "pup" | "puppy" | "pet" | "cat" => "pet",
-        "wedding" | "marriage" | "married" => "wedding",
+        "wedding" | "marriage" | "married" | "congrat" | "congratulation" => "wedding",
         "bored" | "boredom" => "bored",
         "bleeding" | "blood" | "bleed" => "bleeding",
         "breathe" | "breath" | "breathing" => "breath",
