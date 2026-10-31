@@ -34,7 +34,7 @@ with tempfile.TemporaryDirectory(prefix="muse-recording-") as directory:
         subprocess.run([str(binary), "--replay", str(archive), "--export-replay", str(output)], check=True, stdout=subprocess.DEVNULL)
         if next_clip:
             done = 'document.querySelector("#network").dataset.rushComplete === "true"' if rush else ('document.querySelector("#network").dataset.demoComplete === "true"' if seconds is None else f"performance.now() >= {seconds * 1000}")
-            script = "<script>setInterval(function(){if(" + done + "){location.replace(" + json.dumps(f"/{next_clip}.html?replay=1") + ");}},100);</script>"
+            script = "<script>var recordingAdvanced=false;setInterval(function(){if(!recordingAdvanced && (" + done + ")){recordingAdvanced=true;location.replace(" + json.dumps(f"/{next_clip}.html?replay=1") + ");}},100);</script>"
             output.write_text(output.read_text() + script)
         elif rush:
             output.write_text(output.read_text() + '<script>setInterval(function(){if(document.querySelector("#network").dataset.rushComplete==="true")document.querySelector("#network").dataset.recordingComplete="true";},100);</script>')

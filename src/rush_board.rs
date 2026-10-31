@@ -25,6 +25,8 @@ pub struct RushBoard {
     pub decisions: Vec<Decision>,
     pub messages: Vec<MessageHop>,
     pub liars_caught: usize,
+    #[serde(default)]
+    pub caught_at: Vec<(u32, f64)>,
     pub typed: Option<TypedOutcome>,
 }
 
@@ -48,11 +50,31 @@ pub fn from_run(result: &ScoredRun, typed: Option<TypedOutcome>) -> Result<Dinne
         })
         .map(|t| t.rider)
         .collect();
+    let mut first_caught = BTreeMap::<u32, f64>::new();
+    for trip in result
+        .run
+        .trips
+        .iter()
+        .filter(|t| t.truth == Truth::Liar && t.claim_number >= 2)
+    {
+        if let Some(d) = result
+            .run
+            .decisions
+            .iter()
+            .find(|d| d.car == trip.car && !d.granted)
+        {
+            first_caught
+                .entry(trip.rider)
+                .and_modify(|at| *at = at.min(d.at_s))
+                .or_insert(d.at_s);
+        }
+    }
     board.rush = Some(RushBoard {
         score: result.score.clone(),
         decisions: result.run.decisions.clone(),
         messages: result.run.messages.clone(),
         liars_caught: caught.len(),
+        caught_at: first_caught.into_iter().collect(),
         typed,
     });
     Ok(board)

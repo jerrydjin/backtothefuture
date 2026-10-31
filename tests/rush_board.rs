@@ -20,6 +20,14 @@ fn dense_replay_preserves_measured_motion_and_causal_bulletins() {
             .collect::<Vec<_>>(),
         vec!["RED", "RED", "GREEN"]
     );
+    assert_eq!(board.rush.as_ref().unwrap().caught_at.len(), 12);
+    assert!(board
+        .rush
+        .as_ref()
+        .unwrap()
+        .caught_at
+        .iter()
+        .all(|(_, at)| *at == 795.0));
     let mut replay = ReplayArchive::new(board);
     replay.validate().unwrap();
     assert_eq!(

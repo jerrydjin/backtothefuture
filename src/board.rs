@@ -1209,7 +1209,9 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     var rush = data.rush, frame = town.frames[Math.min(town.frames.length-1,Math.floor(t))];
     var cars = {}; frame.cars.forEach(function(c){cars[c[0]]=c;});
     var typed = rush.typed;
-    var subtitle = rush.score.emergency_gain_vs_local.toFixed(1)+"s saved vs local · "+rush.liars_caught+" liars caught · collisions "+rush.score.collisions;
+    var caught=(rush.caught_at||[]).filter(function(pair){return pair[1]<=t;}).length;
+    var gain=rush.score.emergency_gain_vs_local;
+    var subtitle = Math.abs(gain).toFixed(1)+(gain>=0?"s saved vs local · ":"s later vs local · ")+caught+" liars caught · collisions "+rush.score.collisions;
     ctx.appendChild(svgNode("text",{x:14,y:24,fill:"#666","font-family":"system-ui, sans-serif","font-size":12,"data-role":"rush-score"},subtitle));
     rush.decisions.filter(function(d){return d.granted && d.at_s<=t && cars[d.car];}).forEach(function(d){
       var car=cars[d.car],at=rushPoint(view,car[1],car[2]-2.2);
@@ -1225,14 +1227,18 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
       if(head>car[2])ctx.appendChild(svgNode("path",{d:rushPath(view,hops[0].route,Math.max(originM,car[2]),head),fill:"none",stroke:"#7b9db5","stroke-width":1,opacity:.38,"data-role":"rush-pulse","data-beneficiary":d.car}));
       if(t<=hops[hops.length-1].at_s+1){var dot=rushPoint(view,hops[0].route,head);ctx.appendChild(svgNode("circle",{cx:dot.x,cy:dot.y,r:2,fill:"#6a93ae","data-role":"rush-pulse-head"}));}
     });
+    var farthestCue=null;
     (frame.make_way||[]).forEach(function(state){
       var c=cars[state[0]],urgent=cars[state[1]];
       if(!c||!urgent||(state[2]==="hold"&&c[3]>.5))return;
       var h=rush.messages.find(function(h){return h.recipient_car===c[0]&&h.beneficiary===urgent[0]&&h.action===state[2]&&h.at_s<=t&&h.route_m>urgent[2];});
       if(!h||h.route_m-urgent[2]<100)return;
       var at=rushPoint(view,c[1],c[2]-2.2);
-      ctx.appendChild(svgNode("circle",{cx:at.x,cy:at.y,r:6,fill:"none",stroke:state[2]==="hold"?"#b49c6d":"#7b9db5","stroke-width":1,"data-role":"rush-make-way","data-action":state[2],"data-car":c[0],"data-beneficiary":h.beneficiary,"data-ahead-m":(h.route_m-urgent[2]).toFixed(1)}));
+      ctx.appendChild(svgNode("circle",{cx:at.x,cy:at.y,r:6,fill:"none",stroke:"#b49c6d","stroke-width":1,"data-role":"rush-make-way","data-action":state[2],"data-car":c[0],"data-beneficiary":h.beneficiary,"data-ahead-m":(h.route_m-urgent[2]).toFixed(1)}));
+      var ahead=h.route_m-urgent[2];
+      if(ahead>500&&(!farthestCue||ahead>farthestCue.ahead))farthestCue={x:at.x,y:at.y,ahead:ahead,action:state[2]};
     });
+    if(farthestCue)ctx.appendChild(svgNode("text",{x:Math.max(60,Math.min(view.width-100,farthestCue.x+10)),y:farthestCue.y-9,fill:"#8c7b5b",stroke:"white","stroke-width":3,"paint-order":"stroke","font-family":"system-ui, sans-serif","font-size":10,"data-role":"rush-ahead-cue"},farthestCue.action==="clear"?"clearing ahead":"holding ahead"));
     var decisions=rush.decisions.filter(function(d){return d.at_s<=t&&t<d.at_s+16&&cars[d.car];});
     var decision=typed&&t>=typed.decision.at_s&&t<typed.decision.at_s+20?typed.decision:decisions[Math.floor(t/4)%Math.max(1,decisions.length)];
     if(!decision)return;
@@ -1241,7 +1247,9 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     var x=Math.max(195,Math.min(view.width-195,at.x)),y=Math.max(76,at.y-45);
     var explanation=(decision.granted?"Granted · ":"Keep your turn · ")+decision.explanation;
     if(decision.source!=="model")explanation=decision.source+" · "+explanation;
-    [explanation,decision.requester,decision.other].forEach(function(line,i){ctx.appendChild(svgNode("text",{x:x,y:y+i*16,"text-anchor":"middle",fill:i?"#444":"#777",stroke:"white","stroke-width":4,"paint-order":"stroke","font-family":"system-ui, sans-serif","font-size":i?13:11,"data-role":i?"rush-line":"rush-explanation","data-source":decision.source,"data-granted":String(decision.granted),"data-car":decision.car},line));});
+    var duration=typed&&decision.car===typed.car?20:16;
+    var opacity=Math.min(1,Math.max(0,(decision.at_s+duration-t)/3));
+    [explanation,decision.requester,decision.other].forEach(function(line,i){ctx.appendChild(svgNode("text",{x:x,y:y+i*16,"text-anchor":"middle",fill:i?"#444":"#777",stroke:"white","stroke-width":4,"paint-order":"stroke","font-family":"system-ui, sans-serif","font-size":i?13:11,opacity:opacity,"data-role":i?"rush-line":"rush-explanation","data-source":decision.source,"data-granted":String(decision.granted),"data-car":decision.car},line));});
     if(typed&&typed.claim_number>=3&&!decision.granted)document.getElementById("network").dataset.liarCaught="true";
   }
 

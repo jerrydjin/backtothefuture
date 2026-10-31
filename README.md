@@ -10,8 +10,23 @@ meeting priorities compete. The demo ends on the hospital decision and its
 one-line reason, in under two minutes. `BASETEN_API_KEY` uses the live model;
 without it the same story uses the scripted fallback.
 
-Play the saved live demo, grant and denial without credentials:
-`python3 scripts/play-recording.py`. [Recording commands and measured evidence](docs/phase-c-live-recording.md).
+Play the saved live rush hour, first grant, caught liar and denial without credentials:
+`python3 scripts/play-recording.py`. Use `--legacy` for the original demo → grant → denial.
+
+## Information outruns traffic
+
+```sh
+cargo run -- --board --rush-hour --policy live --seed 1 --save-replay /tmp/rush-session.json
+./target/debug/muse --rush-hour --headless --policy mock --seed 1 --score /tmp/score.json
+./target/debug/muse --rush-hour --headless --policy live --seed 1 --require-live --score /tmp/live.json --decision-log /tmp/decisions.json
+python3 scripts/play-recording.py
+```
+
+The same white network now carries 240 fixed trips. A grant sends a thin route pulse ahead; current clearing/yielding cars are marked from the simulator's actual state. The corner shows paired seconds saved versus local-only, liars caught so far and collisions. Type “My passenger has chest pain”: the new rider's first acute claim gets priority. This demo rider's actual route ends at the gym; the next claim sees that completed outcome, and the third sees both. A denial blocks that rider's broadcast. Completed history is session-local; restarting the process resets it.
+
+[Five live seeds, timing, costs and limits](docs/phase-4-live-at-scale.md) · [Board, recording and browser evidence](docs/phase-5-rush-board-recording.md).
+The model decides precedence and words once; route messages and every movement use deterministic host rules. `--local-only` disables spreading; `--no-history` hides completed history. A labelled fallback never counts as live and grants plausible acute medical claims, including seizures.
+
 
 ## Rider reasons (draft phase 2)
 
