@@ -15,7 +15,7 @@ for r in rows:
  assert sum(amb)==r['ambulance_gain_vs_local_s']['sum']
  assert sum(max(0,x) for x in others)==r['others_vs_local']['driver_seconds']
  assert r['pass_bar']==(len(q)==r['completed'] and r['others_vs_local']['p95_s']<=30 and r['others_vs_local']['max_s']<60)
-def fmt(x):return 'null' if x is None else f'{x:.3f}'.rstrip('0').rstrip('.')
+def fmt(x):return 'null' if x is None else ('0' if x == 0 else f'{x:.3f}'.rstrip('0').rstrip('.'))
 def triplet(c):return ' / '.join(fmt(c[k]) for k in ['mean_s','p95_s','max_s'])
 v2=[r for r in rows if r['arm']=='moving_slot_v2']; gain=sum(r['ambulance_gain_vs_local_s']['sum'] for r in v2)/sum(r['ambulance_gain_vs_local_s']['n'] for r in v2); worst=max(r['others_vs_local']['max_s'] for r in v2)
 s=f'''# Phase 13f results: {site}
@@ -62,7 +62,7 @@ No missing arrival is treated as zero loss. Min/max here are emergency gains.
 '''
 for r in rows:
  g=r['ambulance_gain_vs_local_s'];s+=f"| {r['seed']} | {r['arm']} | {fmt(g['mean'])} / {fmt(g['min'])} / {fmt(g['max'])} | {triplet(r['others_vs_local'])} | {triplet(r['others_vs_fcfs'])} | {r['drivers_asked']} | {fmt(r['others_vs_local']['driver_seconds'])} | {fmt(r['gain_per_driver_second'])} | {r['collisions']} | {r['completed']} / {r['trips']} | {'PASS' if r['pass_bar'] else 'FAIL'} |\n"
-s+='\n## Best and worst seeds: action evidence\n\nRank by mean emergency gain; ties choose the smallest seed. Also explain the\nworst driver-loss seed for v2 if different. Times and source positions below\ncome from one-second frames; deliveries and home losses are exact 0.25 s host\ntimes. A return time is the first recorded sample back on the original road;\nit is not an invented completed maneuver. `Still off` is censored, never zero.\n\n'
+s+='\n## Best and worst seeds: action evidence\n\nRank by mean emergency gain; ties choose the smallest seed. Also explain the\nworst driver-loss seed for v2 if different. Times and source positions below\ncome from one-second frames; deliveries and home losses are exact 0.25 s host\ntimes. A return time is the first recorded sample back on the original road;\nit is not an invented completed maneuver. Absence of a return sample is not a zero-time return; a driver may eventually leave along the parallel through the shared connector.\n\n'
 for arm in arms:
  rr=[r for r in rows if r['arm']==arm];best=min(rr,key=lambda r:(-r['ambulance_gain_vs_local_s']['mean'],r['seed']));bad=min(rr,key=lambda r:(r['ambulance_gain_vs_local_s']['mean'],r['seed']));chosen=collections.defaultdict(list)
  chosen[best['seed']].append('best gain');chosen[bad['seed']].append('worst gain')
@@ -104,7 +104,7 @@ physics commands.
       # A clone has the same road edge but a different link, and is appended.
       if meta[l]['edge']==link['edge'] and l!=link['id']:parallel_seen=True
       if parallel_seen and l==link['id']:return_at=t;break
-     returned=str(return_at) if return_at is not None else 'Still off / not sampled'
+     returned=str(return_at) if return_at is not None else 'No original-road return sampled'
    s+=f"| {car} | {m['beneficiary']} | {fmt(m['at_s'])} | {kind} | {location} | {returned} | {fmt(pd[car]['loss_vs_local_s'])} |\n"
   worstcar=max((x for x in r['per_driver'] if x['truth']!='emergency'),key=lambda x:x['loss_vs_local_s'] if x['loss_vs_local_s'] is not None else float('-inf'))
   s+=f"\nLargest paired loss: car **{worstcar['car']}**, home {fmt(worstcar['home_s'])} s versus local {fmt(worstcar['local_home_s'])} s, loss **{fmt(worstcar['loss_vs_local_s'])} s**. "

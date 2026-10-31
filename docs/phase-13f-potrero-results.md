@@ -36,46 +36,46 @@ No missing arrival is treated as zero loss. Min/max here are emergency gains.
 
 | Seed | Arm | Gain mean / min / max (s) | Others vs local mean / p95 / max (s) | Others vs FCFS mean / p95 / max (s) | Asked | Driver-seconds | Gain / driver-second | Collisions | Completed / scheduled | Bar |
 |---:|---|---|---|---|---:|---:|---:|---:|---|---|
-| 1 | local | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 | -0 | null | 0 | 313 / 313 | PASS |
+| 1 | local | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 | 0 | null | 0 | 313 / 313 | PASS |
 | 1 | broadcast | 13.7 / 7.75 / 17.5 | 13.83 / 84 / 575.75 | 13.83 / 84 / 575.75 | 130 | 5946.75 | 0.023 | 0 | 313 / 313 | FAIL |
-| 1 | moving_slot | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | -0 | null | 0 | 313 / 313 | PASS |
-| 1 | moving_slot_v2 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | -0 | null | 0 | 313 / 313 | PASS |
-| 2 | local | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 | -0 | null | 0 | 312 / 312 | PASS |
+| 1 | moving_slot | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | 0 | null | 0 | 313 / 313 | PASS |
+| 1 | moving_slot_v2 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | 0 | null | 0 | 313 / 313 | PASS |
+| 2 | local | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 | 0 | null | 0 | 312 / 312 | PASS |
 | 2 | broadcast | 15.45 / 5.5 / 20.5 | 7.983 / 49 / 554.75 | 7.983 / 49 / 554.75 | 136 | 4784.25 | 0.032 | 0 | 312 / 312 | FAIL |
-| 2 | moving_slot | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | -0 | null | 0 | 312 / 312 | PASS |
-| 2 | moving_slot_v2 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | -0 | null | 0 | 312 / 312 | PASS |
-| 3 | local | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 | -0 | null | 0 | 312 / 312 | PASS |
+| 2 | moving_slot | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | 0 | null | 0 | 312 / 312 | PASS |
+| 2 | moving_slot_v2 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | 0 | null | 0 | 312 / 312 | PASS |
+| 3 | local | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 | 0 | null | 0 | 312 / 312 | PASS |
 | 3 | broadcast | 14.7 / 6.5 / 23.75 | 11.048 / 37.5 / 567.75 | 11.048 / 37.5 / 567.75 | 118 | 5708 | 0.026 | 0 | 312 / 312 | FAIL |
-| 3 | moving_slot | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | -0 | null | 0 | 312 / 312 | PASS |
-| 3 | moving_slot_v2 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | -0 | null | 0 | 312 / 312 | PASS |
-| 4 | local | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 | -0 | null | 0 | 313 / 313 | PASS |
+| 3 | moving_slot | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | 0 | null | 0 | 312 / 312 | PASS |
+| 3 | moving_slot_v2 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | 0 | null | 0 | 312 / 312 | PASS |
+| 4 | local | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 | 0 | null | 0 | 313 / 313 | PASS |
 | 4 | broadcast | 11.8 / 1.25 / 18.75 | 7.167 / 42.75 / 559.75 | 7.167 / 42.75 / 559.75 | 129 | 3863.5 | 0.031 | 0 | 313 / 313 | FAIL |
-| 4 | moving_slot | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | -0 | null | 0 | 313 / 313 | PASS |
-| 4 | moving_slot_v2 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | -0 | null | 0 | 313 / 313 | PASS |
-| 5 | local | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 | -0 | null | 0 | 313 / 313 | PASS |
+| 4 | moving_slot | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | 0 | null | 0 | 313 / 313 | PASS |
+| 4 | moving_slot_v2 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | 0 | null | 0 | 313 / 313 | PASS |
+| 5 | local | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 | 0 | null | 0 | 313 / 313 | PASS |
 | 5 | broadcast | 14.275 / 6 / 21 | 12.351 / 58.25 / 531.5 | 12.351 / 58.25 / 531.5 | 132 | 5780.25 | 0.025 | 0 | 313 / 313 | FAIL |
-| 5 | moving_slot | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 1 | -0 | null | 0 | 313 / 313 | PASS |
-| 5 | moving_slot_v2 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 1 | -0 | null | 0 | 313 / 313 | PASS |
-| 6 | local | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 | -0 | null | 0 | 312 / 312 | PASS |
+| 5 | moving_slot | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 1 | 0 | null | 0 | 313 / 313 | PASS |
+| 5 | moving_slot_v2 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 1 | 0 | null | 0 | 313 / 313 | PASS |
+| 6 | local | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 | 0 | null | 0 | 312 / 312 | PASS |
 | 6 | broadcast | 12.425 / 5.25 / 21.5 | 10.294 / 40.75 / 567.5 | 10.294 / 40.75 / 567.5 | 125 | 4902.5 | 0.025 | 0 | 312 / 312 | FAIL |
-| 6 | moving_slot | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | -0 | null | 0 | 312 / 312 | PASS |
-| 6 | moving_slot_v2 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | -0 | null | 0 | 312 / 312 | PASS |
-| 7 | local | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 | -0 | null | 0 | 312 / 312 | PASS |
+| 6 | moving_slot | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | 0 | null | 0 | 312 / 312 | PASS |
+| 6 | moving_slot_v2 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | 0 | null | 0 | 312 / 312 | PASS |
+| 7 | local | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 | 0 | null | 0 | 312 / 312 | PASS |
 | 7 | broadcast | 16.3 / 11.25 / 21.5 | 9.722 / 73.25 / 560.25 | 9.722 / 73.25 / 560.25 | 107 | 5524.25 | 0.03 | 0 | 312 / 312 | FAIL |
-| 7 | moving_slot | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | -0 | null | 0 | 312 / 312 | PASS |
-| 7 | moving_slot_v2 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | -0 | null | 0 | 312 / 312 | PASS |
-| 8 | local | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 | -0 | null | 0 | 313 / 313 | PASS |
+| 7 | moving_slot | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | 0 | null | 0 | 312 / 312 | PASS |
+| 7 | moving_slot_v2 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | 0 | null | 0 | 312 / 312 | PASS |
+| 8 | local | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 | 0 | null | 0 | 313 / 313 | PASS |
 | 8 | broadcast | 11.3 / 4 / 21.25 | 9.594 / 40.25 / 565.75 | 9.594 / 40.25 / 565.75 | 125 | 4394.75 | 0.026 | 0 | 313 / 313 | FAIL |
-| 8 | moving_slot | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | -0 | null | 0 | 313 / 313 | PASS |
-| 8 | moving_slot_v2 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | -0 | null | 0 | 313 / 313 | PASS |
-| 9 | local | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 | -0 | null | 0 | 313 / 313 | PASS |
+| 8 | moving_slot | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | 0 | null | 0 | 313 / 313 | PASS |
+| 8 | moving_slot_v2 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | 0 | null | 0 | 313 / 313 | PASS |
+| 9 | local | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 | 0 | null | 0 | 313 / 313 | PASS |
 | 9 | broadcast | 9.175 / 2.75 / 15.25 | 13.122 / 52.5 / 572.75 | 13.122 / 52.5 / 572.75 | 136 | 5038.75 | 0.018 | 0 | 313 / 313 | FAIL |
-| 9 | moving_slot | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 1 | -0 | null | 0 | 313 / 313 | PASS |
-| 9 | moving_slot_v2 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 1 | -0 | null | 0 | 313 / 313 | PASS |
-| 10 | local | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 | -0 | null | 0 | 312 / 312 | PASS |
+| 9 | moving_slot | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 1 | 0 | null | 0 | 313 / 313 | PASS |
+| 9 | moving_slot_v2 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 1 | 0 | null | 0 | 313 / 313 | PASS |
+| 10 | local | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 0 | 0 | null | 0 | 312 / 312 | PASS |
 | 10 | broadcast | 12.675 / 6.75 / 17.5 | 10.567 / 29.25 / 571.25 | 10.567 / 29.25 / 571.25 | 113 | 5327 | 0.024 | 0 | 312 / 312 | FAIL |
-| 10 | moving_slot | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | -0 | null | 0 | 312 / 312 | PASS |
-| 10 | moving_slot_v2 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | -0 | null | 0 | 312 / 312 | PASS |
+| 10 | moving_slot | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | 0 | null | 0 | 312 / 312 | PASS |
+| 10 | moving_slot_v2 | 0 / 0 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | 2 | 0 | null | 0 | 312 / 312 | PASS |
 
 ## Best and worst seeds: action evidence
 
@@ -83,7 +83,7 @@ Rank by mean emergency gain; ties choose the smallest seed. Also explain the
 worst driver-loss seed for v2 if different. Times and source positions below
 come from one-second frames; deliveries and home losses are exact 0.25 s host
 times. A return time is the first recorded sample back on the original road;
-it is not an invented completed maneuver. `Still off` is censored, never zero.
+it is not an invented completed maneuver. Absence of a return sample is not a zero-time return; a driver may eventually leave along the parallel through the shared connector.
 
 ### local, seed 1: best gain, worst gain
 
@@ -106,7 +106,7 @@ physics commands.
 
 | Car | For ambulance | Delivery (s) | Asked | Source edge / next junction node | Return sample (s) | Loss vs local (s) |
 |---:|---:|---:|---|---|---|---:|
-| 1023 | 1045 | 348 | lane_change | 13 / 27 | Still off / not sampled | 519.25 |
+| 1023 | 1045 | 348 | lane_change | 13 / 27 | No original-road return sampled | 519.25 |
 | 1173 | 1045 | 348 | clear | 13 / 27 | — | 96 |
 | 1163 | 1045 | 348 | clear | 13 / 27 | — | 41.75 |
 | 1029 | 1045 | 351 | clear | 14 / 55 | — | 0 |
@@ -149,11 +149,11 @@ physics commands.
 | 1217 | 1045 | 608.5 | clear | 15 / 45 | — | 0 |
 | 1220 | 1045 | 613.5 | clear | 15 / 45 | — | 0 |
 | 1107 | 1284 | 618 | clear | 14 / 55 | — | -12 |
-| 1224 | 1045 | 619.5 | lane_change | 15 / 45 | Still off / not sampled | 560.25 |
-| 1193 | 1045 | 623 | lane_change | 15 / 45 | Still off / not sampled | 553 |
+| 1224 | 1045 | 619.5 | lane_change | 15 / 45 | No original-road return sampled | 560.25 |
+| 1193 | 1045 | 623 | lane_change | 15 / 45 | No original-road return sampled | 553 |
 | 1262 | 1284 | 623 | clear | 13 / 27 | — | -11.25 |
 | 1051 | 1284 | 623.25 | clear | 14 / 55 | — | -12.75 |
-| 1299 | 1284 | 625.75 | lane_change | 13 / 27 | Still off / not sampled | 476.75 |
+| 1299 | 1284 | 625.75 | lane_change | 13 / 27 | No original-road return sampled | 476.75 |
 | 1049 | 1284 | 627.75 | clear | 13 / 27 | — | -11.5 |
 | 1060 | 1284 | 639 | clear | 15 / 45 | — | -12.25 |
 | 1262 | 1284 | 643 | clear | 14 / 55 | — | -11.25 |
@@ -169,21 +169,21 @@ physics commands.
 | 1081 | 1295 | 677 | clear | 13 / 27 | — | 448.75 |
 | 1216 | 1295 | 679.75 | clear | 13 / 27 | — | 21 |
 | 1273 | 1295 | 680.5 | clear | 14 / 55 | — | -11.25 |
-| 1232 | 1295 | 681.5 | lane_change | 13 / 27 | Still off / not sampled | 417.25 |
+| 1232 | 1295 | 681.5 | lane_change | 13 / 27 | No original-road return sampled | 417.25 |
 | 1192 | 1295 | 688.5 | clear | 15 / 45 | — | -11 |
 | 1098 | 1295 | 693.5 | clear | 15 / 45 | — | -11 |
 | 1066 | 1295 | 696.25 | lane_change | 14 / 55 | 757 | 45.25 |
 | 1216 | 1295 | 708.25 | lane_change | 15 / 45 | 742 | 21 |
 | 1125 | 1295 | 713.5 | clear | 15 / 45 | — | -11.25 |
-| 1081 | 1295 | 717 | lane_change | 15 / 45 | Still off / not sampled | 448.75 |
+| 1081 | 1295 | 717 | lane_change | 15 / 45 | No original-road return sampled | 448.75 |
 | 1208 | 1295 | 720.5 | clear | 15 / 45 | — | -12.25 |
 | 1257 | 1189 | 724.5 | clear | 13 / 27 | — | -11.75 |
 | 1094 | 1189 | 727.25 | clear | 13 / 27 | — | -11.25 |
-| 1310 | 1189 | 734 | lane_change | 13 / 27 | Still off / not sampled | 370.5 |
+| 1310 | 1189 | 734 | lane_change | 13 / 27 | No original-road return sampled | 370.5 |
 | 1148 | 1189 | 734.5 | clear | 14 / 55 | — | -11.5 |
 | 1080 | 1189 | 740 | clear | 15 / 45 | — | -15.5 |
 | 1264 | 1189 | 741 | clear | 14 / 55 | — | -11.75 |
-| 1116 | 1189 | 742.75 | lane_change | 14 / 55 | Still off / not sampled | 382.25 |
+| 1116 | 1189 | 742.75 | lane_change | 14 / 55 | No original-road return sampled | 382.25 |
 | 1157 | 1189 | 748.25 | clear | 15 / 45 | — | -14.25 |
 | 1153 | 1189 | 752 | clear | 14 / 55 | — | -11.25 |
 | 1252 | 1189 | 755 | clear | 14 / 55 | — | 73.25 |
@@ -195,13 +195,13 @@ physics commands.
 | 1205 | 1221 | 779.75 | clear | 14 / 55 | — | -13.25 |
 | 1127 | 1221 | 790.75 | clear | 15 / 45 | — | -15.25 |
 | 1100 | 1221 | 798.75 | clear | 15 / 45 | — | -14.25 |
-| 1298 | 1221 | 799 | lane_change | 14 / 55 | Still off / not sampled | 322.75 |
+| 1298 | 1221 | 799 | lane_change | 14 / 55 | No original-road return sampled | 322.75 |
 | 1121 | 1221 | 801.75 | clear | 14 / 55 | — | -12.25 |
 | 1205 | 1221 | 802 | clear | 15 / 45 | — | -13.25 |
 | 1092 | 1221 | 806.5 | clear | 14 / 55 | — | -12.5 |
 | 1027 | 1221 | 808 | clear | 18446744073709551615 / 45 | — | -13 |
 | 1267 | 1221 | 821.25 | clear | 15 / 45 | — | -12.25 |
-| 1152 | 1221 | 823 | lane_change | 15 / 45 | Still off / not sampled | 356.5 |
+| 1152 | 1221 | 823 | lane_change | 15 / 45 | No original-road return sampled | 356.5 |
 | 1253 | 1221 | 828.75 | clear | 15 / 45 | — | -12.25 |
 | 1256 | 1064 | 837.25 | clear | 15 / 45 | — | -16.25 |
 | 1090 | 1064 | 838.25 | clear | 14 / 55 | — | -13 |
@@ -210,9 +210,9 @@ physics commands.
 | 1209 | 1064 | 855 | clear | 15 / 45 | — | -17.25 |
 | 1234 | 1064 | 857.25 | clear | 14 / 55 | — | -14.5 |
 | 1055 | 1064 | 857.75 | clear | 15 / 45 | — | -16 |
-| 1129 | 1064 | 860.5 | lane_change | 14 / 55 | Still off / not sampled | 260.75 |
+| 1129 | 1064 | 860.5 | lane_change | 14 / 55 | No original-road return sampled | 260.75 |
 | 1018 | 1064 | 875.5 | clear | 15 / 45 | — | -14.5 |
-| 1024 | 1064 | 877.5 | lane_change | 15 / 45 | Still off / not sampled | 299 |
+| 1024 | 1064 | 877.5 | lane_change | 15 / 45 | No original-road return sampled | 299 |
 | 1234 | 1064 | 882.5 | clear | 15 / 45 | — | -14.5 |
 | 1143 | 1240 | 890.5 | clear | 15 / 45 | — | -19.25 |
 | 1140 | 1240 | 895.75 | clear | 15 / 45 | — | -18.75 |
@@ -223,7 +223,7 @@ physics commands.
 | 1113 | 1308 | 951.75 | clear | 15 / 45 | — | -15.5 |
 | 1040 | 1308 | 971.75 | clear | 15 / 45 | — | -16.25 |
 | 1016 | 1308 | 974.5 | clear | 15 / 45 | — | -15.25 |
-| 1203 | 1308 | 987.25 | lane_change | 15 / 45 | Still off / not sampled | 185.25 |
+| 1203 | 1308 | 987.25 | lane_change | 15 / 45 | No original-road return sampled | 185.25 |
 | 1167 | 1308 | 988 | clear | 15 / 45 | — | -15 |
 | 1137 | 1219 | 1008.25 | clear | 15 / 45 | — | -14.75 |
 | 1096 | 1219 | 1026 | clear | 15 / 45 | — | -14.75 |
@@ -251,7 +251,7 @@ physics commands.
 
 | Car | For ambulance | Delivery (s) | Asked | Source edge / next junction node | Return sample (s) | Loss vs local (s) |
 |---:|---:|---:|---|---|---|---:|
-| 1001 | 1189 | 346.75 | lane_change | 13 / 27 | Still off / not sampled | 540 |
+| 1001 | 1189 | 346.75 | lane_change | 13 / 27 | No original-road return sampled | 540 |
 | 1057 | 1189 | 346.75 | clear | 13 / 27 | — | 41.25 |
 | 1093 | 1189 | 346.75 | clear | 13 / 27 | — | 39 |
 | 1007 | 1189 | 349.75 | clear | 14 / 55 | — | 0 |
@@ -296,12 +296,12 @@ physics commands.
 | 1282 | 1234 | 614.5 | clear | 14 / 55 | — | -14.75 |
 | 1134 | 1234 | 615.5 | clear | 158 / 54 | — | 492.75 |
 | 1102 | 1234 | 616 | clear | 12 / 175 | — | 49.75 |
-| 1087 | 1189 | 618 | lane_change | 15 / 45 | Still off / not sampled | 572.75 |
+| 1087 | 1189 | 618 | lane_change | 15 / 45 | No original-road return sampled | 572.75 |
 | 1113 | 1234 | 618.75 | clear | 13 / 27 | — | -7.5 |
 | 1268 | 1189 | 620 | clear | 15 / 45 | — | 0 |
 | 1136 | 1234 | 625 | clear | 14 / 55 | — | -13.5 |
 | 1240 | 1234 | 626.5 | clear | 13 / 27 | — | 31.25 |
-| 1134 | 1234 | 627 | lane_change | 13 / 27 | Still off / not sampled | 492.75 |
+| 1134 | 1234 | 627 | lane_change | 13 / 27 | No original-road return sampled | 492.75 |
 | 1124 | 1234 | 627.5 | clear | 14 / 55 | — | -12.25 |
 | 1179 | 1234 | 628 | clear | 15 / 45 | — | -13.75 |
 | 1078 | 1234 | 632.5 | clear | 14 / 55 | — | -11.5 |
@@ -312,7 +312,7 @@ physics commands.
 | 1055 | 1234 | 644 | clear | 15 / 45 | — | -13.75 |
 | 1102 | 1234 | 647.25 | lane_change | 14 / 55 | 700 | 49.75 |
 | 1124 | 1234 | 650 | clear | 15 / 45 | — | -12.25 |
-| 1294 | 1234 | 650.5 | lane_change | 14 / 55 | Still off / not sampled | 508.75 |
+| 1294 | 1234 | 650.5 | lane_change | 14 / 55 | No original-road return sampled | 508.75 |
 | 1240 | 1234 | 662.5 | lane_change | 15 / 45 | 695 | 31.25 |
 | 1259 | 1168 | 677.75 | clear | 13 / 27 | — | -9.5 |
 | 1019 | 1168 | 682.5 | clear | 13 / 27 | — | -9.25 |
@@ -330,7 +330,7 @@ physics commands.
 | 1223 | 1213 | 732 | clear | 14 / 55 | — | -6.25 |
 | 1153 | 1213 | 732.75 | clear | 13 / 27 | — | -3 |
 | 1239 | 1213 | 736.75 | clear | 14 / 55 | — | -6 |
-| 1212 | 1213 | 740.25 | lane_change | 13 / 27 | Still off / not sampled | 384.25 |
+| 1212 | 1213 | 740.25 | lane_change | 13 / 27 | No original-road return sampled | 384.25 |
 | 1193 | 1213 | 741.5 | clear | 14 / 55 | — | -4.75 |
 | 1138 | 1213 | 746.25 | clear | 14 / 55 | — | -4.75 |
 | 1160 | 1213 | 749 | clear | 14 / 55 | — | -4.5 |
@@ -340,7 +340,7 @@ physics commands.
 | 1066 | 1213 | 761.5 | lane_change | 14 / 55 | 819 | 50 |
 | 1193 | 1213 | 767.25 | clear | 15 / 45 | — | -4.75 |
 | 1047 | 1213 | 768.75 | lane_change | 15 / 45 | 803 | 31.5 |
-| 1171 | 1213 | 781.25 | lane_change | 15 / 45 | Still off / not sampled | 413.5 |
+| 1171 | 1213 | 781.25 | lane_change | 15 / 45 | No original-road return sampled | 413.5 |
 | 1165 | 1213 | 783 | clear | 15 / 45 | — | -2.5 |
 | 1092 | 1085 | 789 | clear | 13 / 27 | — | -5.5 |
 | 1265 | 1085 | 791.5 | clear | 13 / 27 | — | -5 |
@@ -352,7 +352,7 @@ physics commands.
 | 1201 | 1085 | 803.25 | lane_change | 14 / 55 | 841 | 26.75 |
 | 1092 | 1085 | 808 | clear | 14 / 55 | — | -5.5 |
 | 1273 | 1085 | 811 | clear | 15 / 45 | — | -9.25 |
-| 1070 | 1085 | 814 | lane_change | 14 / 55 | Still off / not sampled | 341.75 |
+| 1070 | 1085 | 814 | lane_change | 14 / 55 | No original-road return sampled | 341.75 |
 | 1046 | 1085 | 819.25 | clear | 15 / 45 | — | -8 |
 | 1312 | 1085 | 829.75 | lane_change | 15 / 45 | 943 | 104.75 |
 | 1092 | 1085 | 832.75 | clear | 15 / 45 | — | -5.5 |
@@ -362,11 +362,11 @@ physics commands.
 | 1295 | 1083 | 845.5 | clear | 14 / 55 | — | -9.75 |
 | 1158 | 1083 | 846 | clear | 15 / 45 | — | -10.75 |
 | 1286 | 1083 | 848.75 | clear | 15 / 45 | — | -9.5 |
-| 1198 | 1083 | 849.5 | lane_change | 13 / 27 | Still off / not sampled | 277.25 |
+| 1198 | 1083 | 849.5 | lane_change | 13 / 27 | No original-road return sampled | 277.25 |
 | 1304 | 1083 | 851.75 | clear | 14 / 55 | — | -10.25 |
 | 1141 | 1083 | 860.25 | clear | 14 / 55 | — | -4.5 |
 | 1242 | 1083 | 862 | clear | 15 / 45 | — | -9.5 |
-| 1164 | 1083 | 862.5 | lane_change | 14 / 55 | Still off / not sampled | 295.25 |
+| 1164 | 1083 | 862.5 | lane_change | 14 / 55 | No original-road return sampled | 295.25 |
 | 1295 | 1083 | 865.25 | clear | 15 / 45 | — | -9.75 |
 | 1291 | 1083 | 869.75 | clear | 15 / 45 | — | -9.5 |
 | 1141 | 1083 | 882.25 | clear | 15 / 45 | — | -4.5 |
@@ -397,7 +397,7 @@ physics commands.
 | 1281 | 1227 | 979 | clear | 15 / 45 | — | -0.25 |
 | 1033 | 1227 | 994.5 | clear | 15 / 45 | — | 2 |
 | 1052 | 1227 | 997.5 | clear | 15 / 45 | — | 3.25 |
-| 1131 | 1227 | 997.75 | lane_change | 15 / 45 | Still off / not sampled | 207.25 |
+| 1131 | 1227 | 997.75 | lane_change | 15 / 45 | No original-road return sampled | 207.25 |
 | 1036 | 1122 | 999.75 | clear | 14 / 55 | — | -3.25 |
 | 1263 | 1122 | 1001.5 | clear | 13 / 27 | — | 0.25 |
 | 1260 | 1122 | 1006.25 | clear | 14 / 55 | — | -3 |
@@ -517,3 +517,24 @@ range from hundreds of seconds upward and always exceed the strict 60 s
 limit. Its worst per-seed p95 is 84 s. V2 buys 0 s for 0 driver-seconds; that
 passes the numeric cost bar but supplies no operational gain. No claim that
 an advantageous move is impossible at any waiting price is supported.
+
+## Explaining broadcast's best and worst mean-gain seeds
+
+Best mean-gain seed **7** saves **16.3 s** per ambulance. For example ambulance
+**1295** saves **21.5 s**. At the blocked approach connector 1046 its first
+recorded entry advances **717 → 704 s**. Extracted cars **1023, 1066, 1173,
+1232, 1299, 1303** that preceded it locally are behind it there in broadcast.
+At connector 964 the entry advances **746 → 724 s**; further edge-15
+extractions enlarge the gain. Car **1224**, one of those displaced drivers,
+loses **560.25 s**. The direct deliveries and return samples in the seed-7
+action table show what those drivers were asked and how long rejoining took.
+
+Worst mean-gain seed **9** still saves **9.175 s** on average but has uneven
+probe gains. Its first ambulance **1189** saves **15.25 s**, entering 1046 at
+**605 rather than 613 s**, after cars **1001, 1057, 1093, 1218** are removed
+from its preceding crossing order. At 964 it advances **641 → 626 s**.
+Later probes receive less benefit (ambulances 1221 and 1227 save only 3.25
+and 2.75 s); inherited changes are not an additive reward per ask. Displaced
+car **1087** loses **572.75 s**. Thus even the worst gain seed buys some earlier
+turns by imposing losses far above 60 s. Entries have the one-second recording
+resolution stated in Step 1; home-time gains and losses are exact.

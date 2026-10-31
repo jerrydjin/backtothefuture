@@ -1,0 +1,254 @@
+{
+  "base_commit": "5f7cf77ef5b3d979d40bb833b56a0bd037936e0f",
+  "step1_commit": "c490cd511e077bad532b9c63dcfdac6b4bc1c51f",
+  "planner_preregistration_commit": "397abc70d0d10d533ed1a4a66e1cdc4540f6a1fe",
+  "potrero_scores_commit": "747cea0fbd58ebb9b6d7dbe88f6789f6b0080a00",
+  "bypass_preregistration_commit": "89518112baa811ecdad08f409801be873a0233ff",
+  "tests": {
+    "cargo_test_offline": {
+      "passed": 188,
+      "failed": 0,
+      "ignored": 3
+    },
+    "structural_example_test": {
+      "passed": 1,
+      "failed": 0
+    }
+  },
+  "sites": {
+    "potrero": {
+      "local": {
+        "gain_mean_s": 0.0,
+        "gain_min_s": 0.0,
+        "gain_max_s": 0.0,
+        "others_worst_seed_p95_s": 0.0,
+        "others_max_s": 0.0,
+        "driver_seconds": 0.0,
+        "drivers_asked": 0,
+        "gain_per_driver_second": null,
+        "pass_per_seed": {
+          "1": true,
+          "2": true,
+          "3": true,
+          "4": true,
+          "5": true,
+          "6": true,
+          "7": true,
+          "8": true,
+          "9": true,
+          "10": true
+        },
+        "queue_yield_deliveries": 0,
+        "reroute_deliveries": 0,
+        "collisions": 0,
+        "completed": 3125,
+        "scheduled": 3125
+      },
+      "broadcast": {
+        "gain_mean_s": 13.18,
+        "gain_min_s": 1.25,
+        "gain_max_s": 23.75,
+        "others_worst_seed_p95_s": 84.0,
+        "others_max_s": 575.75,
+        "driver_seconds": 51270.0,
+        "drivers_asked": 1251,
+        "gain_per_driver_second": 0.02570704115467135,
+        "pass_per_seed": {
+          "1": false,
+          "2": false,
+          "3": false,
+          "4": false,
+          "5": false,
+          "6": false,
+          "7": false,
+          "8": false,
+          "9": false,
+          "10": false
+        },
+        "queue_yield_deliveries": 0,
+        "reroute_deliveries": 0,
+        "collisions": 0,
+        "completed": 3125,
+        "scheduled": 3125
+      },
+      "moving_slot": {
+        "gain_mean_s": 0.0,
+        "gain_min_s": 0.0,
+        "gain_max_s": 0.0,
+        "others_worst_seed_p95_s": 0.0,
+        "others_max_s": 0.0,
+        "driver_seconds": 0.0,
+        "drivers_asked": 18,
+        "gain_per_driver_second": null,
+        "pass_per_seed": {
+          "1": true,
+          "2": true,
+          "3": true,
+          "4": true,
+          "5": true,
+          "6": true,
+          "7": true,
+          "8": true,
+          "9": true,
+          "10": true
+        },
+        "queue_yield_deliveries": 0,
+        "reroute_deliveries": 0,
+        "collisions": 0,
+        "completed": 3125,
+        "scheduled": 3125
+      },
+      "moving_slot_v2": {
+        "gain_mean_s": 0.0,
+        "gain_min_s": 0.0,
+        "gain_max_s": 0.0,
+        "others_worst_seed_p95_s": 0.0,
+        "others_max_s": 0.0,
+        "driver_seconds": 0.0,
+        "drivers_asked": 18,
+        "gain_per_driver_second": null,
+        "pass_per_seed": {
+          "1": true,
+          "2": true,
+          "3": true,
+          "4": true,
+          "5": true,
+          "6": true,
+          "7": true,
+          "8": true,
+          "9": true,
+          "10": true
+        },
+        "queue_yield_deliveries": 0,
+        "reroute_deliveries": 0,
+        "collisions": 0,
+        "completed": 3125,
+        "scheduled": 3125
+      }
+    },
+    "bypass": {
+      "local": {
+        "gain_mean_s": 0.0,
+        "gain_min_s": 0.0,
+        "gain_max_s": 0.0,
+        "others_worst_seed_p95_s": 0.0,
+        "others_max_s": 0.0,
+        "driver_seconds": 0.0,
+        "drivers_asked": 0,
+        "gain_per_driver_second": null,
+        "pass_per_seed": {
+          "1": true,
+          "2": true,
+          "3": true,
+          "4": true,
+          "5": true,
+          "6": true,
+          "7": true,
+          "8": true,
+          "9": true,
+          "10": true
+        },
+        "queue_yield_deliveries": 0,
+        "reroute_deliveries": 0,
+        "collisions": 0,
+        "completed": 3125,
+        "scheduled": 3125
+      },
+      "broadcast": {
+        "gain_mean_s": 7.14,
+        "gain_min_s": -3.25,
+        "gain_max_s": 14.75,
+        "others_worst_seed_p95_s": 52.5,
+        "others_max_s": 575.0,
+        "driver_seconds": 44858.25,
+        "drivers_asked": 974,
+        "gain_per_driver_second": 0.015916804601160323,
+        "pass_per_seed": {
+          "1": false,
+          "2": false,
+          "3": false,
+          "4": false,
+          "5": false,
+          "6": false,
+          "7": false,
+          "8": false,
+          "9": false,
+          "10": false
+        },
+        "queue_yield_deliveries": 0,
+        "reroute_deliveries": 0,
+        "collisions": 0,
+        "completed": 3125,
+        "scheduled": 3125
+      },
+      "moving_slot": {
+        "gain_mean_s": 0.0,
+        "gain_min_s": 0.0,
+        "gain_max_s": 0.0,
+        "others_worst_seed_p95_s": 0.0,
+        "others_max_s": 0.0,
+        "driver_seconds": 0.0,
+        "drivers_asked": 0,
+        "gain_per_driver_second": null,
+        "pass_per_seed": {
+          "1": true,
+          "2": true,
+          "3": true,
+          "4": true,
+          "5": true,
+          "6": true,
+          "7": true,
+          "8": true,
+          "9": true,
+          "10": true
+        },
+        "queue_yield_deliveries": 0,
+        "reroute_deliveries": 0,
+        "collisions": 0,
+        "completed": 3125,
+        "scheduled": 3125
+      },
+      "moving_slot_v2": {
+        "gain_mean_s": 0.0,
+        "gain_min_s": 0.0,
+        "gain_max_s": 0.0,
+        "others_worst_seed_p95_s": 0.0,
+        "others_max_s": 0.0,
+        "driver_seconds": 0.0,
+        "drivers_asked": 0,
+        "gain_per_driver_second": null,
+        "pass_per_seed": {
+          "1": true,
+          "2": true,
+          "3": true,
+          "4": true,
+          "5": true,
+          "6": true,
+          "7": true,
+          "8": true,
+          "9": true,
+          "10": true
+        },
+        "queue_yield_deliveries": 0,
+        "reroute_deliveries": 0,
+        "collisions": 0,
+        "completed": 3125,
+        "scheduled": 3125
+      }
+    }
+  },
+  "sha256": {
+    "docs/gates/phase-13f-potrero-scores.jsonl": "23bd5979a309a06819b73af1a2b329147202787a71ccf1cb37e2d346afabd5a8",
+    "docs/gates/phase-13f-bypass-scores.jsonl": "40c91baab07b2d9adfa4f84db8b5580737486bc01b7460ab3428129600ba9d5a",
+    "docs/gates/phase-13f-broadcast-trace.jsonl": "fb315e696960acb115ed45150c416e866059d9eafa7648eadb79305bdab5bd57",
+    "docs/gates/phase-13f-bypass-sites.json": "47917151e69236d8e8c53f7361494340dde766c7cbd3aff7b4608c2ff1ace45a",
+    "src/judge.rs": "53553e2ca0b7ecdf84895d64f3d6c02f2388df3905bb803fa7681d752f4dcee0",
+    "src/schema.rs": "54e80f03470d57251ffdb8729f86e0eb543a62a7bd419600a2fee3835db0002a"
+  },
+  "limitations": [
+    "No v2 queue-yield was delivered on either site; numerical bar pass is not mechanistic success.",
+    "Original Potrero: all sampled eligible nearest queue predecessors have less than the preregistered 40 m room.",
+    "Second site: all sampled emergency admissions after the incident ends; no arm uses the available bypass.",
+    "One candidate per site is not an all-price impossibility proof."
+  ]
+}
