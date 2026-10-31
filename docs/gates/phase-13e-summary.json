@@ -1,0 +1,32 @@
+{
+  "preregistration_commit": "0b8826a202f3d3fb0d84935be1373f890e61edc0",
+  "base": "296dd5824d664482888703c436a42219c29bb300",
+  "incident_sha256": "29bfb3bf9cbf2dd3629c10e79099a81eaa6316b5093c43e87ab3e9d51ce16e00",
+  "scores_sha256": "9acb4a8e7e338e45b786fd81be47c71703de0ff88d470291d25964438d0ccf2f",
+  "command": "cargo run --offline --release --example phase13e_gate -- seed=1 end=10",
+  "policy": "mock",
+  "model_calls": 0,
+  "pass_bar": "every seed 1-10: others p95 vs local-only <= 30s AND max < 60s",
+  "moving_slot_passes_every_seed": true,
+  "headline": "On real Potrero with a blocked lane, the ambulance arrives 0 s sooner and no driver loses more than 0 s.",
+  "ambulance_gain_vs_local_s": {
+    "local": {"mean": 0.0, "min": 0.0, "max": 0.0, "n": 100},
+    "broadcast": {"mean": 13.18, "min": 1.25, "max": 23.75, "n": 100, "sum": 1318.0},
+    "moving_slot": {"mean": 0.0, "min": 0.0, "max": 0.0, "n": 100, "sum": 0.0}
+  },
+  "others_vs_local": {
+    "local": {"mean_s": 0.0, "worst_p95_s": 0.0, "worst_max_s": 0.0, "drivers_asked": 0, "driver_seconds": 0.0},
+    "broadcast": {"mean_s": 10.568842975206612, "worst_p95_s": 84.0, "worst_max_s": 575.75, "drivers_asked": 1251, "driver_seconds": 51270.0, "gain_per_driver_second": 0.02570704115467135},
+    "moving_slot": {"mean_s": 0.0, "worst_p95_s": 0.0, "worst_max_s": 0.0, "drivers_asked": 18, "driver_seconds": 0.0, "gain_per_driver_second": null}
+  },
+  "collisions": 0,
+  "tests": {"passed": 185, "failed": 0, "ignored": 3},
+  "preservation": {
+    "phase_13d_scores_byte_identical": true,
+    "phase_13d_scores_sha256": "ac9e832702c74904159c724380edd524224a762632837a595429bff5cbcbf2eb",
+    "town_typical_seed_1_10_byte_identical": true,
+    "town_typical_sha256": "50046c2dcb22219dff7db31ccda66d6c6ca38aada08cbb58eeef2b5ed114da70",
+    "town_boxed_seed_1_10_byte_identical": true,
+    "town_boxed_sha256": "a704e49f9bd5e17e05744fe0ecd8e8263ce18510c6ce97901299edd544fad12e"
+  }
+}
