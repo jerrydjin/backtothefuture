@@ -74,6 +74,9 @@ pub struct Decision {
 pub trait Policy: Send + Sync {
     fn name(&self) -> &str;
     fn decide(&self, request: &PolicyRequest) -> Decision;
+    /// Prepare independent claims only. No future outcomes or controls enter here.
+    /// Decisions remain unapplied until their original simulation timestamp.
+    fn prepare(&self, _requests: &[PolicyRequest]) {}
     fn decide_batch(&self, requests: &[PolicyRequest]) -> Vec<Decision> {
         requests.iter().map(|r| self.decide(r)).collect()
     }
@@ -200,6 +203,7 @@ pub struct Live {
     client: Option<crate::muse::GeminiChat>,
     started: std::time::Instant,
     run_budget: std::time::Duration,
+    prepared: std::sync::Mutex<BTreeMap<String, Decision>>,
 }
 impl Live {
     pub fn from_env() -> Self {
@@ -212,7 +216,7 @@ impl Live {
         });
         Self::with_client_budget(
             endpoint.map(crate::muse::GeminiChat::from_endpoint),
-            std::time::Duration::from_secs(90),
+            std::time::Duration::from_secs(540),
         )
     }
 
@@ -224,6 +228,7 @@ impl Live {
             client,
             started: std::time::Instant::now(),
             run_budget,
+            prepared: Default::default(),
         }
     }
 
@@ -390,26 +395,60 @@ impl Policy for Live {
     fn name(&self) -> &str {
         "live"
     }
+    fn prepare(&self, requests: &[PolicyRequest]) {
+        // Use exactly the public request as the cache key, including history.
+        // A changed claim/history cannot reuse a decision for the same car.
+        let decisions = self.decide_batch(requests);
+        let mut cache = self.prepared.lock().unwrap();
+        cache.clear();
+        for (request, decision) in requests.iter().zip(decisions) {
+            cache.insert(serde_json::to_string(request).unwrap(), decision);
+        }
+    }
     fn decide(&self, r: &PolicyRequest) -> Decision {
-        self.batch(std::slice::from_ref(r)).remove(0)
+        self.decide_batch(std::slice::from_ref(r)).remove(0)
     }
     fn decide_batch(&self, requests: &[PolicyRequest]) -> Vec<Decision> {
-        // At most four simultaneous provider calls. Each call handles twelve
-        // contemporaneous conflicts, with its own 28s and a shared run deadline.
-        let mut result = Vec::new();
-        for wave in requests.chunks(48) {
-            let mut decisions = std::thread::scope(|scope| {
-                let handles: Vec<_> = wave
-                    .chunks(12)
+        let keys: Vec<_> = requests
+            .iter()
+            .map(|r| serde_json::to_string(r).unwrap())
+            .collect();
+        let mut cache = self.prepared.lock().unwrap();
+        let mut ready = BTreeMap::new();
+        let mut missing = Vec::new();
+        for (i, key) in keys.iter().enumerate() {
+            if let Some(d) = cache.remove(key) {
+                ready.insert(i, d);
+            } else {
+                missing.push(i);
+            }
+        }
+        drop(cache);
+        // Four provider calls maximum, twelve independent rows per call.
+        // Every row's retries share its chunk's 28-second deadline; all work
+        // also obeys the 540-second run ceiling (including queueing).
+        for wave in missing.chunks(48) {
+            let chunks: Vec<Vec<_>> = wave
+                .chunks(12)
+                .map(|ids| ids.iter().map(|i| requests[*i].clone()).collect())
+                .collect();
+            let batches = std::thread::scope(|scope| {
+                let handles: Vec<_> = chunks
+                    .iter()
                     .map(|chunk| scope.spawn(move || self.batch(chunk)))
                     .collect();
                 handles
                     .into_iter()
-                    .flat_map(|h| h.join().expect("batch worker"))
+                    .map(|h| h.join().expect("batch worker"))
                     .collect::<Vec<_>>()
             });
-            result.append(&mut decisions);
+            for (i, d) in wave.iter().zip(batches.into_iter().flatten()) {
+                ready.insert(*i, d);
+            }
         }
+        let result = (0..requests.len())
+            .map(|i| ready.remove(&i).unwrap())
+            .collect();
         result
     }
 }
@@ -449,13 +488,19 @@ pub fn population_on(seed: u64, net: &Network) -> Vec<Trip> {
     let mut hospital: Vec<_> = routes
         .iter()
         .enumerate()
-        .filter(|(_, (_, sink, _))| *sink == 4)
+        .filter(|(_, (_, sink, _))| {
+            net.hospital_node
+                .map_or(*sink == 4, |id| net.sink_node(*sink) == id)
+        })
         .map(|(i, _)| i)
         .collect();
     let mut gym: Vec<_> = routes
         .iter()
         .enumerate()
-        .filter(|(_, (_, sink, _))| *sink == 5)
+        .filter(|(_, (_, sink, _))| {
+            net.hospital_node
+                .map_or(*sink == 5, |id| net.sink_node(*sink) != id)
+        })
         .map(|(i, _)| i)
         .collect();
     if hospital.is_empty() {
@@ -548,7 +593,25 @@ fn fast_class(class: RoadClass) -> bool {
 /// Hospital corridors that open on two fast links and then drop through a ramp.
 /// Computed from the map. On the current town these are routes 3, 34 and 40.
 fn corridor_routes(net: &Network) -> Vec<usize> {
-    net.routes()
+    if let Some(hospital) = net.hospital_node {
+        return net
+            .routes()
+            .iter()
+            .enumerate()
+            .filter_map(|(i, (_, sink, route))| {
+                (net.sink_node(*sink) == hospital
+                    && route
+                        .links
+                        .iter()
+                        .filter(|l| !net.links[**l].is_connector())
+                        .count()
+                        >= 2)
+                    .then_some(i)
+            })
+            .collect();
+    }
+    let native: Vec<_> = net
+        .routes()
         .iter()
         .enumerate()
         .filter_map(|(index, (_, sink, route))| {
@@ -570,6 +633,25 @@ fn corridor_routes(net: &Network) -> Vec<usize> {
                 .any(|link| net.links[*link].class == RoadClass::Ramp);
             (fast_class(net.links[plain[0]].class) && fast_class(net.links[plain[1]].class) && ramp)
                 .then_some(index)
+        })
+        .collect();
+    if !native.is_empty() {
+        return native;
+    }
+    // Imported maps need no motorway, ramp or city-specific exception.
+    let routes = net.routes();
+    routes
+        .iter()
+        .enumerate()
+        .filter_map(|(i, (_, sink, route))| {
+            (*sink == 4
+                && route
+                    .links
+                    .iter()
+                    .filter(|l| !net.links[**l].is_connector())
+                    .count()
+                    >= 2)
+                .then_some(i)
         })
         .collect()
 }
@@ -685,7 +767,14 @@ fn on_map_travel(run: &Run, car: u32) -> Result<f64, String> {
 /// Emergency delay against a solo free-flow trip, excluding time spent waiting
 /// off the map to enter. Frame resolution is one second on both sides.
 pub fn emergency_on_map_delays(seed: u64) -> Result<(usize, usize, Vec<f64>, u32, usize), String> {
-    let trips = boxed_population(seed);
+    emergency_on_map_delays_on(seed, &Network::town())
+}
+
+pub fn emergency_on_map_delays_on(
+    seed: u64,
+    net: &Network,
+) -> Result<(usize, usize, Vec<f64>, u32, usize), String> {
+    let trips = boxed_population_on(seed, net)?;
     let origin = trips
         .iter()
         .find(|t| t.truth == Truth::Emergency)
@@ -695,12 +784,12 @@ pub fn emergency_on_map_delays(seed: u64) -> Result<(usize, usize, Vec<f64>, u32
         .iter()
         .filter(|t| t.truth == Truth::Ordinary && t.route == origin)
         .count();
-    let jam = simulate_trips(seed, &Fcfs, true, None, trips.clone())?;
+    let jam = simulate_trips_on(seed, &Fcfs, true, None, trips.clone(), net)?;
     let collisions = jam.town.stats.overlaps + jam.town.stats.crossing_conflicts;
     let completed = jam.home.len();
     let mut delays = Vec::new();
     for trip in trips.iter().filter(|t| t.truth == Truth::Emergency) {
-        let solo = simulate_trips(seed, &Fcfs, true, None, vec![trip.clone()])?;
+        let solo = simulate_trips_on(seed, &Fcfs, true, None, vec![trip.clone()], net)?;
         delays.push(on_map_travel(&jam, trip.car)? - on_map_travel(&solo, trip.car)?);
     }
     Ok((origin, pulse, delays, collisions, completed))
@@ -750,6 +839,9 @@ pub struct Score {
     pub collateral: f64,
     pub model_decisions: usize,
     pub fallback_decisions: usize,
+    /// Absent for offline runs to preserve their exact wire bytes.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fallback_causes: BTreeMap<String, usize>,
     pub collisions: u32,
     pub baseline_collisions: u32,
     pub passed: bool,
@@ -762,6 +854,7 @@ pub struct Run {
     pub town: NetworkRun,
     pub history: BTreeMap<u32, Vec<PastTrip>>,
     pub messages: Vec<MessageHop>,
+    pub message_log: crate::make_way::MessageLog,
     pub history_enabled: bool,
 }
 pub struct ScoredRun {
@@ -827,6 +920,24 @@ pub(crate) fn simulate_trips_on(
     if let Some(config) = broadcast {
         sim.enable_broadcast(config)?;
     }
+    // Earliest claims cannot have a completed earlier trip for their rider.
+    // Repeated claims are assessed later, against actual completed history.
+    let mut riders = BTreeSet::new();
+    let independent: Vec<_> = trips
+        .iter()
+        .filter(|t| {
+            let first = riders.insert(t.rider);
+            !history_enabled || first
+        })
+        .map(|t| PolicyRequest {
+            car: t.car,
+            rider: t.rider,
+            reason: t.reason.clone(),
+            at_s: t.request_s,
+            history: Vec::new(),
+        })
+        .collect();
+    policy.prepare(&independent);
     let mut stats = NetStats::default();
     let mut frames = Vec::new();
     let mut cursor = 0;
@@ -897,6 +1008,7 @@ pub(crate) fn simulate_trips_on(
     }
     let home = sim.completed_trips();
     let messages = sim.messages();
+    let message_log = sim.message_log();
     let town = sim.experiment_recording(frames, stats);
     Ok(Run {
         trips,
@@ -905,6 +1017,7 @@ pub(crate) fn simulate_trips_on(
         town,
         history,
         messages,
+        message_log,
         history_enabled,
     })
 }
@@ -1005,6 +1118,13 @@ pub fn score(seed: u64, policy: &str, run: &Run, baseline: &Run) -> Result<Score
             .iter()
             .filter(|d| d.source == "fallback")
             .count(),
+        fallback_causes: {
+            let mut counts = BTreeMap::new();
+            for d in run.decisions.iter().filter(|d| d.source == "fallback") {
+                *counts.entry(d.fallback_reason.clone()).or_insert(0) += 1;
+            }
+            counts
+        },
         collisions,
         baseline_collisions,
         passed: collisions == 0

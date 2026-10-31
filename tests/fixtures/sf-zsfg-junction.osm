@@ -1,0 +1,1643 @@
+<?xml version='1.0' encoding='utf-8'?>
+<osm version="0.6">
+  <!--Trimmed from maps/sf-zsfg.osm (ODbL; see maps/OSM.md). Original coordinates, node refs and tags.-->
+  <node id="65290294" visible="true" version="6" changeset="151825378" timestamp="2024-05-25T19:16:56Z" user="graue" uid="258101" lat="37.7630381" lon="-122.4102625">
+    <tag k="highway" v="stop" />
+    <tag k="stop" v="all" />
+  </node>
+  <node id="65290296" visible="true" version="5" changeset="37285518" timestamp="2016-02-18T11:32:09Z" user="oba510" uid="933797" lat="37.7617650" lon="-122.4101411" />
+  <node id="65290299" visible="true" version="5" changeset="47289116" timestamp="2017-03-30T11:22:32Z" user="oba510" uid="933797" lat="37.7604937" lon="-122.4100144" />
+  <node id="65290302" visible="true" version="6" changeset="47257631" timestamp="2017-03-29T11:44:06Z" user="oba510" uid="933797" lat="37.7596073" lon="-122.4099326" />
+  <node id="65290305" visible="true" version="6" changeset="47289116" timestamp="2017-03-30T11:22:33Z" user="oba510" uid="933797" lat="37.7592022" lon="-122.4097853" />
+  <node id="65290307" visible="true" version="6" changeset="109231096" timestamp="2021-08-06T04:15:00Z" user="rohanaras" uid="12245068" lat="37.7591400" lon="-122.4097625">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="65290314" visible="true" version="5" changeset="21783125" timestamp="2014-04-18T23:25:36Z" user="KindredCoda" uid="14293" lat="37.7576026" lon="-122.4096146" />
+  <node id="65290322" visible="true" version="8" changeset="47289116" timestamp="2017-03-30T11:22:33Z" user="oba510" uid="933797" lat="37.7560037" lon="-122.4094619">
+    <tag k="highway" v="traffic_signals" />
+  </node>
+  <node id="65290327" visible="true" version="6" changeset="47289116" timestamp="2017-03-30T11:22:33Z" user="oba510" uid="933797" lat="37.7544101" lon="-122.4092755" />
+  <node id="65290951" visible="true" version="6" changeset="47257631" timestamp="2017-03-29T11:44:06Z" user="oba510" uid="933797" lat="37.7631560" lon="-122.4083274" />
+  <node id="65290958" visible="true" version="5" changeset="11004366" timestamp="2012-03-17T03:33:36Z" user="KindredCoda" uid="14293" lat="37.7630967" lon="-122.4092976" />
+  <node id="65293500" visible="true" version="6" changeset="176767043" timestamp="2026-01-03T01:32:28Z" user="kevinchen1" uid="12848415" lat="37.7609503" lon="-122.4022143">
+    <tag k="highway" v="stop" />
+    <tag k="stop" v="minor" />
+  </node>
+  <node id="65293503" visible="true" version="7" changeset="176767043" timestamp="2026-01-03T01:32:28Z" user="kevinchen1" uid="12848415" lat="37.7608987" lon="-122.4031826">
+    <tag k="highway" v="stop" />
+    <tag k="stop" v="all" />
+  </node>
+  <node id="65293506" visible="true" version="8" changeset="176767043" timestamp="2026-01-03T01:32:28Z" user="kevinchen1" uid="12848415" lat="37.7608389" lon="-122.4041442">
+    <tag k="highway" v="stop" />
+    <tag k="stop" v="all" />
+  </node>
+  <node id="65293507" visible="true" version="5" changeset="7999301" timestamp="2011-04-28T22:19:56Z" user="KindredCoda" uid="14293" lat="37.7607945" lon="-122.4049686" />
+  <node id="65293512" visible="true" version="7" changeset="176767043" timestamp="2026-01-03T01:32:28Z" user="kevinchen1" uid="12848415" lat="37.7607997" lon="-122.4051159">
+    <tag k="highway" v="stop" />
+    <tag k="stop" v="all" />
+  </node>
+  <node id="65293514" visible="true" version="5" changeset="7999301" timestamp="2011-04-28T22:19:56Z" user="KindredCoda" uid="14293" lat="37.7607530" lon="-122.4058965" />
+  <node id="65293538" visible="true" version="10" changeset="152052157" timestamp="2024-05-30T19:35:27Z" user="TheDutchMan13" uid="1330847" lat="37.7606613" lon="-122.4071420">
+    <tag k="highway" v="traffic_signals" />
+    <tag k="traffic_signals" v="traffic_lights" />
+  </node>
+  <node id="65293540" visible="true" version="5" changeset="47257631" timestamp="2017-03-29T11:44:06Z" user="oba510" uid="933797" lat="37.7606084" lon="-122.4080819" />
+  <node id="65293542" visible="true" version="5" changeset="47289116" timestamp="2017-03-30T11:22:33Z" user="oba510" uid="933797" lat="37.7605471" lon="-122.4090473" />
+  <node id="65293544" visible="true" version="7" changeset="47289116" timestamp="2017-03-30T11:22:33Z" user="oba510" uid="933797" lat="37.7604315" lon="-122.4109745" />
+  <node id="65294613" visible="true" version="7" changeset="176767043" timestamp="2026-01-03T01:32:28Z" user="kevinchen1" uid="12848415" lat="37.7596792" lon="-122.4020923">
+    <tag k="highway" v="stop" />
+    <tag k="stop" v="all" />
+  </node>
+  <node id="65302139" visible="true" version="8" changeset="47289116" timestamp="2017-03-30T11:22:33Z" user="oba510" uid="933797" lat="37.7577723" lon="-122.4068661">
+    <tag k="highway" v="traffic_signals" />
+  </node>
+  <node id="65302150" visible="true" version="6" changeset="47289116" timestamp="2017-03-30T11:22:33Z" user="oba510" uid="933797" lat="37.7577156" lon="-122.4077731" />
+  <node id="65302160" visible="true" version="6" changeset="47289116" timestamp="2017-03-30T11:22:33Z" user="oba510" uid="933797" lat="37.7576615" lon="-122.4086702" />
+  <node id="65308708" visible="true" version="9" changeset="152052157" timestamp="2024-05-30T19:35:27Z" user="TheDutchMan13" uid="1330847" lat="37.7619362" lon="-122.4072640">
+    <tag k="highway" v="traffic_signals" />
+    <tag k="traffic_signals" v="traffic_lights" />
+  </node>
+  <node id="65308721" visible="true" version="12" changeset="152052157" timestamp="2024-05-30T19:35:27Z" user="TheDutchMan13" uid="1330847" lat="37.7593689" lon="-122.4070180">
+    <tag k="highway" v="traffic_signals" />
+    <tag k="traffic_signals" v="traffic_lights" />
+  </node>
+  <node id="65310163" visible="true" version="4" changeset="7999301" timestamp="2011-04-28T22:19:56Z" user="KindredCoda" uid="14293" lat="37.7620664" lon="-122.4052372" />
+  <node id="65313453" visible="true" version="6" changeset="25403484" timestamp="2014-09-13T02:57:30Z" user="oba510" uid="933797" lat="37.7597898" lon="-122.4001542" />
+  <node id="65317599" visible="true" version="9" changeset="47289116" timestamp="2017-03-30T11:22:33Z" user="oba510" uid="933797" lat="37.7589063" lon="-122.4147190">
+    <tag k="highway" v="traffic_signals" />
+    <tag k="source" v="data.sfgov.org" />
+  </node>
+  <node id="65317786" visible="true" version="9" changeset="174726175" timestamp="2025-11-16T13:08:07Z" user="oba510" uid="933797" lat="37.7590346" lon="-122.4125338">
+    <tag k="highway" v="stop" />
+    <tag k="stop" v="all" />
+  </node>
+  <node id="65318138" visible="true" version="7" changeset="176767043" timestamp="2026-01-03T01:32:28Z" user="kevinchen1" uid="12848415" lat="37.7598538" lon="-122.3991912">
+    <tag k="highway" v="stop" />
+    <tag k="stop" v="all" />
+  </node>
+  <node id="65320188" visible="true" version="7" changeset="176767043" timestamp="2026-01-03T01:32:28Z" user="kevinchen1" uid="12848415" lat="37.7597235" lon="-122.4011300">
+    <tag k="highway" v="stop" />
+    <tag k="stop" v="all" />
+  </node>
+  <node id="65324924" visible="true" version="7" changeset="176767043" timestamp="2026-01-03T01:32:28Z" user="kevinchen1" uid="12848415" lat="37.7621127" lon="-122.4042642">
+    <tag k="highway" v="stop" />
+    <tag k="stop" v="all" />
+  </node>
+  <node id="65324932" visible="true" version="4" changeset="4663164" timestamp="2010-05-10T20:28:05Z" user="KindredCoda" uid="14293" lat="37.7620169" lon="-122.4062406" />
+  <node id="65324934" visible="true" version="6" changeset="47257631" timestamp="2017-03-29T11:44:07Z" user="oba510" uid="933797" lat="37.7618847" lon="-122.4082015" />
+  <node id="65324936" visible="true" version="5" changeset="37285518" timestamp="2016-02-18T11:32:09Z" user="oba510" uid="933797" lat="37.7618251" lon="-122.4091697" />
+  <node id="65324938" visible="true" version="8" changeset="174726175" timestamp="2025-11-16T13:08:07Z" user="oba510" uid="933797" lat="37.7617170" lon="-122.4111233" />
+  <node id="65324940" visible="true" version="7" changeset="174726175" timestamp="2025-11-16T13:08:07Z" user="oba510" uid="933797" lat="37.7616536" lon="-122.4120776">
+    <tag k="highway" v="stop" />
+  </node>
+  <node id="65328397" visible="true" version="6" changeset="145719913" timestamp="2023-12-31T04:21:58Z" user="gootiker" uid="20791188" lat="37.7596214" lon="-122.4030600">
+    <tag k="direction" v="both" />
+    <tag k="highway" v="stop" />
+    <tag k="stop" v="all" />
+  </node>
+  <node id="65328983" visible="true" version="9" changeset="123134928" timestamp="2022-07-02T22:16:46Z" user="Mingwei" uid="14152086" lat="37.7591436" lon="-122.4107799">
+    <tag k="direction" v="both" />
+    <tag k="highway" v="stop" />
+    <tag k="stop" v="all" />
+  </node>
+  <node id="65330451" visible="true" version="6" changeset="47289116" timestamp="2017-03-30T11:22:34Z" user="oba510" uid="933797" lat="37.7590933" lon="-122.4115980" />
+  <node id="65332307" visible="true" version="5" changeset="47289116" timestamp="2017-03-30T11:22:34Z" user="oba510" uid="933797" lat="37.7592590" lon="-122.4088821" />
+  <node id="65332309" visible="true" version="5" changeset="47289116" timestamp="2017-03-30T11:22:34Z" user="oba510" uid="933797" lat="37.7591766" lon="-122.4088170" />
+  <node id="65332311" visible="true" version="7" changeset="47289116" timestamp="2017-03-30T11:22:34Z" user="oba510" uid="933797" lat="37.7560605" lon="-122.4085132" />
+  <node id="65332314" visible="true" version="6" changeset="47289116" timestamp="2017-03-30T11:22:34Z" user="oba510" uid="933797" lat="37.7544628" lon="-122.4083607" />
+  <node id="65340082" visible="true" version="8" changeset="176767043" timestamp="2026-01-03T01:32:28Z" user="kevinchen1" uid="12848415" lat="37.7595642" lon="-122.4040206">
+    <tag k="highway" v="stop" />
+    <tag k="stop" v="all" />
+  </node>
+  <node id="65340086" visible="true" version="5" changeset="37661164" timestamp="2016-03-07T09:00:15Z" user="KindredCoda" uid="14293" lat="37.7589803" lon="-122.4038926" />
+  <node id="65358921" visible="true" version="4" changeset="7980803" timestamp="2011-04-27T00:16:05Z" user="KindredCoda" uid="14293" lat="37.7593101" lon="-122.4079405" />
+  <node id="65358923" visible="true" version="4" changeset="11004273" timestamp="2012-03-17T02:51:39Z" user="KindredCoda" uid="14293" lat="37.7592197" lon="-122.4079235" />
+  <node id="65358925" visible="true" version="6" changeset="47289116" timestamp="2017-03-30T11:22:34Z" user="oba510" uid="933797" lat="37.7561139" lon="-122.4076238" />
+  <node id="65358927" visible="true" version="5" changeset="47289116" timestamp="2017-03-30T11:22:34Z" user="oba510" uid="933797" lat="37.7545172" lon="-122.4074723" />
+  <node id="65361437" visible="true" version="7" changeset="151825586" timestamp="2024-05-25T19:23:00Z" user="graue" uid="258101" lat="37.7588398" lon="-122.4158016">
+    <tag k="highway" v="stop" />
+    <tag k="stop" v="all" />
+  </node>
+  <node id="261510655" visible="true" version="8" changeset="152052157" timestamp="2024-05-30T19:35:36Z" user="TheDutchMan13" uid="1330847" lat="37.7619426" lon="-122.4071480">
+    <tag k="highway" v="traffic_signals" />
+    <tag k="traffic_signals" v="traffic_lights" />
+  </node>
+  <node id="261510664" visible="true" version="8" changeset="152052157" timestamp="2024-05-30T19:35:36Z" user="TheDutchMan13" uid="1330847" lat="37.7606694" lon="-122.4070240">
+    <tag k="highway" v="traffic_signals" />
+    <tag k="traffic_signals" v="traffic_lights" />
+  </node>
+  <node id="261510671" visible="true" version="7" changeset="152052157" timestamp="2024-05-30T19:35:36Z" user="TheDutchMan13" uid="1330847" lat="37.7593761" lon="-122.4068990">
+    <tag k="highway" v="traffic_signals" />
+    <tag k="traffic_signals" v="traffic_lights" />
+  </node>
+  <node id="261510678" visible="true" version="7" changeset="47289116" timestamp="2017-03-30T11:22:28Z" user="oba510" uid="933797" lat="37.7577803" lon="-122.4067448">
+    <tag k="highway" v="traffic_signals" />
+    <tag k="source" v="data.sfgov.org" />
+  </node>
+  <node id="265674012" visible="true" version="4" changeset="133749508" timestamp="2023-03-16T13:37:09Z" user="mpatsevich_lyft" uid="12896788" lat="37.7619850" lon="-122.4052290">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+  </node>
+  <node id="265688213" visible="true" version="2" changeset="11391319" timestamp="2012-04-23T05:46:59Z" user="Gregory Arenius" uid="116029" lat="37.7591681" lon="-122.4065789" />
+  <node id="265688214" visible="true" version="2" changeset="11391319" timestamp="2012-04-23T05:46:59Z" user="Gregory Arenius" uid="116029" lat="37.7543880" lon="-122.4062997" />
+  <node id="265688215" visible="true" version="2" changeset="11391319" timestamp="2012-04-23T05:46:59Z" user="Gregory Arenius" uid="116029" lat="37.7545474" lon="-122.4036798" />
+  <node id="265688216" visible="true" version="1" changeset="482662" timestamp="2008-05-19T05:17:42Z" user="will l" uid="35195" lat="37.7565574" lon="-122.4038814" />
+  <node id="265688217" visible="true" version="2" changeset="11391319" timestamp="2012-04-23T05:46:59Z" user="Gregory Arenius" uid="116029" lat="37.7569071" lon="-122.4040099" />
+  <node id="265688218" visible="true" version="2" changeset="11391319" timestamp="2012-04-23T05:46:59Z" user="Gregory Arenius" uid="116029" lat="37.7568625" lon="-122.4048507" />
+  <node id="265688219" visible="true" version="2" changeset="11391319" timestamp="2012-04-23T05:46:59Z" user="Gregory Arenius" uid="116029" lat="37.7578470" lon="-122.4049455" />
+  <node id="266903659" visible="true" version="4" changeset="84506609" timestamp="2020-05-02T06:38:28Z" user="dchiles" uid="153669" lat="37.7622991" lon="-122.4052588" />
+  <node id="266903666" visible="true" version="13" changeset="37661164" timestamp="2016-03-07T09:00:15Z" user="KindredCoda" uid="14293" lat="37.7591134" lon="-122.4039663" />
+  <node id="728867935" visible="true" version="3" changeset="37661164" timestamp="2016-03-07T09:00:16Z" user="KindredCoda" uid="14293" lat="37.7590087" lon="-122.4039009" />
+  <node id="728918088" visible="true" version="2" changeset="148199811" timestamp="2024-03-04T10:34:50Z" user="TieFaith" uid="688027" lat="37.7619883" lon="-122.4063180">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="crossing:markings" v="yes" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="1264273795" visible="true" version="1" changeset="7999301" timestamp="2011-04-28T22:19:52Z" user="KindredCoda" uid="14293" lat="37.7595839" lon="-122.4049996" />
+  <node id="1264273796" visible="true" version="3" changeset="84506609" timestamp="2020-05-02T06:38:28Z" user="dchiles" uid="153669" lat="37.7591461" lon="-122.4039791" />
+  <node id="1264273798" visible="true" version="2" changeset="160226113" timestamp="2024-12-12T22:55:09Z" user="Anonymous897234" uid="16885157" lat="37.7595162" lon="-122.4048774">
+    <tag k="crossing" v="unmarked" />
+    <tag k="crossing:markings" v="no" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="1264273799" visible="true" version="1" changeset="7999301" timestamp="2011-04-28T22:19:52Z" user="KindredCoda" uid="14293" lat="37.7595287" lon="-122.4049513" />
+  <node id="1264273804" visible="true" version="1" changeset="7999301" timestamp="2011-04-28T22:19:52Z" user="KindredCoda" uid="14293" lat="37.7595195" lon="-122.4049210" />
+  <node id="1264273806" visible="true" version="1" changeset="7999301" timestamp="2011-04-28T22:19:52Z" user="KindredCoda" uid="14293" lat="37.7595616" lon="-122.4049929" />
+  <node id="1264273808" visible="true" version="1" changeset="7999301" timestamp="2011-04-28T22:19:52Z" user="KindredCoda" uid="14293" lat="37.7595446" lon="-122.4049768" />
+  <node id="1677788921" visible="true" version="2" changeset="47289116" timestamp="2017-03-30T11:22:27Z" user="oba510" uid="933797" lat="37.7603850" lon="-122.4117211" />
+  <node id="1677788926" visible="true" version="3" changeset="47289116" timestamp="2017-03-30T11:22:27Z" user="oba510" uid="933797" lat="37.7589705" lon="-122.4136186" />
+  <node id="1677788938" visible="true" version="4" changeset="109231096" timestamp="2021-08-06T04:15:00Z" user="rohanaras" uid="12245068" lat="37.7592822" lon="-122.4098171">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="1677788944" visible="true" version="2" changeset="47257631" timestamp="2017-03-29T11:44:05Z" user="oba510" uid="933797" lat="37.7594245" lon="-122.4098893" />
+  <node id="1677788960" visible="true" version="3" changeset="184249657" timestamp="2026-06-18T00:28:53Z" user="DaveSchweisguth" uid="21613413" lat="37.7593882" lon="-122.4079747">
+    <tag k="crossing" v="unmarked" />
+    <tag k="crossing:markings" v="no" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="1677788986" visible="true" version="4" changeset="184249657" timestamp="2026-06-18T00:28:53Z" user="DaveSchweisguth" uid="21613413" lat="37.7593286" lon="-122.4089354">
+    <tag k="crossing" v="unmarked" />
+    <tag k="crossing:markings" v="no" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="1677788992" visible="true" version="2" changeset="47257631" timestamp="2017-03-29T11:44:05Z" user="oba510" uid="933797" lat="37.7595137" lon="-122.4099160" />
+  <node id="1677798446" visible="true" version="3" changeset="47289116" timestamp="2017-03-30T11:22:27Z" user="oba510" uid="933797" lat="37.7603719" lon="-122.4119339" />
+  <node id="1727334480" visible="true" version="1" changeset="11391319" timestamp="2012-04-23T05:46:54Z" user="Gregory Arenius" uid="116029" lat="37.7567582" lon="-122.4065285" />
+  <node id="1727334483" visible="true" version="1" changeset="11391319" timestamp="2012-04-23T05:46:54Z" user="Gregory Arenius" uid="116029" lat="37.7569424" lon="-122.4065412" />
+  <node id="1727334485" visible="true" version="1" changeset="11391319" timestamp="2012-04-23T05:46:54Z" user="Gregory Arenius" uid="116029" lat="37.7570407" lon="-122.4048678" />
+  <node id="1727334488" visible="true" version="1" changeset="11391319" timestamp="2012-04-23T05:46:54Z" user="Gregory Arenius" uid="116029" lat="37.7573766" lon="-122.4065863" />
+  <node id="1727334490" visible="true" version="1" changeset="11391319" timestamp="2012-04-23T05:46:54Z" user="Gregory Arenius" uid="116029" lat="37.7583203" lon="-122.4066772" />
+  <node id="1727334492" visible="true" version="1" changeset="11391319" timestamp="2012-04-23T05:46:54Z" user="Gregory Arenius" uid="116029" lat="37.7591559" lon="-122.4067546" />
+  <node id="2671229967" visible="true" version="2" changeset="47289116" timestamp="2017-03-30T11:22:28Z" user="oba510" uid="933797" lat="37.7546871" lon="-122.4093061" />
+  <node id="2671229969" visible="true" version="1" changeset="20556569" timestamp="2014-02-14T10:50:33Z" user="oba510" uid="933797" lat="37.7551990" lon="-122.4093887" />
+  <node id="2705719441" visible="true" version="2" changeset="47289116" timestamp="2017-03-30T11:22:28Z" user="oba510" uid="933797" lat="37.7589770" lon="-122.4135090" />
+  <node id="2819579984" visible="true" version="5" changeset="187200975" timestamp="2026-08-09T21:01:05Z" user="John Gilmore" uid="314930" lat="37.7560788" lon="-122.4094685">
+    <tag k="crossing" v="traffic_signals" />
+    <tag k="crossing:island" v="no" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+    <tag k="tactile_paving" v="yes" />
+  </node>
+  <node id="2819579985" visible="true" version="5" changeset="187200975" timestamp="2026-08-09T21:01:06Z" user="John Gilmore" uid="314930" lat="37.7559420" lon="-122.4094565">
+    <tag k="crossing" v="traffic_signals" />
+    <tag k="crossing:island" v="no" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+    <tag k="tactile_paving" v="yes" />
+  </node>
+  <node id="2819579987" visible="true" version="2" changeset="47289116" timestamp="2017-03-30T11:22:30Z" user="oba510" uid="933797" lat="37.7561293" lon="-122.4085192">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="2819579989" visible="true" version="2" changeset="47289116" timestamp="2017-03-30T11:22:30Z" user="oba510" uid="933797" lat="37.7559988" lon="-122.4085075">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="2819579991" visible="true" version="5" changeset="171898366" timestamp="2025-09-14T02:08:35Z" user="John Gilmore" uid="314930" lat="37.7545323" lon="-122.4083683">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="crossing:island" v="no" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+    <tag k="tactile_paving" v="yes" />
+  </node>
+  <node id="2819579993" visible="true" version="5" changeset="171898366" timestamp="2025-09-14T02:08:37Z" user="John Gilmore" uid="314930" lat="37.7543979" lon="-122.4083537">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="crossing:island" v="no" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+    <tag k="tactile_paving" v="yes" />
+  </node>
+  <node id="2819579996" visible="true" version="5" changeset="171906038" timestamp="2025-09-14T08:56:25Z" user="John Gilmore" uid="314930" lat="37.7544816" lon="-122.4092803">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="crossing:island" v="no" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+    <tag k="tactile_paving" v="yes" />
+  </node>
+  <node id="2819579997" visible="true" version="3" changeset="119093198" timestamp="2022-03-30T02:16:53Z" user="user4816003805" uid="4186070" lat="37.7543412" lon="-122.4092709">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+    <tag k="tactile_paving" v="yes" />
+  </node>
+  <node id="3999458660" visible="true" version="3" changeset="47289116" timestamp="2017-03-30T11:22:31Z" user="oba510" uid="933797" lat="37.7590838" lon="-122.4068727" />
+  <node id="3999458661" visible="true" version="2" changeset="38377612" timestamp="2016-04-07T11:07:08Z" user="Jothirnadh" uid="2015224" lat="37.7603682" lon="-122.4069965" />
+  <node id="3999458662" visible="true" version="3" changeset="47289116" timestamp="2017-03-30T11:22:31Z" user="oba510" uid="933797" lat="37.7616527" lon="-122.4071210" />
+  <node id="3999458663" visible="true" version="2" changeset="38377141" timestamp="2016-04-07T10:44:56Z" user="Jothirnadh" uid="2015224" lat="37.7622392" lon="-122.4072948" />
+  <node id="4045366501" visible="true" version="1" changeset="37661164" timestamp="2016-03-07T09:00:15Z" user="KindredCoda" uid="14293" lat="37.7590239" lon="-122.4039099" />
+  <node id="4045366503" visible="true" version="1" changeset="37661164" timestamp="2016-03-07T09:00:15Z" user="KindredCoda" uid="14293" lat="37.7589953" lon="-122.4038957" />
+  <node id="4045366511" visible="true" version="1" changeset="37661164" timestamp="2016-03-07T09:00:15Z" user="KindredCoda" uid="14293" lat="37.7590992" lon="-122.4039590" />
+  <node id="4045366517" visible="true" version="1" changeset="37661164" timestamp="2016-03-07T09:00:15Z" user="KindredCoda" uid="14293" lat="37.7591314" lon="-122.4039736" />
+  <node id="4045366526" visible="true" version="1" changeset="37661164" timestamp="2016-03-07T09:00:15Z" user="KindredCoda" uid="14293" lat="37.7590853" lon="-122.4039508" />
+  <node id="4179450147" visible="true" version="2" changeset="47289116" timestamp="2017-03-30T11:22:31Z" user="oba510" uid="933797" lat="37.7530276" lon="-122.4091690" />
+  <node id="4179515461" visible="true" version="1" changeset="39253310" timestamp="2016-05-11T21:26:31Z" user="karitotp" uid="2748195" lat="37.7629323" lon="-122.4072353" />
+  <node id="4183592885" visible="true" version="3" changeset="151825881" timestamp="2024-05-25T19:32:47Z" user="graue" uid="258101" lat="37.7603356" lon="-122.4125090">
+    <tag k="direction" v="forward" />
+    <tag k="highway" v="stop" />
+  </node>
+  <node id="4186794494" visible="true" version="3" changeset="109231096" timestamp="2021-08-06T04:15:00Z" user="rohanaras" uid="12245068" lat="37.7589656" lon="-122.4137195">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="4186794496" visible="true" version="4" changeset="174726175" timestamp="2025-11-16T13:08:07Z" user="oba510" uid="933797" lat="37.7589744" lon="-122.4135530">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="4186794498" visible="true" version="8" changeset="175122363" timestamp="2025-11-25T18:10:23Z" user="VLD318" uid="23159893" lat="37.7590272" lon="-122.4126597">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="crossing:island" v="no" />
+    <tag k="crossing:markings" v="zebra" />
+    <tag k="crossing:signals" v="no" />
+    <tag k="highway" v="crossing" />
+    <tag k="tactile_paving" v="yes" />
+  </node>
+  <node id="4186794499" visible="true" version="6" changeset="175122363" timestamp="2025-11-25T18:10:23Z" user="VLD318" uid="23159893" lat="37.7590418" lon="-122.4124135">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="crossing:island" v="no" />
+    <tag k="crossing:markings" v="zebra" />
+    <tag k="crossing:signals" v="no" />
+    <tag k="highway" v="crossing" />
+    <tag k="tactile_paving" v="yes" />
+  </node>
+  <node id="4186794500" visible="true" version="4" changeset="184249657" timestamp="2026-06-18T00:28:53Z" user="DaveSchweisguth" uid="21613413" lat="37.7590887" lon="-122.4116773">
+    <tag k="crossing" v="marked" />
+    <tag k="crossing:island" v="no" />
+    <tag k="crossing:markings" v="yes" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="4186794504" visible="true" version="2" changeset="47289116" timestamp="2017-03-30T11:22:32Z" user="oba510" uid="933797" lat="37.7604237" lon="-122.4110946">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="4186794505" visible="true" version="2" changeset="47289116" timestamp="2017-03-30T11:22:32Z" user="oba510" uid="933797" lat="37.7604386" lon="-122.4108634">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="4763953257" visible="true" version="4" changeset="117706533" timestamp="2022-02-22T01:40:13Z" user="rohanaras" uid="12245068" lat="37.7529398" lon="-122.4082203">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="crossing:island" v="no" />
+    <tag k="highway" v="crossing" />
+    <tag k="tactile_paving" v="yes" />
+  </node>
+  <node id="4763953259" visible="true" version="4" changeset="182871666" timestamp="2026-05-19T10:12:49Z" user="squeaker_andrus" uid="21243039" lat="37.7529987" lon="-122.4073298">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="crossing:island" v="no" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="4763953271" visible="true" version="1" changeset="47289116" timestamp="2017-03-30T11:21:58Z" user="oba510" uid="933797" lat="37.7539727" lon="-122.4092604" />
+  <node id="4763953283" visible="true" version="1" changeset="47289116" timestamp="2017-03-30T11:21:59Z" user="oba510" uid="933797" lat="37.7541854" lon="-122.4092575" />
+  <node id="4763953315" visible="true" version="1" changeset="47289116" timestamp="2017-03-30T11:22:00Z" user="oba510" uid="933797" lat="37.7575381" lon="-122.4096084">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="4763953321" visible="true" version="1" changeset="47289116" timestamp="2017-03-30T11:22:00Z" user="oba510" uid="933797" lat="37.7576714" lon="-122.4096211">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="4763953325" visible="true" version="2" changeset="88950270" timestamp="2020-08-04T22:37:36Z" user="dhogan" uid="4735951" lat="37.7578385" lon="-122.4068723">
+    <tag k="crossing" v="traffic_signals" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="4763953326" visible="true" version="1" changeset="47289116" timestamp="2017-03-30T11:22:01Z" user="oba510" uid="933797" lat="37.7578457" lon="-122.4067513">
+    <tag k="crossing" v="traffic_signals" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="4763953352" visible="true" version="9" changeset="185376027" timestamp="2026-07-09T01:10:48Z" user="rejberg" uid="10353521" lat="37.7589014" lon="-122.4148283">
+    <tag k="button_operated" v="no" />
+    <tag k="crossing" v="traffic_signals" />
+    <tag k="crossing:island" v="no" />
+    <tag k="highway" v="crossing" />
+    <tag k="tactile_paving" v="yes" />
+    <tag k="traffic_signals:sound" v="no" />
+    <tag k="traffic_signals:vibration" v="no" />
+  </node>
+  <node id="4763953353" visible="true" version="2" changeset="109069457" timestamp="2021-08-03T06:43:34Z" user="rohanaras" uid="12245068" lat="37.7589143" lon="-122.4145810" />
+  <node id="4763953355" visible="true" version="2" changeset="184249657" timestamp="2026-06-18T00:28:53Z" user="DaveSchweisguth" uid="21613413" lat="37.7590980" lon="-122.4115191">
+    <tag k="crossing" v="marked" />
+    <tag k="crossing:markings" v="yes" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="4763953357" visible="true" version="1" changeset="47289116" timestamp="2017-03-30T11:22:02Z" user="oba510" uid="933797" lat="37.7591927" lon="-122.4099427">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="4763953358" visible="true" version="1" changeset="47289116" timestamp="2017-03-30T11:22:02Z" user="oba510" uid="933797" lat="37.7592097" lon="-122.4096657">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="4763953359" visible="true" version="5" changeset="171898369" timestamp="2025-09-14T02:08:23Z" user="John Gilmore" uid="314930" lat="37.7592967" lon="-122.4070115">
+    <tag k="crossing" v="traffic_signals" />
+    <tag k="highway" v="crossing" />
+    <tag k="tactile_paving" v="yes" />
+    <tag k="traffic_signals:sound" v="yes" />
+  </node>
+  <node id="4763953360" visible="true" version="3" changeset="148659519" timestamp="2024-03-14T20:12:47Z" user="ASchon" uid="12296641" lat="37.7593067" lon="-122.4068922">
+    <tag k="crossing" v="traffic_signals" />
+    <tag k="highway" v="crossing" />
+    <tag k="tactile_paving" v="yes" />
+  </node>
+  <node id="4763953361" visible="true" version="1" changeset="47289116" timestamp="2017-03-30T11:22:02Z" user="oba510" uid="933797" lat="37.7593624" lon="-122.4071200">
+    <tag k="crossing" v="traffic_signals" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="4763953362" visible="true" version="4" changeset="148659519" timestamp="2024-03-14T20:12:45Z" user="ASchon" uid="12296641" lat="37.7594538" lon="-122.4070266">
+    <tag k="crossing" v="traffic_signals" />
+    <tag k="highway" v="crossing" />
+    <tag k="tactile_paving" v="yes" />
+  </node>
+  <node id="4763953363" visible="true" version="3" changeset="148659519" timestamp="2024-03-14T20:12:43Z" user="ASchon" uid="12296641" lat="37.7594565" lon="-122.4069045">
+    <tag k="crossing" v="traffic_signals" />
+    <tag k="highway" v="crossing" />
+    <tag k="tactile_paving" v="yes" />
+  </node>
+  <node id="4763953373" visible="true" version="4" changeset="182487046" timestamp="2026-05-10T22:40:19Z" user="John Gilmore" uid="314930" lat="37.7603777" lon="-122.4118388">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="crossing:island" v="no" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+    <tag k="tactile_paving" v="yes" />
+  </node>
+  <node id="4763953403" visible="true" version="2" changeset="88950270" timestamp="2020-08-04T22:37:36Z" user="dhogan" uid="4735951" lat="37.7605947" lon="-122.4071358">
+    <tag k="crossing" v="traffic_signals" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="4763953404" visible="true" version="1" changeset="47289116" timestamp="2017-03-30T11:22:03Z" user="oba510" uid="933797" lat="37.7606001" lon="-122.4070182">
+    <tag k="crossing" v="traffic_signals" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="4763953406" visible="true" version="1" changeset="47289116" timestamp="2017-03-30T11:22:03Z" user="oba510" uid="933797" lat="37.7606557" lon="-122.4072429">
+    <tag k="crossing" v="traffic_signals" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="4763953408" visible="true" version="2" changeset="88950270" timestamp="2020-08-04T22:37:36Z" user="dhogan" uid="4735951" lat="37.7607383" lon="-122.4071495">
+    <tag k="crossing" v="traffic_signals" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="4763953409" visible="true" version="1" changeset="47289116" timestamp="2017-03-30T11:22:03Z" user="oba510" uid="933797" lat="37.7607441" lon="-122.4070320">
+    <tag k="crossing" v="traffic_signals" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="4763953410" visible="true" version="2" changeset="119093198" timestamp="2022-03-30T02:13:20Z" user="user4816003805" uid="4186070" lat="37.7616954" lon="-122.4101342">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+    <tag k="tactile_paving" v="yes" />
+  </node>
+  <node id="4763953411" visible="true" version="2" changeset="119093198" timestamp="2022-03-30T02:13:15Z" user="user4816003805" uid="4186070" lat="37.7617582" lon="-122.4102546">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+    <tag k="tactile_paving" v="yes" />
+  </node>
+  <node id="4763953413" visible="true" version="2" changeset="119093198" timestamp="2022-03-30T02:13:17Z" user="user4816003805" uid="4186070" lat="37.7617723" lon="-122.4100225">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+    <tag k="tactile_paving" v="yes" />
+  </node>
+  <node id="4763953416" visible="true" version="2" changeset="119093198" timestamp="2022-03-30T02:13:14Z" user="user4816003805" uid="4186070" lat="37.7618444" lon="-122.4101487">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+    <tag k="tactile_paving" v="yes" />
+  </node>
+  <node id="4763953418" visible="true" version="6" changeset="171898371" timestamp="2025-09-14T02:08:20Z" user="John Gilmore" uid="314930" lat="37.7618676" lon="-122.4072574">
+    <tag k="button_operated" v="no" />
+    <tag k="crossing" v="traffic_signals" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+    <tag k="tactile_paving" v="yes" />
+    <tag k="traffic_signals:sound" v="no" />
+  </node>
+  <node id="4763953420" visible="true" version="5" changeset="171898371" timestamp="2025-09-14T02:08:20Z" user="John Gilmore" uid="314930" lat="37.7618750" lon="-122.4071424">
+    <tag k="button_operated" v="no" />
+    <tag k="crossing" v="traffic_signals" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+    <tag k="tactile_paving" v="yes" />
+    <tag k="traffic_signals:sound" v="no" />
+  </node>
+  <node id="4763953725" visible="true" version="1" changeset="47289116" timestamp="2017-03-30T11:22:04Z" user="oba510" uid="933797" lat="37.7619306" lon="-122.4073659">
+    <tag k="crossing" v="traffic_signals" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="4763953726" visible="true" version="1" changeset="47289116" timestamp="2017-03-30T11:22:04Z" user="oba510" uid="933797" lat="37.7619480" lon="-122.4070508">
+    <tag k="crossing" v="traffic_signals" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="4763953730" visible="true" version="5" changeset="171898371" timestamp="2025-09-14T02:08:18Z" user="John Gilmore" uid="314930" lat="37.7620176" lon="-122.4072724">
+    <tag k="button_operated" v="no" />
+    <tag k="crossing" v="traffic_signals" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+    <tag k="tactile_paving" v="yes" />
+    <tag k="traffic_signals:sound" v="no" />
+  </node>
+  <node id="4763953731" visible="true" version="2" changeset="148659519" timestamp="2024-03-14T20:13:04Z" user="ASchon" uid="12296641" lat="37.7620240" lon="-122.4071560">
+    <tag k="crossing" v="traffic_signals" />
+    <tag k="highway" v="crossing" />
+    <tag k="tactile_paving" v="yes" />
+  </node>
+  <node id="5443111044" visible="true" version="1" changeset="56758139" timestamp="2018-02-28T14:43:08Z" user="Irina Karachevtseva" uid="5288591" lat="37.7590809" lon="-122.4118000" />
+  <node id="5443111083" visible="true" version="1" changeset="56758139" timestamp="2018-02-28T14:43:09Z" user="Irina Karachevtseva" uid="5288591" lat="37.7614033" lon="-122.4067658" />
+  <node id="5443111084" visible="true" version="1" changeset="56758139" timestamp="2018-02-28T14:43:09Z" user="Irina Karachevtseva" uid="5288591" lat="37.7613036" lon="-122.4068369" />
+  <node id="5443111085" visible="true" version="1" changeset="56758139" timestamp="2018-02-28T14:43:09Z" user="Irina Karachevtseva" uid="5288591" lat="37.7612983" lon="-122.4069415" />
+  <node id="5443111086" visible="true" version="1" changeset="56758139" timestamp="2018-02-28T14:43:09Z" user="Irina Karachevtseva" uid="5288591" lat="37.7612949" lon="-122.4070857" />
+  <node id="5443111087" visible="true" version="1" changeset="56758139" timestamp="2018-02-28T14:43:09Z" user="Irina Karachevtseva" uid="5288591" lat="37.7617712" lon="-122.4074136" />
+  <node id="5443111088" visible="true" version="1" changeset="56758139" timestamp="2018-02-28T14:43:09Z" user="Irina Karachevtseva" uid="5288591" lat="37.7616228" lon="-122.4074015" />
+  <node id="5443111089" visible="true" version="2" changeset="88950270" timestamp="2020-08-04T22:37:36Z" user="dhogan" uid="4735951" lat="37.7616329" lon="-122.4072350" />
+  <node id="5443111090" visible="true" version="1" changeset="56758139" timestamp="2018-02-28T14:43:09Z" user="Irina Karachevtseva" uid="5288591" lat="37.7615740" lon="-122.4078226" />
+  <node id="5443111091" visible="true" version="1" changeset="56758139" timestamp="2018-02-28T14:43:09Z" user="Irina Karachevtseva" uid="5288591" lat="37.7617479" lon="-122.4078374" />
+  <node id="5443111092" visible="true" version="1" changeset="56758139" timestamp="2018-02-28T14:43:09Z" user="Irina Karachevtseva" uid="5288591" lat="37.7617415" lon="-122.4079554" />
+  <node id="5443111093" visible="true" version="1" changeset="56758139" timestamp="2018-02-28T14:43:09Z" user="Irina Karachevtseva" uid="5288591" lat="37.7615676" lon="-122.4079393" />
+  <node id="5443111094" visible="true" version="1" changeset="56758139" timestamp="2018-02-28T14:43:09Z" user="Irina Karachevtseva" uid="5288591" lat="37.7615655" lon="-122.4079822" />
+  <node id="5443111095" visible="true" version="1" changeset="56758139" timestamp="2018-02-28T14:43:09Z" user="Irina Karachevtseva" uid="5288591" lat="37.7615560" lon="-122.4081707" />
+  <node id="5443111099" visible="true" version="1" changeset="56758139" timestamp="2018-02-28T14:43:09Z" user="Irina Karachevtseva" uid="5288591" lat="37.7614024" lon="-122.4091292" />
+  <node id="5443111100" visible="true" version="1" changeset="56758139" timestamp="2018-02-28T14:43:09Z" user="Irina Karachevtseva" uid="5288591" lat="37.7613916" lon="-122.4092831" />
+  <node id="5443111101" visible="true" version="1" changeset="56758139" timestamp="2018-02-28T14:43:09Z" user="Irina Karachevtseva" uid="5288591" lat="37.7613556" lon="-122.4098745" />
+  <node id="5443111102" visible="true" version="1" changeset="56758139" timestamp="2018-02-28T14:43:09Z" user="Irina Karachevtseva" uid="5288591" lat="37.7613715" lon="-122.4099228" />
+  <node id="5443111103" visible="true" version="1" changeset="56758139" timestamp="2018-02-28T14:43:09Z" user="Irina Karachevtseva" uid="5288591" lat="37.7614494" lon="-122.4101097" />
+  <node id="5443322847" visible="true" version="1" changeset="56762061" timestamp="2018-02-28T17:13:22Z" user="Irina Karachevtseva" uid="5288591" lat="37.7549051" lon="-122.4084037" />
+  <node id="6273113452" visible="true" version="1" changeset="67114286" timestamp="2019-02-11T22:05:56Z" user="moranm" uid="9435093" lat="37.7545148" lon="-122.4042160" />
+  <node id="6501716443" visible="true" version="2" changeset="182887844" timestamp="2026-05-19T16:00:04Z" user="squeaker_andrus" uid="21243039" lat="37.7620386" lon="-122.4042573">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="6501716448" visible="true" version="4" changeset="188272366" timestamp="2026-08-30T21:12:22Z" user="Garfus" uid="12697473" lat="37.7608922" lon="-122.4032874">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="crossing:island" v="no" />
+    <tag k="highway" v="crossing" />
+    <tag k="tactile_paving" v="yes" />
+  </node>
+  <node id="6501716450" visible="true" version="4" changeset="188272366" timestamp="2026-08-30T21:12:23Z" user="Garfus" uid="12697473" lat="37.7609051" lon="-122.4030586">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="crossing:island" v="no" />
+    <tag k="highway" v="crossing" />
+    <tag k="tactile_paving" v="yes" />
+  </node>
+  <node id="6589778495" visible="true" version="1" changeset="71908871" timestamp="2019-07-04T19:28:34Z" user="clay_c" uid="119881" lat="37.7580218" lon="-122.4067686">
+    <tag k="bus" v="yes" />
+    <tag k="name" v="Potrero Avenue &amp; 21st Street" />
+    <tag k="network" v="Muni;SamTrans" />
+    <tag k="operator" v="San Francisco Municipal Railway" />
+    <tag k="public_transport" v="stop_position" />
+    <tag k="trolleybus" v="yes" />
+  </node>
+  <node id="6589778496" visible="true" version="2" changeset="88950270" timestamp="2020-08-04T22:37:36Z" user="dhogan" uid="4735951" lat="37.7603964" lon="-122.4071168">
+    <tag k="bus" v="yes" />
+    <tag k="name" v="Potrero Avenue &amp; 19th Street" />
+    <tag k="network" v="Muni" />
+    <tag k="operator" v="San Francisco Municipal Railway" />
+    <tag k="public_transport" v="stop_position" />
+    <tag k="trolleybus" v="yes" />
+  </node>
+  <node id="6589778497" visible="true" version="1" changeset="71908871" timestamp="2019-07-04T19:28:34Z" user="clay_c" uid="119881" lat="37.7609078" lon="-122.4070480">
+    <tag k="bus" v="yes" />
+    <tag k="name" v="Potrero Avenue &amp; 19th Street" />
+    <tag k="network" v="Muni" />
+    <tag k="operator" v="San Francisco Municipal Railway" />
+    <tag k="public_transport" v="stop_position" />
+    <tag k="trolleybus" v="yes" />
+  </node>
+  <node id="6914381187" visible="true" version="1" changeset="76180758" timestamp="2019-10-25T04:04:06Z" user="clay_c" uid="119881" lat="37.7530530" lon="-122.4091715">
+    <tag k="bus" v="yes" />
+    <tag k="name" v="Bryant Street &amp; 24th Street" />
+    <tag k="network" v="Muni" />
+    <tag k="operator" v="San Francisco Municipal Railway" />
+    <tag k="public_transport" v="stop_position" />
+  </node>
+  <node id="6914381188" visible="true" version="1" changeset="76180758" timestamp="2019-10-25T04:04:06Z" user="clay_c" uid="119881" lat="37.7543087" lon="-122.4092681">
+    <tag k="bus" v="yes" />
+    <tag k="name" v="Bryant Street &amp; 23rd Street" />
+    <tag k="network" v="Muni" />
+    <tag k="operator" v="San Francisco Municipal Railway" />
+    <tag k="public_transport" v="stop_position" />
+  </node>
+  <node id="6914381189" visible="true" version="1" changeset="76180758" timestamp="2019-10-25T04:04:06Z" user="clay_c" uid="119881" lat="37.7542039" lon="-122.4092591">
+    <tag k="bus" v="yes" />
+    <tag k="name" v="Bryant Street &amp; 23rd Street" />
+    <tag k="network" v="Muni" />
+    <tag k="operator" v="San Francisco Municipal Railway" />
+    <tag k="public_transport" v="stop_position" />
+  </node>
+  <node id="6914381190" visible="true" version="1" changeset="76180758" timestamp="2019-10-25T04:04:06Z" user="clay_c" uid="119881" lat="37.7557751" lon="-122.4094413">
+    <tag k="bus" v="yes" />
+    <tag k="name" v="Bryant Street &amp; 22nd Street" />
+    <tag k="network" v="Muni" />
+    <tag k="operator" v="San Francisco Municipal Railway" />
+    <tag k="public_transport" v="stop_position" />
+  </node>
+  <node id="6914381191" visible="true" version="1" changeset="76180758" timestamp="2019-10-25T04:04:06Z" user="clay_c" uid="119881" lat="37.7562189" lon="-122.4094819">
+    <tag k="bus" v="yes" />
+    <tag k="name" v="Bryant Street &amp; 22nd Street" />
+    <tag k="network" v="Muni" />
+    <tag k="operator" v="San Francisco Municipal Railway" />
+    <tag k="public_transport" v="stop_position" />
+  </node>
+  <node id="6914381192" visible="true" version="1" changeset="76180758" timestamp="2019-10-25T04:04:06Z" user="clay_c" uid="119881" lat="37.7574253" lon="-122.4095976">
+    <tag k="bus" v="yes" />
+    <tag k="name" v="Bryant Street &amp; 21st Street" />
+    <tag k="network" v="Muni" />
+    <tag k="operator" v="San Francisco Municipal Railway" />
+    <tag k="public_transport" v="stop_position" />
+  </node>
+  <node id="6914381193" visible="true" version="1" changeset="76180758" timestamp="2019-10-25T04:04:06Z" user="clay_c" uid="119881" lat="37.7575104" lon="-122.4096057">
+    <tag k="bus" v="yes" />
+    <tag k="name" v="Bryant Street &amp; 21st Street" />
+    <tag k="network" v="Muni" />
+    <tag k="operator" v="San Francisco Municipal Railway" />
+    <tag k="public_transport" v="stop_position" />
+  </node>
+  <node id="6914381194" visible="true" version="1" changeset="76180758" timestamp="2019-10-25T04:04:06Z" user="clay_c" uid="119881" lat="37.7591056" lon="-122.4097586">
+    <tag k="bus" v="yes" />
+    <tag k="name" v="Bryant Street &amp; 20th Street" />
+    <tag k="network" v="Muni" />
+    <tag k="operator" v="San Francisco Municipal Railway" />
+    <tag k="public_transport" v="stop_position" />
+  </node>
+  <node id="6914381195" visible="true" version="1" changeset="76180758" timestamp="2019-10-25T04:04:06Z" user="clay_c" uid="119881" lat="37.7593238" lon="-122.4098421">
+    <tag k="bus" v="yes" />
+    <tag k="name" v="Bryant Street &amp; 20th Street" />
+    <tag k="network" v="Muni" />
+    <tag k="operator" v="San Francisco Municipal Railway" />
+    <tag k="public_transport" v="stop_position" />
+  </node>
+  <node id="6914381196" visible="true" version="1" changeset="76180758" timestamp="2019-10-25T04:04:06Z" user="clay_c" uid="119881" lat="37.7603938" lon="-122.4100052">
+    <tag k="bus" v="yes" />
+    <tag k="name" v="Bryant Street &amp; 19th Street" />
+    <tag k="network" v="Muni" />
+    <tag k="operator" v="San Francisco Municipal Railway" />
+    <tag k="public_transport" v="stop_position" />
+  </node>
+  <node id="6914381197" visible="true" version="1" changeset="76180758" timestamp="2019-10-25T04:04:06Z" user="clay_c" uid="119881" lat="37.7605970" lon="-122.4100247">
+    <tag k="bus" v="yes" />
+    <tag k="name" v="Bryant Street &amp; 19th Street" />
+    <tag k="network" v="Muni" />
+    <tag k="operator" v="San Francisco Municipal Railway" />
+    <tag k="public_transport" v="stop_position" />
+  </node>
+  <node id="6914381198" visible="true" version="1" changeset="76180758" timestamp="2019-10-25T04:04:06Z" user="clay_c" uid="119881" lat="37.7616743" lon="-122.4101321">
+    <tag k="bus" v="yes" />
+    <tag k="name" v="Bryant Street &amp; 18th Street" />
+    <tag k="network" v="Muni" />
+    <tag k="operator" v="San Francisco Municipal Railway" />
+    <tag k="public_transport" v="stop_position" />
+  </node>
+  <node id="6914381199" visible="true" version="1" changeset="76180758" timestamp="2019-10-25T04:04:06Z" user="clay_c" uid="119881" lat="37.7618828" lon="-122.4101524">
+    <tag k="bus" v="yes" />
+    <tag k="name" v="Bryant Street &amp; 18th Street" />
+    <tag k="network" v="Muni" />
+    <tag k="operator" v="San Francisco Municipal Railway" />
+    <tag k="public_transport" v="stop_position" />
+  </node>
+  <node id="6914381201" visible="true" version="1" changeset="76180758" timestamp="2019-10-25T04:04:06Z" user="clay_c" uid="119881" lat="37.7629334" lon="-122.4102525">
+    <tag k="bus" v="yes" />
+    <tag k="name" v="Bryant Street &amp; Mariposa Street" />
+    <tag k="network" v="Muni" />
+    <tag k="operator" v="San Francisco Municipal Railway" />
+    <tag k="public_transport" v="stop_position" />
+  </node>
+  <node id="7472843233" visible="true" version="1" changeset="84506609" timestamp="2020-05-02T06:38:28Z" user="dchiles" uid="153669" lat="37.7595135" lon="-122.4040155" />
+  <node id="7472843257" visible="true" version="1" changeset="84506609" timestamp="2020-05-02T06:38:28Z" user="dchiles" uid="153669" lat="37.7590571" lon="-122.4039320" />
+  <node id="8431757302" visible="true" version="1" changeset="99450851" timestamp="2021-02-17T12:03:31Z" user="ashybko_lyft" uid="11249764" lat="37.7588208" lon="-122.4061495" />
+  <node id="8976304051" visible="true" version="8" changeset="185376027" timestamp="2026-07-09T01:11:01Z" user="rejberg" uid="10353521" lat="37.7589133" lon="-122.4145924">
+    <tag k="button_operated" v="no" />
+    <tag k="crossing:island" v="no" />
+    <tag k="crossing:signals" v="yes" />
+    <tag k="highway" v="crossing" />
+    <tag k="tactile_paving" v="yes" />
+    <tag k="traffic_signals:sound" v="no" />
+    <tag k="traffic_signals:vibration" v="no" />
+  </node>
+  <node id="8982474216" visible="true" version="5" changeset="184248779" timestamp="2026-06-17T23:28:35Z" user="DaveSchweisguth" uid="21613413" lat="37.7588446" lon="-122.4157246">
+    <tag k="crossing" v="marked" />
+    <tag k="crossing:island" v="no" />
+    <tag k="crossing:markings" v="yes" />
+    <tag k="highway" v="crossing" />
+    <tag k="tactile_paving" v="yes" />
+  </node>
+  <node id="8984667276" visible="true" version="2" changeset="184249657" timestamp="2026-06-18T00:28:53Z" user="DaveSchweisguth" uid="21613413" lat="37.7592580" lon="-122.4079302">
+    <tag k="crossing" v="unmarked" />
+    <tag k="crossing:markings" v="no" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="8984667277" visible="true" version="2" changeset="184252652" timestamp="2026-06-18T03:55:13Z" user="DaveSchweisguth" uid="21613413" lat="37.7591915" lon="-122.4088287">
+    <tag k="crossing" v="unmarked" />
+    <tag k="crossing:markings" v="no" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="9863009925" visible="true" version="1" changeset="123134928" timestamp="2022-07-02T22:16:46Z" user="Mingwei" uid="14152086" lat="37.7591387" lon="-122.4108599">
+    <tag k="direction" v="forward" />
+    <tag k="highway" v="stop" />
+    <tag k="stop" v="all" />
+  </node>
+  <node id="9863009926" visible="true" version="1" changeset="123134928" timestamp="2022-07-02T22:16:46Z" user="Mingwei" uid="14152086" lat="37.7591496" lon="-122.4106777">
+    <tag k="direction" v="backward" />
+    <tag k="highway" v="stop" />
+    <tag k="stop" v="all" />
+  </node>
+  <node id="9863009933" visible="true" version="2" changeset="169793873" timestamp="2025-07-31T23:35:33Z" user="ray331" uid="11726860" lat="37.7591388" lon="-122.4109058">
+    <tag k="crossing" v="unmarked" />
+    <tag k="crossing:markings" v="no" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="9863009938" visible="true" version="2" changeset="169793873" timestamp="2025-07-31T23:35:33Z" user="ray331" uid="11726860" lat="37.7591489" lon="-122.4106722">
+    <tag k="crossing" v="unmarked" />
+    <tag k="crossing:markings" v="no" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="10609166282" visible="true" version="1" changeset="132131560" timestamp="2023-02-05T23:21:53Z" user="Dogman15" uid="14845392" lat="37.7594692" lon="-122.4040107" />
+  <node id="10656593757" visible="true" version="1" changeset="132516201" timestamp="2023-02-14T02:56:22Z" user="andykmccoy" uid="2218064" lat="37.7610846" lon="-122.4100726" />
+  <node id="10741318434" visible="true" version="1" changeset="133784965" timestamp="2023-03-17T11:41:54Z" user="mpatsevich_lyft" uid="12896788" lat="37.7604860" lon="-122.4101330">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+  </node>
+  <node id="10741325358" visible="true" version="1" changeset="133785288" timestamp="2023-03-17T11:50:41Z" user="mpatsevich_lyft" uid="12896788" lat="37.7605682" lon="-122.4100212">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+  </node>
+  <node id="10741341145" visible="true" version="1" changeset="133784984" timestamp="2023-03-17T11:42:23Z" user="mpatsevich_lyft" uid="12896788" lat="37.7604269" lon="-122.4100080">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+  </node>
+  <node id="10741347985" visible="true" version="1" changeset="133785140" timestamp="2023-03-17T11:46:43Z" user="mpatsevich_lyft" uid="12896788" lat="37.7604995" lon="-122.4099088">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+  </node>
+  <node id="10982250132" visible="true" version="1" changeset="137442091" timestamp="2023-06-17T10:17:47Z" user="spughetti" uid="16155068" lat="37.7568688" lon="-122.4047319" />
+  <node id="11348247281" visible="true" version="1" changeset="144006086" timestamp="2023-11-14T11:17:26Z" user="begumsax" uid="14018933" lat="37.7577235" lon="-122.4096260" />
+  <node id="11348247282" visible="true" version="1" changeset="144006086" timestamp="2023-11-14T11:17:26Z" user="begumsax" uid="14018933" lat="37.7576370" lon="-122.4096175">
+    <tag k="direction" v="forward" />
+    <tag k="highway" v="stop" />
+    <tag k="stop" v="minor" />
+  </node>
+  <node id="11348247285" visible="true" version="1" changeset="144006086" timestamp="2023-11-14T11:17:26Z" user="begumsax" uid="14018933" lat="37.7575036" lon="-122.4096040" />
+  <node id="11348247286" visible="true" version="1" changeset="144006086" timestamp="2023-11-14T11:17:26Z" user="begumsax" uid="14018933" lat="37.7575751" lon="-122.4096114">
+    <tag k="direction" v="backward" />
+    <tag k="highway" v="stop" />
+    <tag k="stop" v="minor" />
+  </node>
+  <node id="11666813423" visible="true" version="1" changeset="147949765" timestamp="2024-02-26T21:21:34Z" user="mufutu mcnugget" uid="20975870" lat="37.7589037" lon="-122.4147753" />
+  <node id="11933696934" visible="true" version="1" changeset="151825881" timestamp="2024-05-25T19:32:47Z" user="graue" uid="258101" lat="37.7616197" lon="-122.4126446">
+    <tag k="direction" v="forward" />
+    <tag k="highway" v="stop" />
+  </node>
+  <node id="12417482692" visible="true" version="2" changeset="182885335" timestamp="2026-05-19T15:07:39Z" user="squeaker_andrus" uid="21243039" lat="37.7596300" lon="-122.4029251">
+    <tag k="crossing" v="unmarked" />
+    <tag k="crossing:markings" v="no" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="12417482694" visible="true" version="2" changeset="182885335" timestamp="2026-05-19T15:07:39Z" user="squeaker_andrus" uid="21243039" lat="37.7596146" lon="-122.4031723">
+    <tag k="crossing" v="unmarked" />
+    <tag k="crossing:markings" v="no" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="12417482697" visible="true" version="2" changeset="182885335" timestamp="2026-05-19T15:07:39Z" user="squeaker_andrus" uid="21243039" lat="37.7595710" lon="-122.4039035">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="12417482698" visible="true" version="2" changeset="182885335" timestamp="2026-05-19T15:07:39Z" user="squeaker_andrus" uid="21243039" lat="37.7594940" lon="-122.4040135">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="12417482699" visible="true" version="2" changeset="182885335" timestamp="2026-05-19T15:07:39Z" user="squeaker_andrus" uid="21243039" lat="37.7596421" lon="-122.4040281">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="12417482700" visible="true" version="2" changeset="182885335" timestamp="2026-05-19T15:07:39Z" user="squeaker_andrus" uid="21243039" lat="37.7595567" lon="-122.4041378">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="12417535331" visible="true" version="2" changeset="182887844" timestamp="2026-05-19T16:00:04Z" user="squeaker_andrus" uid="21243039" lat="37.7608465" lon="-122.4040227">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="12417535332" visible="true" version="2" changeset="182887844" timestamp="2026-05-19T16:00:04Z" user="squeaker_andrus" uid="21243039" lat="37.7607670" lon="-122.4041378">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="12417535333" visible="true" version="2" changeset="182887844" timestamp="2026-05-19T16:00:04Z" user="squeaker_andrus" uid="21243039" lat="37.7609195" lon="-122.4041521">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="12417535334" visible="true" version="2" changeset="182887844" timestamp="2026-05-19T16:00:04Z" user="squeaker_andrus" uid="21243039" lat="37.7608332" lon="-122.4042516">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="12417535446" visible="true" version="2" changeset="182887844" timestamp="2026-05-19T16:00:04Z" user="squeaker_andrus" uid="21243039" lat="37.7607958" lon="-122.4049909">
+    <tag k="crossing" v="unmarked" />
+    <tag k="crossing:markings" v="no" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="12417535459" visible="true" version="1" changeset="160226113" timestamp="2024-12-12T22:55:09Z" user="Anonymous897234" uid="16885157" lat="37.7607117" lon="-122.4051075">
+    <tag k="crossing" v="unmarked" />
+    <tag k="crossing:markings" v="no" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="12417535460" visible="true" version="1" changeset="160226113" timestamp="2024-12-12T22:55:09Z" user="Anonymous897234" uid="16885157" lat="37.7608772" lon="-122.4051233">
+    <tag k="crossing" v="unmarked" />
+    <tag k="crossing:markings" v="no" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="12417535461" visible="true" version="1" changeset="160226113" timestamp="2024-12-12T22:55:09Z" user="Anonymous897234" uid="16885157" lat="37.7607914" lon="-122.4052547">
+    <tag k="crossing" v="unmarked" />
+    <tag k="crossing:markings" v="no" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="12944769825" visible="true" version="2" changeset="182917607" timestamp="2026-05-20T09:25:33Z" user="squeaker_andrus" uid="21243039" lat="37.7598468" lon="-122.3993004">
+    <tag k="crossing" v="marked" />
+    <tag k="crossing:markings" v="zebra" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="13304614590" visible="true" version="5" changeset="175122118" timestamp="2025-11-25T18:03:51Z" user="VLD318" uid="23159893" lat="37.7616603" lon="-122.4119653">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="crossing:island" v="no" />
+    <tag k="crossing:markings" v="zebra" />
+    <tag k="crossing:signals" v="no" />
+    <tag k="highway" v="crossing" />
+    <tag k="tactile_paving" v="yes" />
+  </node>
+  <node id="13304614594" visible="true" version="5" changeset="175122118" timestamp="2025-11-25T18:03:51Z" user="VLD318" uid="23159893" lat="37.7616466" lon="-122.4121870">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="crossing:island" v="no" />
+    <tag k="crossing:markings" v="zebra" />
+    <tag k="crossing:signals" v="no" />
+    <tag k="highway" v="crossing" />
+    <tag k="tactile_paving" v="yes" />
+  </node>
+  <node id="13849728571" visible="true" version="3" changeset="188272366" timestamp="2026-08-30T21:12:29Z" user="Garfus" uid="12697473" lat="37.7596846" lon="-122.4019757">
+    <tag k="crossing" v="marked" />
+    <tag k="crossing:island" v="no" />
+    <tag k="crossing:markings" v="zebra" />
+    <tag k="highway" v="crossing" />
+    <tag k="tactile_paving" v="no" />
+  </node>
+  <node id="13849728573" visible="true" version="3" changeset="188272366" timestamp="2026-08-30T21:12:25Z" user="Garfus" uid="12697473" lat="37.7596727" lon="-122.4022003">
+    <tag k="crossing" v="marked" />
+    <tag k="crossing:island" v="no" />
+    <tag k="crossing:markings" v="zebra" />
+    <tag k="highway" v="crossing" />
+    <tag k="tactile_paving" v="no" />
+  </node>
+  <node id="13849858582" visible="true" version="1" changeset="182887844" timestamp="2026-05-19T16:00:04Z" user="squeaker_andrus" uid="21243039" lat="37.7609445" lon="-122.4023225">
+    <tag k="crossing" v="unmarked" />
+    <tag k="crossing:markings" v="no" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="13851873170" visible="true" version="1" changeset="182917607" timestamp="2026-05-20T09:25:33Z" user="squeaker_andrus" uid="21243039" lat="37.7597842" lon="-122.4002355" />
+  <node id="13851894493" visible="true" version="3" changeset="188272366" timestamp="2026-08-30T21:12:34Z" user="Garfus" uid="12697473" lat="37.7597188" lon="-122.4012312">
+    <tag k="crossing" v="unmarked" />
+    <tag k="crossing:island" v="no" />
+    <tag k="crossing:markings" v="no" />
+    <tag k="highway" v="crossing" />
+    <tag k="tactile_paving" v="no" />
+  </node>
+  <node id="13851894494" visible="true" version="3" changeset="188272366" timestamp="2026-08-30T21:12:38Z" user="Garfus" uid="12697473" lat="37.7597330" lon="-122.4009902">
+    <tag k="crossing" v="unmarked" />
+    <tag k="crossing:island" v="no" />
+    <tag k="crossing:markings" v="no" />
+    <tag k="highway" v="crossing" />
+    <tag k="tactile_paving" v="no" />
+  </node>
+  <node id="13876478004" visible="true" version="1" changeset="183159562" timestamp="2026-05-25T13:51:27Z" user="Yuliya_Petrash" uid="22194816" lat="37.7619031" lon="-122.4091775">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="13876478005" visible="true" version="1" changeset="183159562" timestamp="2026-05-25T13:51:27Z" user="Yuliya_Petrash" uid="22194816" lat="37.7618183" lon="-122.4092794">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="13876478006" visible="true" version="1" changeset="183159562" timestamp="2026-05-25T13:51:27Z" user="Yuliya_Petrash" uid="22194816" lat="37.7618318" lon="-122.4090603">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="13876478007" visible="true" version="1" changeset="183159562" timestamp="2026-05-25T13:51:27Z" user="Yuliya_Petrash" uid="22194816" lat="37.7617627" lon="-122.4091637">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="13876478008" visible="true" version="1" changeset="183159562" timestamp="2026-05-25T13:51:27Z" user="Yuliya_Petrash" uid="22194816" lat="37.7619673" lon="-122.4082097">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="13876478009" visible="true" version="1" changeset="183159562" timestamp="2026-05-25T13:51:27Z" user="Yuliya_Petrash" uid="22194816" lat="37.7618773" lon="-122.4083216">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="13876478010" visible="true" version="1" changeset="183159562" timestamp="2026-05-25T13:51:27Z" user="Yuliya_Petrash" uid="22194816" lat="37.7618918" lon="-122.4080722">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="13876478011" visible="true" version="1" changeset="183159562" timestamp="2026-05-25T13:51:27Z" user="Yuliya_Petrash" uid="22194816" lat="37.7618087" lon="-122.4081944">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="13876478014" visible="true" version="1" changeset="183159562" timestamp="2026-05-25T13:51:27Z" user="Yuliya_Petrash" uid="22194816" lat="37.7630735" lon="-122.4083192">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="13876588505" visible="true" version="1" changeset="183159936" timestamp="2026-05-25T13:58:22Z" user="Yuliya_Petrash" uid="22194816" lat="37.7629690" lon="-122.4102559">
+    <tag k="crossing" v="zebra" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="13876588508" visible="true" version="1" changeset="183159936" timestamp="2026-05-25T13:58:22Z" user="Yuliya_Petrash" uid="22194816" lat="37.7630254" lon="-122.4092904">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="13876588509" visible="true" version="1" changeset="183159936" timestamp="2026-05-25T13:58:22Z" user="Yuliya_Petrash" uid="22194816" lat="37.7617238" lon="-122.4109799">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="13876588510" visible="true" version="1" changeset="183159936" timestamp="2026-05-25T13:58:22Z" user="Yuliya_Petrash" uid="22194816" lat="37.7617104" lon="-122.4112213">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+  </node>
+  <node id="13880734402" visible="true" version="1" changeset="183189814" timestamp="2026-05-26T06:44:31Z" user="Yuliya_Petrash" uid="22194816" lat="37.7577455" lon="-122.4086783">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+  </node>
+  <node id="13880734405" visible="true" version="1" changeset="183189814" timestamp="2026-05-26T06:44:31Z" user="Yuliya_Petrash" uid="22194816" lat="37.7575909" lon="-122.4086632">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+  </node>
+  <node id="13880734406" visible="true" version="1" changeset="183189814" timestamp="2026-05-26T06:44:31Z" user="Yuliya_Petrash" uid="22194816" lat="37.7577974" lon="-122.4077813">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+  </node>
+  <node id="13880734409" visible="true" version="1" changeset="183189814" timestamp="2026-05-26T06:44:31Z" user="Yuliya_Petrash" uid="22194816" lat="37.7576333" lon="-122.4077654">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+  </node>
+  <node id="13880734410" visible="true" version="3" changeset="187200972" timestamp="2026-08-09T21:01:00Z" user="John Gilmore" uid="314930" lat="37.7561938" lon="-122.4076313">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="crossing:island" v="no" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+    <tag k="tactile_paving" v="yes" />
+  </node>
+  <node id="13880734413" visible="true" version="2" changeset="187200971" timestamp="2026-08-09T21:00:57Z" user="John Gilmore" uid="314930" lat="37.7560387" lon="-122.4076167">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="crossing:island" v="no" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+  </node>
+  <node id="13880734414" visible="true" version="2" changeset="187200971" timestamp="2026-08-09T21:00:56Z" user="John Gilmore" uid="314930" lat="37.7545974" lon="-122.4074799">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="crossing:island" v="no" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+  </node>
+  <node id="13880734417" visible="true" version="2" changeset="187200971" timestamp="2026-08-09T21:00:56Z" user="John Gilmore" uid="314930" lat="37.7544463" lon="-122.4074656">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="crossing:island" v="no" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+  </node>
+  <node id="13880979939" visible="true" version="1" changeset="183190429" timestamp="2026-05-26T06:57:52Z" user="Yuliya_Petrash" uid="22194816" lat="37.7606253" lon="-122.4090548">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+  </node>
+  <node id="13880979940" visible="true" version="1" changeset="183190429" timestamp="2026-05-26T06:57:52Z" user="Yuliya_Petrash" uid="22194816" lat="37.7605407" lon="-122.4091637">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+  </node>
+  <node id="13880979941" visible="true" version="1" changeset="183190429" timestamp="2026-05-26T06:57:52Z" user="Yuliya_Petrash" uid="22194816" lat="37.7605556" lon="-122.4089127">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+  </node>
+  <node id="13880979942" visible="true" version="1" changeset="183190429" timestamp="2026-05-26T06:57:52Z" user="Yuliya_Petrash" uid="22194816" lat="37.7604659" lon="-122.4090398">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+  </node>
+  <node id="13880979943" visible="true" version="1" changeset="183190429" timestamp="2026-05-26T06:57:52Z" user="Yuliya_Petrash" uid="22194816" lat="37.7606935" lon="-122.4080899">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+  </node>
+  <node id="13880979944" visible="true" version="1" changeset="183190429" timestamp="2026-05-26T06:57:52Z" user="Yuliya_Petrash" uid="22194816" lat="37.7606008" lon="-122.4082015">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+  </node>
+  <node id="13880979945" visible="true" version="1" changeset="183190429" timestamp="2026-05-26T06:57:52Z" user="Yuliya_Petrash" uid="22194816" lat="37.7606158" lon="-122.4079507">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+  </node>
+  <node id="13880979946" visible="true" version="1" changeset="183190429" timestamp="2026-05-26T06:57:52Z" user="Yuliya_Petrash" uid="22194816" lat="37.7605264" lon="-122.4080747">
+    <tag k="crossing" v="uncontrolled" />
+    <tag k="highway" v="crossing" />
+    <tag k="kerb" v="lowered" />
+  </node>
+  <node id="13880979947" visible="true" version="1" changeset="183190429" timestamp="2026-05-26T06:57:52Z" user="Yuliya_Petrash" uid="22194816" lat="37.7615619" lon="-122.4080546">
+    <tag k="highway" v="crossing" />
+  </node>
+  <way id="8917043" visible="true" version="29" changeset="173300781" timestamp="2025-10-15T04:31:05Z" user="trafficfurnitur" uid="14223477">
+    <nd ref="65308708" />
+    <nd ref="4763953418" />
+    <nd ref="5443111089" />
+    <nd ref="4763953408" />
+    <nd ref="65293538" />
+    <nd ref="4763953403" />
+    <nd ref="6589778496" />
+    <nd ref="4763953362" />
+    <nd ref="65308721" />
+    <nd ref="4763953359" />
+    <nd ref="4763953325" />
+    <nd ref="65302139" />
+    <tag k="check_date" v="2025-09-13" />
+    <tag k="check_date:surface" v="2025-09-13" />
+    <tag k="cycleway:right" v="lane" />
+    <tag k="hgv" v="designated" />
+    <tag k="highway" v="secondary" />
+    <tag k="lanes" v="2" />
+    <tag k="lanes:psv" v="1" />
+    <tag k="lcn_ref" v="25" />
+    <tag k="maxspeed" v="25 mph" />
+    <tag k="name" v="Potrero Avenue" />
+    <tag k="old_ref" v="US 101" />
+    <tag k="oneway" v="yes" />
+    <tag k="sidewalk" v="right" />
+    <tag k="source:hgv" v="https://sfplanninggis.org/TIM/?search=3591024#searchbox" />
+    <tag k="surface" v="asphalt" />
+    <tag k="tiger:cfcc" v="A45" />
+    <tag k="tiger:county" v="San Francisco, CA" />
+    <tag k="tiger:name_base" v="Potrero" />
+    <tag k="tiger:name_type" v="Ave" />
+    <tag k="trolley_wire" v="yes" />
+  </way>
+  <way id="24444954" visible="true" version="15" changeset="161157774" timestamp="2025-01-09T06:55:45Z" user="John Gilmore" uid="314930">
+    <nd ref="65324932" />
+    <nd ref="728918088" />
+    <nd ref="4763953726" />
+    <nd ref="261510655" />
+    <nd ref="65308708" />
+    <tag k="bicycle" v="yes" />
+    <tag k="highway" v="residential" />
+    <tag k="lit" v="yes" />
+    <tag k="name" v="18th Street" />
+    <tag k="sidewalk" v="both" />
+    <tag k="tiger:cfcc" v="A41" />
+    <tag k="tiger:county" v="San Francisco, CA" />
+    <tag k="tiger:name_type" v="St" />
+    <tag k="tiger:reviewed" v="no" />
+  </way>
+  <way id="24444959" visible="true" version="19" changeset="183190429" timestamp="2026-05-26T06:57:52Z" user="Yuliya_Petrash" uid="22194816">
+    <nd ref="261510664" />
+    <nd ref="65293538" />
+    <nd ref="4763953406" />
+    <nd ref="13880979945" />
+    <nd ref="65293540" />
+    <nd ref="13880979944" />
+    <nd ref="13880979941" />
+    <nd ref="65293542" />
+    <nd ref="13880979940" />
+    <nd ref="10741347985" />
+    <nd ref="65290299" />
+    <nd ref="10741318434" />
+    <nd ref="4186794505" />
+    <nd ref="65293544" />
+    <nd ref="4186794504" />
+    <nd ref="1677788921" />
+    <nd ref="4763953373" />
+    <nd ref="1677798446" />
+    <nd ref="4183592885" />
+    <tag k="highway" v="residential" />
+    <tag k="lane_markings" v="no" />
+    <tag k="name" v="19th Street" />
+    <tag k="sidewalk" v="both" />
+    <tag k="surface" v="asphalt" />
+    <tag k="tiger:cfcc" v="A41" />
+    <tag k="tiger:county" v="San Francisco, CA" />
+    <tag k="tiger:name_base" v="19th" />
+    <tag k="tiger:name_type" v="St" />
+    <tag k="tiger:reviewed" v="no" />
+  </way>
+  <way id="24446045" visible="true" version="11" changeset="181724492" timestamp="2026-04-23T15:29:43Z" user="DaveSchweisguth" uid="21613413">
+    <nd ref="265688213" />
+    <nd ref="1727334492" />
+    <nd ref="1727334490" />
+    <nd ref="1727334488" />
+    <nd ref="1727334483" />
+    <nd ref="1727334480" />
+    <nd ref="265688214" />
+    <nd ref="6273113452" />
+    <nd ref="265688215" />
+    <nd ref="265688216" />
+    <nd ref="265688217" />
+    <nd ref="10982250132" />
+    <nd ref="265688218" />
+    <nd ref="1727334485" />
+    <nd ref="265688219" />
+    <nd ref="8431757302" />
+    <nd ref="265688213" />
+    <tag k="addr:city" v="San Francisco" />
+    <tag k="addr:country" v="US" />
+    <tag k="addr:housenumber" v="1001" />
+    <tag k="addr:postcode" v="94110" />
+    <tag k="addr:state" v="CA" />
+    <tag k="addr:street" v="Potrero Avenue" />
+    <tag k="amenity" v="hospital" />
+    <tag k="beds" v="397" />
+    <tag k="emergency" v="yes" />
+    <tag k="healthcare" v="hospital" />
+    <tag k="name" v="San Francisco General Hospital" />
+    <tag k="official_name" v="Zuckerberg San Francisco General Hospital" />
+    <tag k="opening_hours" v="24/7" />
+    <tag k="phone" v="+1 415 206 8000" />
+    <tag k="website" v="https://zuckerbergsanfranciscogeneral.org/" />
+    <tag k="wikidata" v="Q7414040" />
+    <tag k="wikipedia" v="en:San Francisco General Hospital" />
+  </way>
+  <way id="24547810" visible="true" version="9" changeset="160226113" timestamp="2024-12-12T22:55:09Z" user="Anonymous897234" uid="16885157">
+    <nd ref="266903659" />
+    <nd ref="65310163" />
+    <nd ref="265674012" />
+    <nd ref="12417535460" />
+    <nd ref="65293512" />
+    <nd ref="12417535459" />
+    <nd ref="1264273795" />
+    <nd ref="1264273806" />
+    <nd ref="1264273808" />
+    <nd ref="1264273799" />
+    <tag k="bicycle" v="yes" />
+    <tag k="foot" v="yes" />
+    <tag k="highway" v="residential" />
+    <tag k="maxspeed" v="25 mph" />
+    <tag k="name" v="San Bruno Avenue" />
+    <tag k="oneway" v="no" />
+    <tag k="surface" v="asphalt" />
+    <tag k="tiger:cfcc" v="A41" />
+    <tag k="tiger:county" v="San Francisco, CA" />
+    <tag k="tiger:name_base" v="San Bruno" />
+    <tag k="tiger:name_type" v="Ave" />
+  </way>
+  <way id="24547813" visible="true" version="23" changeset="183139395" timestamp="2026-05-25T06:54:17Z" user="Lumikeiju" uid="20996589">
+    <nd ref="65324924" />
+    <nd ref="6501716443" />
+    <nd ref="12417535333" />
+    <nd ref="65293506" />
+    <nd ref="12417535332" />
+    <nd ref="12417482699" />
+    <nd ref="65340082" />
+    <tag k="highway" v="residential" />
+    <tag k="name" v="Vermont Street" />
+    <tag k="oneway" v="no" />
+    <tag k="sidewalk:both" v="separate" />
+    <tag k="surface" v="asphalt" />
+    <tag k="tiger:cfcc" v="A41" />
+    <tag k="tiger:county" v="San Francisco, CA" />
+    <tag k="tiger:name_base" v="Vermont" />
+    <tag k="tiger:name_type" v="St" />
+    <tag k="tourism" v="yes" />
+    <tag k="wikidata" v="Q4010087" />
+    <tag k="wikipedia" v="en:Vermont Street (San Francisco)" />
+  </way>
+  <way id="24547826" visible="true" version="18" changeset="183190429" timestamp="2026-05-26T06:57:52Z" user="Yuliya_Petrash" uid="22194816">
+    <nd ref="65290958" />
+    <nd ref="13876588508" />
+    <nd ref="13876478004" />
+    <nd ref="65324936" />
+    <nd ref="13876478007" />
+    <nd ref="5443111099" />
+    <nd ref="13880979939" />
+    <nd ref="65293542" />
+    <nd ref="13880979942" />
+    <nd ref="1677788986" />
+    <nd ref="65332307" />
+    <tag k="highway" v="residential" />
+    <tag k="name" v="York Street" />
+    <tag k="sidewalk" v="both" />
+    <tag k="surface" v="asphalt" />
+    <tag k="tiger:cfcc" v="A41" />
+    <tag k="tiger:county" v="San Francisco, CA" />
+    <tag k="tiger:name_type" v="St" />
+  </way>
+  <way id="50501875" visible="true" version="6" changeset="182887844" timestamp="2026-05-19T16:00:04Z" user="squeaker_andrus" uid="21243039">
+    <nd ref="65293500" />
+    <nd ref="13849858582" />
+    <nd ref="6501716450" />
+    <nd ref="65293503" />
+    <nd ref="6501716448" />
+    <nd ref="12417535331" />
+    <nd ref="65293506" />
+    <nd ref="12417535334" />
+    <nd ref="65293507" />
+    <nd ref="12417535446" />
+    <nd ref="65293512" />
+    <nd ref="12417535461" />
+    <nd ref="65293514" />
+    <tag k="highway" v="residential" />
+    <tag k="name" v="19th Street" />
+    <tag k="tiger:cfcc" v="A41" />
+    <tag k="tiger:county" v="San Francisco, CA" />
+    <tag k="tiger:name_base" v="19th" />
+    <tag k="tiger:name_type" v="St" />
+    <tag k="tiger:reviewed" v="no" />
+  </way>
+  <way id="155373679" visible="true" version="11" changeset="183189814" timestamp="2026-05-26T06:44:31Z" user="Yuliya_Petrash" uid="22194816">
+    <nd ref="65332307" />
+    <nd ref="8984667277" />
+    <nd ref="65332309" />
+    <nd ref="13880734402" />
+    <nd ref="65302160" />
+    <nd ref="13880734405" />
+    <nd ref="2819579987" />
+    <nd ref="65332311" />
+    <nd ref="2819579989" />
+    <nd ref="5443322847" />
+    <nd ref="2819579991" />
+    <nd ref="65332314" />
+    <nd ref="2819579993" />
+    <nd ref="4763953257" />
+    <tag k="highway" v="residential" />
+    <tag k="name" v="York Street" />
+    <tag k="sidewalk" v="both" />
+    <tag k="tiger:cfcc" v="A41" />
+    <tag k="tiger:county" v="San Francisco, CA" />
+    <tag k="tiger:name_type" v="St" />
+  </way>
+  <way id="224384045" visible="true" version="13" changeset="188272361" timestamp="2026-08-30T21:12:28Z" user="Garfus" uid="12697473">
+    <nd ref="65318138" />
+    <nd ref="12944769825" />
+    <nd ref="65313453" />
+    <nd ref="13851873170" />
+    <nd ref="13851894494" />
+    <nd ref="65320188" />
+    <nd ref="13851894493" />
+    <nd ref="13849728571" />
+    <nd ref="65294613" />
+    <nd ref="13849728573" />
+    <nd ref="12417482692" />
+    <nd ref="65328397" />
+    <nd ref="12417482694" />
+    <nd ref="12417482697" />
+    <nd ref="65340082" />
+    <nd ref="12417482700" />
+    <nd ref="1264273798" />
+    <nd ref="1264273804" />
+    <nd ref="1264273799" />
+    <tag k="cycleway:both" v="no" />
+    <tag k="highway" v="residential" />
+    <tag k="lit" v="yes" />
+    <tag k="name" v="20th Street" />
+    <tag k="sidewalk:both" v="separate" />
+    <tag k="surface" v="concrete" />
+    <tag k="tiger:cfcc" v="A41" />
+    <tag k="tiger:county" v="San Francisco, CA" />
+    <tag k="tiger:name_base" v="20th" />
+    <tag k="tiger:name_type" v="St" />
+    <tag k="tiger:reviewed" v="no" />
+  </way>
+  <way id="254759910" visible="true" version="19" changeset="183159936" timestamp="2026-05-25T13:58:22Z" user="Yuliya_Petrash" uid="22194816">
+    <nd ref="65290294" />
+    <nd ref="13876588505" />
+    <nd ref="6914381201" />
+    <nd ref="6914381199" />
+    <nd ref="4763953416" />
+    <nd ref="65290296" />
+    <nd ref="4763953410" />
+    <nd ref="6914381198" />
+    <nd ref="5443111103" />
+    <nd ref="10656593757" />
+    <nd ref="6914381197" />
+    <nd ref="10741325358" />
+    <nd ref="65290299" />
+    <nd ref="10741341145" />
+    <nd ref="6914381196" />
+    <nd ref="65290302" />
+    <nd ref="1677788992" />
+    <nd ref="1677788944" />
+    <nd ref="6914381195" />
+    <nd ref="1677788938" />
+    <nd ref="65290305" />
+    <nd ref="65290307" />
+    <nd ref="6914381194" />
+    <nd ref="11348247281" />
+    <nd ref="4763953321" />
+    <nd ref="11348247282" />
+    <nd ref="65290314" />
+    <nd ref="11348247286" />
+    <nd ref="4763953315" />
+    <nd ref="6914381193" />
+    <nd ref="11348247285" />
+    <nd ref="6914381192" />
+    <nd ref="6914381191" />
+    <nd ref="2819579984" />
+    <nd ref="65290322" />
+    <nd ref="2819579985" />
+    <nd ref="6914381190" />
+    <nd ref="2671229969" />
+    <nd ref="2671229967" />
+    <nd ref="2819579996" />
+    <nd ref="65290327" />
+    <nd ref="2819579997" />
+    <nd ref="6914381188" />
+    <nd ref="6914381189" />
+    <nd ref="4763953283" />
+    <nd ref="4763953271" />
+    <nd ref="6914381187" />
+    <nd ref="4179450147" />
+    <tag k="cycleway:both" v="no" />
+    <tag k="highway" v="tertiary" />
+    <tag k="name" v="Bryant Street" />
+    <tag k="sidewalk" v="both" />
+    <tag k="surface" v="asphalt" />
+    <tag k="tiger:cfcc" v="A41" />
+    <tag k="tiger:county" v="San Francisco, CA" />
+    <tag k="tiger:name_type" v="St" />
+  </way>
+  <way id="254759931" visible="true" version="12" changeset="183190429" timestamp="2026-05-26T06:57:52Z" user="Yuliya_Petrash" uid="22194816">
+    <nd ref="65290951" />
+    <nd ref="13876478014" />
+    <nd ref="13876478008" />
+    <nd ref="65324934" />
+    <nd ref="13876478011" />
+    <nd ref="5443111095" />
+    <nd ref="13880979943" />
+    <nd ref="65293540" />
+    <nd ref="13880979946" />
+    <nd ref="1677788960" />
+    <nd ref="65358921" />
+    <nd ref="8984667276" />
+    <nd ref="65358923" />
+    <nd ref="13880734406" />
+    <nd ref="65302150" />
+    <nd ref="13880734409" />
+    <nd ref="13880734410" />
+    <nd ref="65358925" />
+    <nd ref="13880734413" />
+    <nd ref="13880734414" />
+    <nd ref="65358927" />
+    <nd ref="13880734417" />
+    <nd ref="4763953259" />
+    <tag k="cycleway:both" v="no" />
+    <tag k="highway" v="residential" />
+    <tag k="name" v="Hampshire Street" />
+    <tag k="sidewalk" v="both" />
+    <tag k="surface" v="asphalt" />
+    <tag k="tiger:cfcc" v="A41" />
+    <tag k="tiger:county" v="San Francisco, CA" />
+    <tag k="tiger:name_type" v="St" />
+  </way>
+  <way id="397125829" visible="true" version="7" changeset="166542167" timestamp="2025-05-20T20:46:01Z" user="IvanBabić" uid="22101240">
+    <nd ref="261510678" />
+    <nd ref="4763953326" />
+    <nd ref="6589778495" />
+    <nd ref="3999458660" />
+    <tag k="check_date" v="2024-03-14" />
+    <tag k="cycleway:right" v="lane" />
+    <tag k="hgv" v="designated" />
+    <tag k="highway" v="secondary" />
+    <tag k="lanes" v="2" />
+    <tag k="lcn_ref" v="25" />
+    <tag k="maxspeed" v="25 mph" />
+    <tag k="name" v="Potrero Avenue" />
+    <tag k="old_ref" v="US 101" />
+    <tag k="oneway" v="yes" />
+    <tag k="sidewalk" v="right" />
+    <tag k="source:hgv" v="https://sfplanninggis.org/TIM/?search=3591024#searchbox" />
+    <tag k="tiger:cfcc" v="A41" />
+    <tag k="tiger:county" v="San Francisco, CA" />
+    <tag k="tiger:name_base" v="Potrero" />
+    <tag k="tiger:name_type" v="Ave" />
+    <tag k="trolley_wire" v="yes" />
+  </way>
+  <way id="397125830" visible="true" version="6" changeset="166542167" timestamp="2025-05-20T20:46:01Z" user="IvanBabić" uid="22101240">
+    <nd ref="261510671" />
+    <nd ref="4763953363" />
+    <nd ref="3999458661" />
+    <tag k="check_date" v="2024-03-14" />
+    <tag k="cycleway:right" v="lane" />
+    <tag k="hgv" v="designated" />
+    <tag k="highway" v="secondary" />
+    <tag k="lanes" v="2" />
+    <tag k="lcn_ref" v="25" />
+    <tag k="maxspeed" v="25 mph" />
+    <tag k="name" v="Potrero Avenue" />
+    <tag k="old_ref" v="US 101" />
+    <tag k="oneway" v="yes" />
+    <tag k="sidewalk" v="right" />
+    <tag k="source:hgv" v="https://sfplanninggis.org/TIM/?search=3591024#searchbox" />
+    <tag k="tiger:cfcc" v="A41" />
+    <tag k="tiger:county" v="San Francisco, CA" />
+    <tag k="tiger:name_base" v="Potrero" />
+    <tag k="tiger:name_type" v="Ave" />
+    <tag k="trolley_wire" v="yes" />
+  </way>
+  <way id="397125834" visible="true" version="5" changeset="166542167" timestamp="2025-05-20T20:46:01Z" user="IvanBabić" uid="22101240">
+    <nd ref="3999458660" />
+    <nd ref="4763953360" />
+    <nd ref="261510671" />
+    <tag k="cycleway:right" v="lane" />
+    <tag k="hgv" v="designated" />
+    <tag k="highway" v="secondary" />
+    <tag k="lanes" v="3" />
+    <tag k="lcn_ref" v="25" />
+    <tag k="maxspeed" v="25 mph" />
+    <tag k="name" v="Potrero Avenue" />
+    <tag k="old_ref" v="US 101" />
+    <tag k="oneway" v="yes" />
+    <tag k="sidewalk" v="right" />
+    <tag k="source:hgv" v="https://sfplanninggis.org/TIM/?search=3591024#searchbox" />
+    <tag k="tiger:cfcc" v="A41" />
+    <tag k="tiger:county" v="San Francisco, CA" />
+    <tag k="tiger:name_base" v="Potrero" />
+    <tag k="tiger:name_type" v="Ave" />
+    <tag k="trolley_wire" v="yes" />
+    <tag k="turn:lanes" v="left||" />
+  </way>
+  <way id="397125835" visible="true" version="9" changeset="171898365" timestamp="2025-09-14T02:08:22Z" user="John Gilmore" uid="314930">
+    <nd ref="3999458662" />
+    <nd ref="4763953420" />
+    <nd ref="261510655" />
+    <tag k="check_date" v="2025-09-13" />
+    <tag k="check_date:surface" v="2025-09-13" />
+    <tag k="cycleway:right" v="lane" />
+    <tag k="hgv" v="designated" />
+    <tag k="highway" v="secondary" />
+    <tag k="lanes" v="4" />
+    <tag k="lcn_ref" v="25" />
+    <tag k="maxspeed" v="25 mph" />
+    <tag k="name" v="Potrero Avenue" />
+    <tag k="old_ref" v="US 101" />
+    <tag k="oneway" v="yes" />
+    <tag k="sidewalk" v="right" />
+    <tag k="source:hgv" v="https://sfplanninggis.org/TIM/?search=3591024#searchbox" />
+    <tag k="surface" v="asphalt" />
+    <tag k="tiger:cfcc" v="A41" />
+    <tag k="tiger:county" v="San Francisco, CA" />
+    <tag k="tiger:name_base" v="Potrero" />
+    <tag k="tiger:name_type" v="Ave" />
+    <tag k="trolley_wire" v="yes" />
+    <tag k="turn:lanes" v="left|||" />
+  </way>
+  <way id="397125836" visible="true" version="8" changeset="171898365" timestamp="2025-09-14T02:08:21Z" user="John Gilmore" uid="314930">
+    <nd ref="3999458663" />
+    <nd ref="4763953730" />
+    <nd ref="65308708" />
+    <tag k="cycleway:right" v="lane" />
+    <tag k="hgv" v="designated" />
+    <tag k="highway" v="secondary" />
+    <tag k="lanes" v="3" />
+    <tag k="lcn_ref" v="25" />
+    <tag k="maxspeed" v="25 mph" />
+    <tag k="name" v="Potrero Avenue" />
+    <tag k="old_ref" v="US 101" />
+    <tag k="oneway" v="yes" />
+    <tag k="sidewalk" v="right" />
+    <tag k="source:hgv" v="https://sfplanninggis.org/TIM/?search=3591024#searchbox" />
+    <tag k="surface" v="asphalt" />
+    <tag k="tiger:cfcc" v="A45" />
+    <tag k="tiger:county" v="San Francisco, CA" />
+    <tag k="tiger:name_base" v="Potrero" />
+    <tag k="tiger:name_type" v="Ave" />
+    <tag k="trolley_wire" v="yes" />
+    <tag k="turn:lanes" v="left||" />
+  </way>
+  <way id="397125838" visible="true" version="5" changeset="166542167" timestamp="2025-05-20T20:46:01Z" user="IvanBabić" uid="22101240">
+    <nd ref="3999458661" />
+    <nd ref="4763953404" />
+    <nd ref="261510664" />
+    <tag k="cycleway:right" v="lane" />
+    <tag k="hgv" v="designated" />
+    <tag k="highway" v="secondary" />
+    <tag k="lanes" v="3" />
+    <tag k="lcn_ref" v="25" />
+    <tag k="maxspeed" v="25 mph" />
+    <tag k="name" v="Potrero Avenue" />
+    <tag k="old_ref" v="US 101" />
+    <tag k="oneway" v="yes" />
+    <tag k="sidewalk" v="right" />
+    <tag k="source:hgv" v="https://sfplanninggis.org/TIM/?search=3591024#searchbox" />
+    <tag k="tiger:cfcc" v="A41" />
+    <tag k="tiger:county" v="San Francisco, CA" />
+    <tag k="tiger:name_base" v="Potrero" />
+    <tag k="tiger:name_type" v="Ave" />
+    <tag k="trolley_wire" v="yes" />
+    <tag k="turn:lanes" v="left||" />
+  </way>
+  <way id="397125839" visible="true" version="8" changeset="166542167" timestamp="2025-05-20T20:46:01Z" user="IvanBabić" uid="22101240">
+    <nd ref="261510664" />
+    <nd ref="4763953409" />
+    <nd ref="6589778497" />
+    <nd ref="5443111086" />
+    <nd ref="3999458662" />
+    <tag k="check_date" v="2024-03-14" />
+    <tag k="cycleway:right" v="lane" />
+    <tag k="hgv" v="designated" />
+    <tag k="highway" v="secondary" />
+    <tag k="lanes" v="2" />
+    <tag k="lcn_ref" v="25" />
+    <tag k="maxspeed" v="25 mph" />
+    <tag k="name" v="Potrero Avenue" />
+    <tag k="old_ref" v="US 101" />
+    <tag k="oneway" v="yes" />
+    <tag k="sidewalk" v="right" />
+    <tag k="source:hgv" v="https://sfplanninggis.org/TIM/?search=3591024#searchbox" />
+    <tag k="tiger:cfcc" v="A41" />
+    <tag k="tiger:county" v="San Francisco, CA" />
+    <tag k="tiger:name_base" v="Potrero" />
+    <tag k="tiger:name_type" v="Ave" />
+    <tag k="trolley_wire" v="yes" />
+  </way>
+  <way id="417392979" visible="true" version="8" changeset="166542167" timestamp="2025-05-20T20:46:01Z" user="IvanBabić" uid="22101240">
+    <nd ref="261510655" />
+    <nd ref="4763953731" />
+    <nd ref="4179515461" />
+    <tag k="check_date" v="2024-03-14" />
+    <tag k="cycleway:right" v="lane" />
+    <tag k="hgv" v="designated" />
+    <tag k="highway" v="secondary" />
+    <tag k="lcn_ref" v="25" />
+    <tag k="maxspeed" v="25 mph" />
+    <tag k="name" v="Potrero Avenue" />
+    <tag k="old_ref" v="US 101" />
+    <tag k="oneway" v="yes" />
+    <tag k="sidewalk" v="right" />
+    <tag k="source:hgv" v="https://sfplanninggis.org/TIM/?search=3591024#searchbox" />
+    <tag k="surface" v="asphalt" />
+    <tag k="tiger:cfcc" v="A41" />
+    <tag k="tiger:county" v="San Francisco, CA" />
+    <tag k="tiger:name_base" v="Potrero" />
+    <tag k="tiger:name_type" v="Ave" />
+    <tag k="trolley_wire" v="yes" />
+  </way>
+  <way id="488985772" visible="true" version="8" changeset="183159936" timestamp="2026-05-25T13:58:22Z" user="Yuliya_Petrash" uid="22194816">
+    <nd ref="65308708" />
+    <nd ref="4763953725" />
+    <nd ref="13876478010" />
+    <nd ref="65324934" />
+    <nd ref="13876478009" />
+    <nd ref="13876478006" />
+    <nd ref="65324936" />
+    <nd ref="13876478005" />
+    <nd ref="4763953413" />
+    <nd ref="65290296" />
+    <nd ref="4763953411" />
+    <nd ref="13876588509" />
+    <nd ref="65324938" />
+    <nd ref="13876588510" />
+    <nd ref="13304614590" />
+    <nd ref="65324940" />
+    <nd ref="13304614594" />
+    <nd ref="11933696934" />
+    <tag k="highway" v="residential" />
+    <tag k="lanes" v="2" />
+    <tag k="name" v="18th Street" />
+    <tag k="sidewalk" v="both" />
+    <tag k="surface" v="asphalt" />
+    <tag k="tiger:cfcc" v="A41" />
+    <tag k="tiger:county" v="San Francisco, CA" />
+    <tag k="tiger:name_type" v="St" />
+    <tag k="tiger:reviewed" v="no" />
+  </way>
+  <way id="565079457" visible="true" version="1" changeset="56758139" timestamp="2018-02-28T14:43:12Z" user="Irina Karachevtseva" uid="5288591">
+    <nd ref="5443111086" />
+    <nd ref="5443111085" />
+    <nd ref="5443111084" />
+    <nd ref="5443111083" />
+    <tag k="highway" v="service" />
+  </way>
+  <way id="565079458" visible="true" version="1" changeset="56758139" timestamp="2018-02-28T14:43:12Z" user="Irina Karachevtseva" uid="5288591">
+    <nd ref="5443111089" />
+    <nd ref="5443111088" />
+    <nd ref="5443111087" />
+    <tag k="highway" v="service" />
+  </way>
+  <way id="565079459" visible="true" version="2" changeset="183190429" timestamp="2026-05-26T06:57:52Z" user="Yuliya_Petrash" uid="22194816">
+    <nd ref="5443111095" />
+    <nd ref="13880979947" />
+    <nd ref="5443111094" />
+    <nd ref="5443111093" />
+    <nd ref="5443111092" />
+    <nd ref="5443111091" />
+    <nd ref="5443111090" />
+    <nd ref="5443111093" />
+    <tag k="highway" v="service" />
+  </way>
+  <way id="565079461" visible="true" version="2" changeset="103976991" timestamp="2021-05-02T00:24:22Z" user="kevinchen1" uid="12848415">
+    <nd ref="5443111102" />
+    <nd ref="5443111101" />
+    <nd ref="5443111100" />
+    <tag k="highway" v="service" />
+    <tag k="oneway" v="yes" />
+    <tag k="service" v="parking_aisle" />
+  </way>
+  <way id="937907625" visible="true" version="1" changeset="103976991" timestamp="2021-05-02T00:24:22Z" user="kevinchen1" uid="12848415">
+    <nd ref="5443111100" />
+    <nd ref="5443111099" />
+    <tag k="highway" v="service" />
+    <tag k="oneway" v="yes" />
+  </way>
+  <way id="937907626" visible="true" version="1" changeset="103976991" timestamp="2021-05-02T00:24:22Z" user="kevinchen1" uid="12848415">
+    <nd ref="5443111103" />
+    <nd ref="5443111102" />
+    <tag k="highway" v="service" />
+    <tag k="oneway" v="yes" />
+  </way>
+  <way id="996695179" visible="true" version="8" changeset="176011915" timestamp="2025-12-16T15:46:19Z" user="Lumikeiju" uid="20996589">
+    <nd ref="65361437" />
+    <nd ref="8982474216" />
+    <nd ref="4763953352" />
+    <nd ref="11666813423" />
+    <nd ref="65317599" />
+    <nd ref="8976304051" />
+    <nd ref="4763953353" />
+    <nd ref="4186794494" />
+    <nd ref="1677788926" />
+    <nd ref="4186794496" />
+    <nd ref="2705719441" />
+    <nd ref="4186794498" />
+    <nd ref="65317786" />
+    <nd ref="4186794499" />
+    <nd ref="5443111044" />
+    <nd ref="4186794500" />
+    <nd ref="65330451" />
+    <nd ref="4763953355" />
+    <nd ref="9863009933" />
+    <nd ref="9863009925" />
+    <nd ref="65328983" />
+    <nd ref="9863009926" />
+    <nd ref="9863009938" />
+    <nd ref="4763953357" />
+    <nd ref="65290305" />
+    <nd ref="4763953358" />
+    <nd ref="65332307" />
+    <nd ref="65358921" />
+    <nd ref="4763953361" />
+    <nd ref="65308721" />
+    <nd ref="261510671" />
+    <tag k="bicycle" v="designated" />
+    <tag k="cycleway" v="shared_lane" />
+    <tag k="foot" v="yes" />
+    <tag k="highway" v="residential" />
+    <tag k="lanes" v="2" />
+    <tag k="motor_vehicle" v="destination" />
+    <tag k="name" v="20th Street" />
+    <tag k="sidewalk:both" v="separate" />
+    <tag k="surface" v="asphalt" />
+    <tag k="tiger:cfcc" v="A41" />
+    <tag k="tiger:county" v="San Francisco, CA" />
+    <tag k="tiger:name_base" v="20th" />
+    <tag k="tiger:name_type" v="St" />
+    <tag k="tiger:reviewed" v="no" />
+  </way>
+  <way id="1381808434" visible="true" version="1" changeset="165521769" timestamp="2025-04-27T19:59:32Z" user="IvaKraljić" uid="22101257">
+    <nd ref="65340082" />
+    <nd ref="7472843233" />
+    <nd ref="12417482698" />
+    <nd ref="10609166282" />
+    <nd ref="1264273796" />
+    <nd ref="4045366517" />
+    <nd ref="266903666" />
+    <nd ref="4045366511" />
+    <nd ref="4045366526" />
+    <nd ref="7472843257" />
+    <nd ref="4045366501" />
+    <nd ref="728867935" />
+    <nd ref="4045366503" />
+    <nd ref="65340086" />
+    <tag k="highway" v="residential" />
+    <tag k="maxweight:hgv" v="3 st" />
+    <tag k="name" v="Vermont Street" />
+    <tag k="oneway" v="no" />
+    <tag k="surface" v="asphalt" />
+    <tag k="tiger:cfcc" v="A41" />
+    <tag k="tiger:county" v="San Francisco, CA" />
+    <tag k="tiger:name_base" v="Vermont" />
+    <tag k="tiger:name_type" v="St" />
+    <tag k="tourism" v="yes" />
+    <tag k="wikidata" v="Q4010087" />
+    <tag k="wikipedia" v="en:Vermont Street (San Francisco)" />
+  </way>
+</osm>

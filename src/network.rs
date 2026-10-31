@@ -198,7 +198,9 @@ impl Route {
 
 #[derive(Clone, Debug)]
 pub struct Network {
+    pub attribution: Option<String>,
     plan_nodes: Vec<Node>,
+    pub hospital_node: Option<usize>,
     plan_edges: Vec<EdgeDef>,
     schedule_scale: f64,
     pub links: Vec<Link>,
@@ -231,6 +233,8 @@ impl Network {
         use crate::road_map::*;
         let mut map = RoadMap {
             version: 1,
+            hospital_node: self.hospital_node,
+            attribution: self.attribution.clone(),
             origin: [51.5, -0.1],
             schedule_scale: self.schedule_scale,
             nodes: Vec::new(),
@@ -317,6 +321,8 @@ impl Network {
             .collect::<Result<Vec<_>, String>>()?;
         let mut net = build((nodes, edges));
         net.schedule_scale = map.schedule_scale;
+        net.hospital_node = map.hospital_node;
+        net.attribution = map.attribution.clone();
         if net
             .links
             .iter()
@@ -326,6 +332,10 @@ impl Network {
             return Err("map has degenerate geometry or no drivable source-to-sink route".into());
         }
         Ok(net)
+    }
+
+    pub fn sink_node(&self, index: usize) -> usize {
+        self.links[self.sinks[index].link].to
     }
 
     pub fn junction_count(&self) -> usize {
@@ -550,6 +560,23 @@ fn build((nodes, edges): (Vec<Node>, Vec<EdgeDef>)) -> Network {
         id
     };
 
+    // Distinct curves with the same endpoints (e.g. a roundabout's halves)
+    // are not reverse carriageways. Match the whole centreline geometry.
+    let mut directed_pairs: BTreeMap<(usize, usize), Vec<usize>> = BTreeMap::new();
+    for (i, e) in edges.iter().enumerate().filter(|(_, e)| !e.two_way) {
+        directed_pairs.entry((e.a, e.b)).or_default().push(i);
+    }
+    let mut reverse_edges = BTreeSet::new();
+    for (i, e) in edges.iter().enumerate().filter(|(_, e)| !e.two_way) {
+        if let Some(candidates) = directed_pairs.get(&(e.b, e.a)) {
+            for j in candidates {
+                if e.via.iter().eq(edges[*j].via.iter().rev()) {
+                    reverse_edges.insert((i, *j));
+                }
+            }
+        }
+    }
+    let has_reverse: BTreeSet<_> = reverse_edges.iter().map(|(i, _)| *i).collect();
     for (index, edge) in edges.iter().enumerate() {
         let mut shape = vec![nodes[edge.a].pos];
         shape.extend(edge.via.iter().copied());
@@ -558,7 +585,7 @@ fn build((nodes, edges): (Vec<Node>, Vec<EdgeDef>)) -> Network {
         let geometry_length = *measures(&base).last().unwrap();
         let length_factor = edge.length_m.map(|n| n / geometry_length).unwrap_or(1.0);
         let half = LANE_WIDTH_M / 2.0;
-        let forward = if edge.two_way {
+        let forward = if edge.two_way || has_reverse.contains(&index) {
             offset(&base, half)
         } else {
             base.clone()
@@ -598,8 +625,10 @@ fn build((nodes, edges): (Vec<Node>, Vec<EdgeDef>)) -> Network {
         let outs: Vec<usize> = (0..roads).filter(|&l| links[l].from == node).collect();
         for &i in &ins {
             for &o in &outs {
-                if links[i].edge == links[o].edge {
-                    continue; // no U-turns
+                if links[i].edge == links[o].edge
+                    || reverse_edges.contains(&(links[i].edge, links[o].edge))
+                {
+                    continue; // no U-turns, including separately tagged directions
                 }
                 let p0 = *links[i].pts.last().expect("link end");
                 let d0 = end_dir(&links[i].pts);
@@ -666,14 +695,14 @@ fn build((nodes, edges): (Vec<Node>, Vec<EdgeDef>)) -> Network {
     let mut sources = Vec::new();
     let mut sinks = Vec::new();
     for link in links.iter().take(roads) {
-        if degree[link.from] == 1 && nodes[link.from].rate > 0.0 {
+        if nodes[link.from].rate > 0.0 {
             sources.push(Source {
                 link: link.id,
                 rate: nodes[link.from].rate,
                 gate: nodes[link.from].gate,
             });
         }
-        if degree[link.to] == 1 && nodes[link.to].weight > 0.0 {
+        if nodes[link.to].weight > 0.0 {
             sinks.push(Sink {
                 link: link.id,
                 weight: nodes[link.to].weight,
@@ -683,6 +712,8 @@ fn build((nodes, edges): (Vec<Node>, Vec<EdgeDef>)) -> Network {
     }
 
     Network {
+        attribution: None,
+        hospital_node: None,
         plan_nodes,
         plan_edges,
         schedule_scale: 3.0,
@@ -863,6 +894,8 @@ impl TownExchange {
 /// A recorded run of the town, ready to draw.
 #[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct NetworkRun {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attribution: Option<String>,
     pub links: Vec<Link>,
     pub routes: Vec<Vec<usize>>,
     pub frames: Vec<NetFrame>,
@@ -1018,6 +1051,7 @@ struct Bulletin {
     route: usize,
     issued_at: f64,
     junctions: Vec<(usize, f64)>,
+    request: make_way::MakeWayRequest,
 }
 
 struct Experiment {
@@ -1212,6 +1246,23 @@ impl TownSim {
                 ex.granted.insert(car);
             } else {
                 ex.granted.remove(&car);
+                for b in ex.bulletins.iter_mut().filter(|b| b.car == car) {
+                    b.request.expires_at = b.request.expires_at.min(self.time);
+                }
+                let released: Vec<_> = ex
+                    .yielding_for
+                    .iter()
+                    .filter(|(_, (issuer, _))| *issuer == car)
+                    .map(|(id, _)| *id)
+                    .collect();
+                for id in released {
+                    ex.held.remove(&id);
+                    ex.boosted.remove(&id);
+                    ex.yielding_for.remove(&id);
+                }
+                for pull in ex.pull_over.values_mut().filter(|p| p.beneficiary == car) {
+                    pull.released = true;
+                }
             }
         }
     }
@@ -1268,6 +1319,18 @@ impl TownSim {
             .as_ref()
             .map(|e| e.messages.clone())
             .unwrap_or_default()
+    }
+
+    pub fn message_log(&self) -> make_way::MessageLog {
+        make_way::MessageLog {
+            version: 1,
+            requests: self
+                .experiment
+                .as_ref()
+                .map(|e| e.bulletins.iter().map(|b| b.request.clone()).collect())
+                .unwrap_or_default(),
+            events: self.messages(),
+        }
     }
 
     fn publish_bulletin(&mut self, id: u32) {
@@ -1360,6 +1423,16 @@ impl TownSim {
             route: route_id,
             issued_at: self.time,
             junctions,
+            request: make_way::MakeWayRequest {
+                id: format!("car:{id}@{}", self.time),
+                issuer: id,
+                route: route.links.clone(),
+                urgency: 1.0,
+                reason: "Host granted emergency precedence".into(),
+                issued_at: self.time,
+                expires_at: self.time + 10_000.0,
+                signature: None,
+            },
         });
     }
 
@@ -1408,6 +1481,9 @@ impl TownSim {
                 continue;
             }
             for b in &ex.bulletins {
+                if !b.request.active_at(self.time) || !ex.granted.contains(&b.car) {
+                    continue;
+                }
                 let Some(urgent) = self.cars.iter().find(|c| c.id == b.car) else {
                     continue;
                 };
@@ -1466,6 +1542,15 @@ impl TownSim {
         // Apply serially so the second lane change sees the first one's body.
         for (ci, beneficiary, route, route_m, eta, _, pull_over) in candidates {
             let car = &self.cars[ci];
+            let request = &self
+                .experiment
+                .as_ref()
+                .unwrap()
+                .bulletins
+                .iter()
+                .find(|b| b.car == beneficiary)
+                .unwrap()
+                .request;
             let old = &self.routes[car.route];
             let link = old.links[car.idx];
             let front = car.d - old.start[car.idx];
@@ -1512,6 +1597,8 @@ impl TownSim {
                 new_block_s: 0.0,
                 same_links: true,
             });
+            let lane_action =
+                make_way::receive_one(request, self.time, car.id, lane_action, 0.0, gap_ok && room);
             if let make_way::DrivingAction::LaneChange { to_link } = lane_action {
                 let mut links = old.links.clone();
                 links[car.idx] = to_link;
@@ -1522,6 +1609,21 @@ impl TownSim {
             if chosen.is_none() && lane.is_none() && config.reroutes {
                 let urgent_path = &self.routes[route].links;
                 let sink = *old.links.last().unwrap();
+                // Occupancy is constant during this search. Count each car
+                // once per remaining link, exactly as the previous contains()
+                // scan did. Rebuild for each serial candidate so earlier
+                // lane changes/reroutes remain visible to the next search.
+                let mut occupied = vec![0usize; self.net.links.len()];
+                for other in &self.cars {
+                    let r = &self.routes[other.route];
+                    for next in r.links[other.idx..]
+                        .iter()
+                        .copied()
+                        .collect::<BTreeSet<_>>()
+                    {
+                        occupied[next] += 1;
+                    }
+                }
                 let mut best = vec![f64::INFINITY; self.net.links.len()];
                 let mut prev = vec![None; self.net.links.len()];
                 let mut heap = BinaryHeap::new();
@@ -1536,17 +1638,9 @@ impl TownSim {
                         if next != sink && urgent_path.contains(&next) {
                             continue;
                         }
-                        let occupied = self
-                            .cars
-                            .iter()
-                            .filter(|other| {
-                                let r = &self.routes[other.route];
-                                r.links[other.idx..].contains(&next)
-                            })
-                            .count() as f64;
                         let dist = cost
                             + self.net.links[next].len / self.net.links[next].speed
-                            + occupied * 2.5;
+                            + occupied[next] as f64 * 2.5;
                         if dist < best[next] {
                             best[next] = dist;
                             prev[next] = Some(at);
@@ -1602,6 +1696,15 @@ impl TownSim {
                         new_block_s: new_block,
                         same_links: candidate.links == old.links,
                     });
+                    let intent = make_way::receive_one(
+                        request,
+                        self.time,
+                        car.id,
+                        intent,
+                        0.0,
+                        candidate.links.get(car.idx) == old.links.get(car.idx)
+                            && candidate.links.last() == old.links.last(),
+                    );
                     if matches!(intent, make_way::DrivingAction::Reroute(_)) {
                         chosen = Some((links, "reroute"));
                     }
@@ -1660,6 +1763,26 @@ impl TownSim {
         let Some(ex) = self.experiment.as_ref() else {
             return;
         };
+        let expired: Vec<u32> = ex
+            .pull_over
+            .iter()
+            .filter(|(_, p)| {
+                ex.bulletins
+                    .iter()
+                    .any(|b| b.car == p.beneficiary && !b.request.active_at(self.time))
+            })
+            .map(|(id, _)| *id)
+            .collect();
+        for id in expired {
+            self.experiment
+                .as_mut()
+                .unwrap()
+                .pull_over
+                .get_mut(&id)
+                .unwrap()
+                .released = true;
+        }
+        let ex = self.experiment.as_ref().unwrap();
         let pending: Vec<(u32, PullOver)> = ex
             .pull_over
             .iter()
@@ -1759,7 +1882,7 @@ impl TownSim {
         let live: Vec<_> = ex
             .bulletins
             .iter()
-            .filter(|b| ex.granted.contains(&b.car))
+            .filter(|b| ex.granted.contains(&b.car) && b.request.active_at(self.time))
             .filter_map(|b| self.cars.iter().find(|c| c.id == b.car).map(|c| (b, c)))
             .collect();
         for car in &self.cars {
@@ -1820,6 +1943,19 @@ impl TownSim {
                                     / self.net.links[want].speed
                                 + 1.0
                     {
+                        let action = make_way::receive_one(
+                            &bulletin.request,
+                            self.time,
+                            car.id,
+                            make_way::DrivingAction::Hold {
+                                duration_s: NET_DT_S,
+                            },
+                            ex.hold_seconds.get(&car.id).copied().unwrap_or(0.0),
+                            true,
+                        );
+                        if !matches!(action, make_way::DrivingAction::Hold { .. }) {
+                            continue;
+                        }
                         held.insert(car.id);
                         yielding_for.insert(car.id, (bulletin.car, "hold".to_string()));
                         "hold"
@@ -1890,6 +2026,7 @@ impl TownSim {
         stats: NetStats,
     ) -> NetworkRun {
         NetworkRun {
+            attribution: self.net.attribution.clone(),
             links: self.net.links.clone(),
             routes: self.routes.iter().map(|r| r.links.clone()).collect(),
             frames,
@@ -2981,6 +3118,12 @@ impl TownSim {
                     ex.yielding_for
                         .iter()
                         .map(|(car, (beneficiary, action))| (*car, *beneficiary, action.clone()))
+                        .chain(
+                            ex.pull_over
+                                .iter()
+                                .filter(|(_, p)| !p.released)
+                                .map(|(car, p)| (*car, p.beneficiary, "pull_over".into())),
+                        )
                         .collect()
                 })
                 .unwrap_or_default(),
@@ -3107,6 +3250,7 @@ fn record_town(mut sim: TownSim) -> NetworkRun {
         baseline_time_home_s: None,
     });
     NetworkRun {
+        attribution: sim.net.attribution.clone(),
         links: sim.net.links.clone(),
         routes,
         frames,
@@ -3361,5 +3505,40 @@ mod tests {
         assert!(net.junction_count() >= 14, "{}", net.junction_count());
         assert!(net.sources.len() >= 7);
         assert!(net.routes().len() > 40);
+    }
+}
+
+#[cfg(test)]
+mod fleet_release_tests {
+    use super::*;
+    #[test]
+    fn denial_or_revocation_releases_every_held_vehicle_within_one_tick() {
+        let net = Network::town();
+        let mut sim = TownSim::with_schedule_on(1, &[], net).unwrap();
+        let ex = sim.experiment.as_mut().unwrap();
+        ex.granted.insert(1);
+        for id in [2, 3] {
+            ex.held.insert(id);
+            ex.boosted.insert(id);
+            ex.yielding_for.insert(id, (1, "hold".into()));
+            ex.pull_over.insert(
+                id,
+                PullOver {
+                    original: 0,
+                    parallel: 1,
+                    beneficiary: 1,
+                    since_s: 0.0,
+                    released: false,
+                },
+            );
+        }
+        sim.set_precedence(1, false);
+        let ex = sim.experiment.as_ref().unwrap();
+        assert!(ex.held.is_empty());
+        assert!(ex.boosted.is_empty());
+        assert!(ex.yielding_for.is_empty());
+        assert!(ex.pull_over.values().all(|p| p.released));
+        sim.step();
+        assert!(sim.experiment.as_ref().unwrap().held.is_empty());
     }
 }

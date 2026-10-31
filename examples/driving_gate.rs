@@ -24,6 +24,11 @@ fn main() {
             .unwrap_or(1.0),
         ..Default::default()
     };
+    let net = args
+        .iter()
+        .find_map(|a| a.strip_prefix("map="))
+        .map(|p| muse::road_map::RoadMap::read(p).unwrap().network().unwrap())
+        .unwrap_or_else(muse::network::Network::town);
     let typical = args.iter().any(|a| a == "typical");
     let start = args
         .iter()
@@ -40,12 +45,12 @@ fn main() {
             5
         });
     for seed in start..=end {
-        let result = if typical {
-            rush_hour::run_experiment(seed, &Mock, true, Some(config))
+        let trips = if typical {
+            rush_hour::population_on(seed, &net)
         } else {
-            rush_hour::run_boxed(seed, &Mock, true, Some(config))
-        }
-        .unwrap();
+            rush_hour::boxed_population_on(seed, &net).unwrap()
+        };
+        let result = rush_hour::run_on_map(seed, &Mock, true, Some(config), trips, &net).unwrap();
         println!("{}", serde_json::to_string(&result.score).unwrap());
     }
 }
