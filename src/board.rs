@@ -1305,6 +1305,22 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     if(typed&&typed.claim_number>=3&&!decision.granted)document.getElementById("network").dataset.liarCaught="true";
   }
 
+  function drawIncidents(ctx,view,t) {
+    (town.incidents||[]).forEach(function(record){
+      var i=record.definition;
+      if(t<i.start_s || t>=i.start_s+i.duration_s)return;
+      var road=links[record.link];if(!road)return;
+      var rear=toScreen(view,pointOn(road,i.position_m));
+      var front=toScreen(view,pointOn(road,i.position_m+i.length_m));
+      var group=svgNode("g",{"data-role":"lane-blockage","data-incident":i.id,"data-link":record.link,"data-position-m":i.position_m,"data-length-m":i.length_m,"data-start-s":i.start_s,"data-end-s":i.start_s+i.duration_s});
+      group.appendChild(svgNode("path",{d:"M"+rear.x+" "+rear.y+" L"+front.x+" "+front.y,fill:"none",stroke:"#6e4434","stroke-width":Math.max(4,LANE_W*view.sc),"data-role":"blocked-footprint"}));
+      var x=(rear.x+front.x)/2,y=(rear.y+front.y)/2;
+      group.appendChild(svgNode("path",{d:"M"+(x-5)+" "+(y-5)+" L"+(x+5)+" "+(y+5)+" M"+(x-5)+" "+(y+5)+" L"+(x+5)+" "+(y-5),fill:"none",stroke:"#b76438","stroke-width":2}));
+      group.appendChild(svgNode("text",{x:x+12,y:y+20,fill:"#8e4e2f",stroke:"white","stroke-width":3,"paint-order":"stroke","font-family":"system-ui, sans-serif","font-size":11},"lane blocked · until "+(i.start_s+i.duration_s)+"s"));
+      ctx.appendChild(group);
+    });
+  }
+
   function paint(now) {
     var canvas = document.getElementById("network");
     if (!canvas) return;
@@ -1314,6 +1330,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     drawRoads(ctx, view);
     if(!isRush)drawHome(ctx, view);
     drawTown(ctx, view, townTime(now));
+    drawIncidents(ctx,view,townTime(now));
     var simT = simTime(now);
     var strip = data.strips[active];
     if (!strip) return;

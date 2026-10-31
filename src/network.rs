@@ -198,6 +198,7 @@ impl Route {
 
 #[derive(Clone, Debug)]
 pub struct Network {
+    incidents: Vec<crate::incident::RecordedIncident>,
     pub demand_profile: Option<crate::demand::CorridorDemand>,
     pub attribution: Option<String>,
     plan_nodes: Vec<Node>,
@@ -220,6 +221,40 @@ impl Network {
     /// The fixed town map: a motorway with two interchanges, two arterials, three cross streets.
     pub fn town() -> Self {
         build(town_plan())
+    }
+
+    /// Attach a physical obstacle to this graph for every paired simulation.
+    /// Incident data is not passed to the model or the make-way receiver.
+    pub fn add_incident(
+        &mut self,
+        definition: crate::incident::LaneIncident,
+    ) -> Result<(), String> {
+        definition.validate()?;
+        if self
+            .incidents
+            .iter()
+            .any(|i| i.definition.id == definition.id)
+        {
+            return Err("duplicate incident id".into());
+        }
+        let link = self
+            .links
+            .iter()
+            .find(|l| {
+                !l.is_connector()
+                    && l.edge == definition.edge
+                    && l.from == definition.from_node
+                    && l.to == definition.to_node
+            })
+            .ok_or("incident references a missing directed road")?;
+        if definition.position_m + definition.length_m > link.len {
+            return Err("incident footprint exceeds the directed road".into());
+        }
+        self.incidents.push(crate::incident::RecordedIncident {
+            definition,
+            link: link.id,
+        });
+        Ok(())
     }
 
     pub fn lanes(&self, link: usize) -> u8 {
@@ -779,6 +814,7 @@ fn build((nodes, edges): (Vec<Node>, Vec<EdgeDef>)) -> Network {
     }
 
     Network {
+        incidents: Vec::new(),
         demand_profile: None,
         attribution: None,
         hospital_node: None,
@@ -962,6 +998,8 @@ impl TownExchange {
 /// A recorded run of the town, ready to draw.
 #[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct NetworkRun {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub incidents: Vec<crate::incident::RecordedIncident>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attribution: Option<String>,
     pub links: Vec<Link>,
@@ -1155,6 +1193,8 @@ struct PullOver {
 }
 
 pub struct TownSim {
+    incident_started: BTreeSet<usize>,
+    incident_clearance: BTreeSet<(usize, u32)>,
     net: Network,
     routes: Vec<Route>,
     /// Per source: (route id, weight).
@@ -1202,6 +1242,8 @@ impl TownSim {
         let sources = net.sources.len();
         let nodes = net.nodes.len();
         TownSim {
+            incident_started: BTreeSet::new(),
+            incident_clearance: BTreeSet::new(),
             net,
             routes,
             trips,
@@ -1631,22 +1673,24 @@ impl TownSim {
                 .copied();
             let mut chosen = None;
             let gap_ok = lane.is_some_and(|lane| {
-                self.cars
-                    .iter()
-                    .enumerate()
-                    .filter(|(oi, _)| *oi != ci)
-                    .all(|(_, other)| {
-                        let r = &self.routes[other.route];
-                        (self.rear_index(other)..=other.idx).all(|i| {
-                            r.links[i] != lane
-                                || Self::accepted_lane_gap(
-                                    front,
-                                    car.v,
-                                    other.d - r.start[i],
-                                    other.v,
-                                )
+                self.obstacle_gap_ok(lane, car.id, front, car.v)
+                    && self
+                        .cars
+                        .iter()
+                        .enumerate()
+                        .filter(|(oi, _)| *oi != ci)
+                        .all(|(_, other)| {
+                            let r = &self.routes[other.route];
+                            (self.rear_index(other)..=other.idx).all(|i| {
+                                r.links[i] != lane
+                                    || Self::accepted_lane_gap(
+                                        front,
+                                        car.v,
+                                        other.d - r.start[i],
+                                        other.v,
+                                    )
+                            })
                         })
-                    })
             });
             let room = make_way::pullover_room(self.net.links[link].len - front, car.v);
             let lane_action = make_way::route_choice(&make_way::RouteTerms {
@@ -1911,17 +1955,24 @@ impl TownSim {
         let car = &self.cars[ci];
         let own = &self.routes[car.route];
         let front = car.d - own.start[car.idx];
-        self.cars
-            .iter()
-            .enumerate()
-            .filter(|(oi, _)| *oi != ci)
-            .all(|(_, other)| {
-                let route = &self.routes[other.route];
-                (self.rear_index(other)..=other.idx).all(|i| {
-                    route.links[i] != link
-                        || Self::accepted_lane_gap(front, car.v, other.d - route.start[i], other.v)
+        self.obstacle_gap_ok(link, car.id, front, car.v)
+            && self
+                .cars
+                .iter()
+                .enumerate()
+                .filter(|(oi, _)| *oi != ci)
+                .all(|(_, other)| {
+                    let route = &self.routes[other.route];
+                    (self.rear_index(other)..=other.idx).all(|i| {
+                        route.links[i] != link
+                            || Self::accepted_lane_gap(
+                                front,
+                                car.v,
+                                other.d - route.start[i],
+                                other.v,
+                            )
+                    })
                 })
-            })
     }
 
     fn retarget_current_link(&mut self, ci: usize, to_link: usize) {
@@ -2094,6 +2145,7 @@ impl TownSim {
         stats: NetStats,
     ) -> NetworkRun {
         NetworkRun {
+            incidents: self.net.incidents.clone(),
             attribution: self.net.attribution.clone(),
             links: self.net.links.clone(),
             routes: self.routes.iter().map(|r| r.links.clone()).collect(),
@@ -2184,7 +2236,95 @@ impl TownSim {
         index
     }
 
+    fn incident_applies(&self, index: usize, car: u32) -> bool {
+        let incident = &self.net.incidents[index];
+        if !incident.definition.active_at(self.time)
+            || self.incident_clearance.contains(&(index, car))
+        {
+            return false;
+        }
+        // Statistics may be sampled at the activation instant before step().
+        // Apply the same pre-existing-occupant clearance rule there as in sync.
+        if !self.incident_started.contains(&index) {
+            if let Some(c) = self.cars.iter().find(|c| c.id == car) {
+                let r = &self.routes[c.route];
+                if (self.rear_index(c)..=c.idx).any(|k| {
+                    r.links[k] == incident.link
+                        && c.d - r.start[k] >= incident.definition.position_m
+                }) {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
+    fn obstacle_spans(&self, link: usize, car: u32) -> impl Iterator<Item = (f64, f64)> + '_ {
+        self.net
+            .incidents
+            .iter()
+            .enumerate()
+            .filter_map(move |(index, i)| {
+                (i.link == link && self.incident_applies(index, car)).then_some((
+                    i.definition.position_m,
+                    i.definition.position_m + i.definition.length_m,
+                ))
+            })
+    }
+
+    fn obstacle_gap_ok(&self, link: usize, car: u32, front: f64, speed: f64) -> bool {
+        self.obstacle_spans(link, car).all(|(rear, end)| {
+            if front >= rear && front <= end + CAR_LENGTH_M {
+                return false;
+            }
+            // Reuse the normal stopped-body gap rule with the actual truck
+            // rear for a car behind it, and its front for a car ahead.
+            let other_front = if front < rear {
+                rear + CAR_LENGTH_M
+            } else {
+                end
+            };
+            Self::accepted_lane_gap(front, speed, other_front, 0.0)
+        })
+    }
+
+    fn sync_incident_occupants(&mut self) {
+        for (index, incident) in self.net.incidents.iter().enumerate() {
+            if self.time < incident.definition.start_s || !self.incident_started.insert(index) {
+                continue;
+            }
+            for car in &self.cars {
+                let route = &self.routes[car.route];
+                if (self.rear_index(car)..=car.idx).any(|k| {
+                    route.links[k] == incident.link
+                        && car.d - route.start[k] >= incident.definition.position_m
+                }) {
+                    self.incident_clearance.insert((index, car.id));
+                }
+            }
+        }
+        let keep: BTreeSet<_> = self
+            .incident_clearance
+            .iter()
+            .copied()
+            .filter(|(index, id)| {
+                let incident = &self.net.incidents[*index];
+                incident.definition.active_at(self.time)
+                    && self.cars.iter().find(|c| c.id == *id).is_some_and(|c| {
+                        let r = &self.routes[c.route];
+                        (self.rear_index(c)..=c.idx).any(|k| {
+                            r.links[k] == incident.link
+                                && c.d - CAR_LENGTH_M - r.start[k]
+                                    <= incident.definition.position_m + incident.definition.length_m
+                        })
+                    })
+            })
+            .collect();
+        self.incident_clearance = keep;
+    }
+
     pub fn step(&mut self) {
+        self.sync_incident_occupants();
         self.advance_demo();
         if let Some(p) = &mut self.priority {
             if self.time >= WARMUP_S + p.request.at_s && p.route.is_none() {
@@ -2483,6 +2623,9 @@ impl TownSim {
             let ahead = if v < 0.5 { 0.0 } else { v * arrive * 0.6 };
             room = room.min(body.rear + ahead);
         }
+        for (rear, _) in self.obstacle_spans(out, car.id) {
+            room = room.min(rear);
+        }
         if room.is_infinite() {
             room = self.net.links[out].len;
         }
@@ -2561,6 +2704,12 @@ impl TownSim {
             for k in car.idx..route.links.len() {
                 if route.start[k] - car.d > LOOKAHEAD_M {
                     break;
+                }
+                for (rear, _) in self.obstacle_spans(route.links[k], car.id) {
+                    let at = route.start[k] + rear;
+                    if at >= car.d && obstacle.is_none_or(|(pos, _)| at < pos) {
+                        obstacle = Some((at, 0.0));
+                    }
                 }
                 let mut found = false;
                 for body in &index[route.links[k]] {
@@ -2690,7 +2839,7 @@ impl TownSim {
     fn entry_speed(&self, s: usize) -> Option<f64> {
         let link = self.net.sources[s].link;
         let speed = self.net.links[link].speed;
-        let tail = self
+        let mut tail = self
             .cars
             .iter()
             .filter(|car| {
@@ -2699,6 +2848,14 @@ impl TownSim {
             })
             .map(|car| (car.d - CAR_LENGTH_M, car.v))
             .min_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal));
+        for incident in &self.net.incidents {
+            if incident.link == link && incident.definition.active_at(self.time) {
+                let rear = incident.definition.position_m;
+                if tail.is_none_or(|(at, _)| rear < at) {
+                    tail = Some((rear, 0.0));
+                }
+            }
+        }
         let v = match tail {
             None => speed,
             Some((rear, lead_v)) => {
@@ -2767,6 +2924,18 @@ impl TownSim {
                 }
             }
         }
+        for car in &self.cars {
+            let route = &self.routes[car.route];
+            for k in self.rear_index(car)..=car.idx {
+                let rear = car.d - CAR_LENGTH_M - route.start[k];
+                let front = car.d - route.start[k];
+                count += self
+                    .obstacle_spans(route.links[k], car.id)
+                    .filter(|(a, b)| rear < *b - 0.05 && *a < front - 0.05)
+                    .count() as u32;
+            }
+        }
+
         count
     }
 
@@ -3318,6 +3487,7 @@ fn record_town(mut sim: TownSim) -> NetworkRun {
         baseline_time_home_s: None,
     });
     NetworkRun {
+        incidents: sim.net.incidents.clone(),
         attribution: sim.net.attribution.clone(),
         links: sim.net.links.clone(),
         routes,
