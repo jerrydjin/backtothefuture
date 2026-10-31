@@ -3,7 +3,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const assert = require('assert');
 (async () => {
-  const child = spawn('python3', ['scripts/play-recording.py','--no-open','--binary','target/debug/muse']);
+  const child = spawn('python3', ['scripts/play-recording.py','--legacy','--no-open','--binary','target/debug/muse']);
   let stdout = '';
   const url = await new Promise((resolve,reject) => {
     child.stdout.on('data', b => { stdout += b; const m=stdout.match(/recording: (http:\/\/[^\s]+)/); if(m)resolve(m[1]); });
@@ -35,16 +35,21 @@ const assert = require('assert');
     await page.clock.fastForward(14100);
     assert.equal(await page.locator('#network').getAttribute('data-recording-complete'),'true');
     await page.clock.resume();
+    // Use a fresh real-time page for screenshots after virtual-clock playback.
+    const still=await browser.newPage({viewport:{width:1440,height:1000}});
+    still.on('pageerror', e => errors.push(e.message));
+    still.on('request', r => requests.push(r.url()));
+    await still.route('**/*', route => new URL(route.request().url()).hostname === '127.0.0.1' ? route.continue() : route.abort());
     for (const clip of ['grant','deny']) {
       const saved=JSON.parse(fs.readFileSync('recordings/'+clip+'.json'));
-      await page.goto(base+'/'+clip+'.html?replay=1&t=205');
-      assert.equal(await page.locator('svg').count(),1);
-      assert.equal(await page.locator('input:visible').count(),0);
-      assert((await page.locator('[data-role="reason-explanation"]').textContent()).includes(saved.board.reason.decision.explanation));
+      await still.goto(base+'/'+clip+'.html?replay=1&t=205');
+      assert.equal(await still.locator('svg').count(),1);
+      assert.equal(await still.locator('input:visible').count(),0);
+      assert((await still.locator('[data-role="reason-explanation"]').textContent()).includes(saved.board.reason.decision.explanation));
       for (const line of saved.board.reason.decision.lines) {
-        assert.equal(await page.locator('[data-role="reason-line"][data-car="'+line.id+'"]').textContent(),line.say);
+        assert.equal(await still.locator('[data-role="reason-line"][data-car="'+line.id+'"]').textContent(),line.say);
       }
-      await page.screenshot({path:'/tmp/phase-c-'+clip+'.png'});
+      await still.screenshot({path:'/tmp/phase-c-'+clip+'.png'});
     }
     assert.deepEqual(errors,[]);
     assert(!requests.some(x=>/\/(negotiate|result|demo\/state|reason)(?:\?|$)/.test(x)));

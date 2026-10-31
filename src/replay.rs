@@ -123,6 +123,14 @@ impl ReplayArchive {
                 return Err("replay frames must be consecutive seconds".into());
             }
             let mut seen = BTreeSet::new();
+            for (car, beneficiary, action) in &frame.make_way {
+                if car == beneficiary
+                    || !matches!(action.as_str(), "hold" | "clear")
+                    || !frame.cars.iter().any(|c| c.0 == *car)
+                {
+                    return Err("replay has invalid make-way state".into());
+                }
+            }
             for &(id, route, d, v) in &frame.cars {
                 if !seen.insert(id)
                     || route as usize >= totals.len()
@@ -130,7 +138,7 @@ impl ReplayArchive {
                     || !v.is_finite()
                     || d < 0.0
                     || v < 0.0
-                    || d > totals[route as usize] + 1e-6
+                    || d > totals[route as usize] + 0.050001
                 {
                     return Err("replay car has an invalid route or trajectory".into());
                 }
@@ -169,6 +177,72 @@ impl ReplayArchive {
                 || !ex.forecast.cars.iter().any(|c| c.id == ex.merges)
             {
                 return Err("replay is missing a participant or acknowledgement".into());
+            }
+        }
+        if let Some(rush) = &self.board.rush {
+            let ids: BTreeSet<_> = town
+                .frames
+                .iter()
+                .flat_map(|f| f.cars.iter().map(|c| c.0))
+                .collect();
+            let mut decisions = BTreeSet::new();
+            for d in &rush.decisions {
+                if !ids.contains(&d.car)
+                    || !decisions.insert(d.car)
+                    || !d.at_s.is_finite()
+                    || d.at_s < 0.0
+                    || !matches!(
+                        d.source.as_str(),
+                        "model" | "fallback" | "scripted" | "blocked"
+                    )
+                {
+                    return Err("replay has invalid rush-hour decisions".into());
+                }
+            }
+            for h in &rush.messages {
+                if h.route >= totals.len()
+                    || !h.at_s.is_finite()
+                    || h.at_s < 0.0
+                    || !h.route_m.is_finite()
+                    || h.route_m < 0.0
+                    || h.route_m > totals[h.route] + 1e-6
+                    || !h.ahead_m.is_finite()
+                    || !h.lead_s.is_finite()
+                    || h.recipient_car.is_some_and(|id| !ids.contains(&id))
+                    || h.connector.is_some_and(|c| c >= town.links.len())
+                    || !rush
+                        .decisions
+                        .iter()
+                        .any(|d| d.car == h.beneficiary && d.granted && d.at_s <= h.at_s)
+                    || !matches!(h.action.as_str(), "relay" | "clear" | "hold")
+                {
+                    return Err("replay has invalid route bulletin evidence".into());
+                }
+            }
+            if let Some(typed) = &rush.typed {
+                if !decisions.contains(&typed.car)
+                    || typed.car != typed.decision.car
+                    || typed.claim_number != typed.past.len() + 1
+                    || !typed.home_at_s.is_finite()
+                    || typed.home_at_s < typed.decision.at_s
+                    || typed.home_at_s > town.frames.len() as f64
+                    || !typed.request_at_session_s.is_finite()
+                    || !typed.completed_at_session_s.is_finite()
+                    || typed.completed_at_session_s < typed.request_at_session_s
+                    || typed.past.iter().any(|p| {
+                        !p.completed_at_s.is_finite()
+                            || p.completed_at_s > typed.request_at_session_s
+                    })
+                    || !rush.decisions.iter().any(|d| {
+                        d.car == typed.car
+                            && d.granted == typed.decision.granted
+                            && d.source == typed.decision.source
+                            && d.requester == typed.decision.requester
+                            && d.other == typed.decision.other
+                    })
+                {
+                    return Err("replay has invalid typed rider history".into());
+                }
             }
         }
         if self

@@ -95,6 +95,8 @@ pub struct DinnerBoard {
     pub demo: Option<crate::demo::DemoPlan>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reason: Option<crate::reason::ReasonReport>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rush: Option<crate::rush_board::RushBoard>,
 }
 
 /// Run the dinner path and shape it for the window.
@@ -194,6 +196,7 @@ pub fn board_from_run_with(
         town: run_town_with(TOWN_SEED, talk),
         demo: None,
         reason: None,
+        rush: None,
     }
 }
 
@@ -404,7 +407,9 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
   var data = JSON.parse(document.getElementById("board-data").textContent);
   var isReplay = /[?&]replay=1(?:&|$)/.test(location.search);
   var isDemo = !!data.demo && (isReplay || /[?&]demo=1(?:&|$)/.test(location.search));
-  var isReason = !!data.reason || /[?&]reason=1(?:&|$)/.test(location.search);
+  var isRush = !!data.rush;
+  var isReason = !isRush && (!!data.reason || /[?&]reason=1(?:&|$)/.test(location.search));
+  if(isRush){document.getElementById("pills").hidden=true;document.getElementById("pills").style.display="none";document.getElementById("replay").hidden=true;}
   var demoView = null;
   var maxTick = 0;
   data.strips.forEach(function (strip) {
@@ -551,6 +556,28 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     });
   }
 
+  if(isRush){
+    var rushForm=document.getElementById("reason-form"),rushInput=document.getElementById("reason-input"),rushStatus=document.getElementById("reason-status");
+    rushForm.hidden=isReplay;
+    function rushStatusText(){
+      var typed=data.rush.typed;if(!typed)return;
+      rushInput.value=typed.reason;
+      rushStatus.textContent=(typed.decision.source!=="model"?typed.decision.source+" · ":"")+(typed.decision.granted?"Priority granted. ":"Keep your turn. ")+typed.decision.explanation;
+      document.getElementById("network").dataset.reasonGranted=String(typed.decision.granted);
+      document.getElementById("network").dataset.claimNumber=String(typed.claim_number);
+    }
+    rushStatusText();
+    rushForm.addEventListener("submit",function(ev){
+      ev.preventDefault();if(rushInput.disabled)return;rushInput.disabled=true;rushStatus.textContent="Considering your reason…";
+      paused=true;pausedAt=performance.now();
+      fetch("/rush-reason",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({reason:rushInput.value}),signal:AbortSignal.timeout(45000)})
+      .then(function(response){if(!response.ok)return response.text().then(function(message){throw new Error(message);});return response.json();})
+      .then(function(reply){data=reply;town=data.town;rushStatusText();seekTo=null;origin=performance.now();paused=false;paint(origin);if(!animating){animating=true;requestAnimationFrame(loop);}})
+      .catch(function(error){rushStatus.textContent=error.message;if(paused)togglePause();})
+      .finally(function(){rushInput.disabled=false;rushInput.focus();});
+    });
+  }
+
   function eventReady(event) { return !live || !!readyEvents[event]; }
   function allExchanges() { return town.exchanges.length ? town.exchanges : (town.exchange ? [town.exchange] : []); }
 
@@ -597,6 +624,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
   }
 
   function townTime(now) {
+    if (isRush) return rushTime(now);
     if (isDemo) {
       if (isReplay) demoView = recordedDemoView(now);
       var t = demoView ? demoView.sim_t : data.demo.stages[0].from_t;
@@ -883,7 +911,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     stroke(low, "#e2e2e2", lane + 0.6);
     stroke(high.filter(function (r) { return r.cls !== "connector"; }), "#fff", lane + 1.6 * view.sc);
     stroke(high, "#e2e2e2", lane + 0.6);
-    stroke([dinnerMain, dinnerRamp], "#e2e2e2", lane + 0.6);
+    if(!isRush)stroke([dinnerMain, dinnerRamp], "#e2e2e2", lane + 0.6);
   }
 
   function drawHome(ctx, view) {
@@ -925,8 +953,8 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
       x: a.x,
       y: a.y,
       ang: Math.atan2(a.y - b.y, a.x - b.x),
-      len: Math.max(2.5, length * view.sc),
-      wid: Math.max(2, CAR_W * view.sc)
+      len: Math.max(isRush ? 5 : 2.5, length * view.sc),
+      wid: Math.max(isRush ? 2.5 : 2, CAR_W * view.sc)
     };
   }
 
@@ -1149,6 +1177,82 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     }
   }
 
+  function rushTime(now) {
+    var last = town.frames.length - 1;
+    var typed = data.rush.typed;
+    var t;
+    if (seekTo != null) t = Math.max(0, Math.min(last, seekTo));
+    else {
+      var elapsed = elapsedSec(now) * 8;
+      if (typed) t = Math.min(typed.home_at_s + 8, typed.decision.at_s - 3 + elapsed);
+      else {
+        t = 35 + elapsed;
+        if (t > 500) t += 275;
+        if (t > 900) t += 625;
+        t = Math.min(last, t);
+      }
+    }
+    var svg = document.getElementById("network");
+    svg.dataset.time = t.toFixed(3);
+    svg.dataset.rushComplete = String(t >= (typed ? typed.home_at_s + 8 : last));
+    return t;
+  }
+
+  function rushPoint(view, route, distance) { return toScreen(view, routeLoc(routes[route], distance)); }
+  function rushPath(view, route, from, to) {
+    var points = [];
+    for (var d = from; d < to; d += 12) points.push(rushPoint(view, route, d));
+    points.push(rushPoint(view, route, to));
+    return points.map(function(p,i){return (i?"L":"M")+p.x.toFixed(2)+" "+p.y.toFixed(2);}).join(" ");
+  }
+  function drawRush(ctx, view, t) {
+    var rush = data.rush, frame = town.frames[Math.min(town.frames.length-1,Math.floor(t))];
+    var cars = {}; frame.cars.forEach(function(c){cars[c[0]]=c;});
+    var typed = rush.typed;
+    var caught=(rush.caught_at||[]).filter(function(pair){return pair[1]<=t;}).length;
+    var gain=rush.score.emergency_gain_vs_local;
+    var subtitle = Math.abs(gain).toFixed(1)+(gain>=0?"s saved vs local · ":"s later vs local · ")+caught+" liars caught · collisions "+rush.score.collisions;
+    ctx.appendChild(svgNode("text",{x:14,y:24,fill:"#666","font-family":"system-ui, sans-serif","font-size":12,"data-role":"rush-score"},subtitle));
+    rush.decisions.filter(function(d){return d.granted && d.at_s<=t && cars[d.car];}).forEach(function(d){
+      var car=cars[d.car],at=rushPoint(view,car[1],car[2]-2.2);
+      ctx.appendChild(svgNode("circle",{cx:at.x,cy:at.y,r:5,fill:"none",stroke:"#6a93ae","stroke-width":1,"data-role":"rush-granted","data-car":d.car}));
+      var hops=rush.messages.filter(function(h){return h.beneficiary===d.car&&h.action==="relay";}).sort(function(a,b){return a.at_s-b.at_s;});
+      if(!hops.length)return;
+      var originM=hops[0].route_m-hops[0].ahead_m,previousM=originM,previousT=d.at_s,head=originM;
+      hops.forEach(function(h){
+        if(t>=h.at_s)head=h.route_m;
+        else if(t>=previousT)head=previousM+(h.route_m-previousM)*Math.max(0,Math.min(1,(t-previousT)/(h.at_s-previousT)));
+        previousM=h.route_m;previousT=h.at_s;
+      });
+      if(head>car[2])ctx.appendChild(svgNode("path",{d:rushPath(view,hops[0].route,Math.max(originM,car[2]),head),fill:"none",stroke:"#7b9db5","stroke-width":1,opacity:.38,"data-role":"rush-pulse","data-beneficiary":d.car}));
+      if(t<=hops[hops.length-1].at_s+1){var dot=rushPoint(view,hops[0].route,head);ctx.appendChild(svgNode("circle",{cx:dot.x,cy:dot.y,r:2,fill:"#6a93ae","data-role":"rush-pulse-head"}));}
+    });
+    var farthestCue=null;
+    (frame.make_way||[]).forEach(function(state){
+      var c=cars[state[0]],urgent=cars[state[1]];
+      if(!c||!urgent||(state[2]==="hold"&&c[3]>.5))return;
+      var h=rush.messages.find(function(h){return h.recipient_car===c[0]&&h.beneficiary===urgent[0]&&h.action===state[2]&&h.at_s<=t&&h.route_m>urgent[2];});
+      if(!h||h.route_m-urgent[2]<100)return;
+      var at=rushPoint(view,c[1],c[2]-2.2);
+      ctx.appendChild(svgNode("circle",{cx:at.x,cy:at.y,r:6,fill:"none",stroke:"#b49c6d","stroke-width":1,"data-role":"rush-make-way","data-action":state[2],"data-car":c[0],"data-beneficiary":h.beneficiary,"data-ahead-m":(h.route_m-urgent[2]).toFixed(1)}));
+      var ahead=h.route_m-urgent[2];
+      if(ahead>500&&(!farthestCue||ahead>farthestCue.ahead))farthestCue={x:at.x,y:at.y,ahead:ahead,action:state[2]};
+    });
+    if(farthestCue)ctx.appendChild(svgNode("text",{x:Math.max(60,Math.min(view.width-100,farthestCue.x+10)),y:farthestCue.y-9,fill:"#8c7b5b",stroke:"white","stroke-width":3,"paint-order":"stroke","font-family":"system-ui, sans-serif","font-size":10,"data-role":"rush-ahead-cue"},farthestCue.action==="clear"?"clearing ahead":"holding ahead"));
+    var decisions=rush.decisions.filter(function(d){return d.at_s<=t&&t<d.at_s+16&&cars[d.car];});
+    var decision=typed&&t>=typed.decision.at_s&&t<typed.decision.at_s+20?typed.decision:decisions[Math.floor(t/4)%Math.max(1,decisions.length)];
+    if(!decision)return;
+    var c=cars[decision.car];if(!c)return;
+    var at=rushPoint(view,c[1],c[2]);
+    var x=Math.max(195,Math.min(view.width-195,at.x)),y=Math.max(76,at.y-45);
+    var explanation=(decision.granted?"Granted · ":"Keep your turn · ")+decision.explanation;
+    if(decision.source!=="model")explanation=decision.source+" · "+explanation;
+    var duration=typed&&decision.car===typed.car?20:16;
+    var opacity=Math.min(1,Math.max(0,(decision.at_s+duration-t)/3));
+    [explanation,decision.requester,decision.other].forEach(function(line,i){ctx.appendChild(svgNode("text",{x:x,y:y+i*16,"text-anchor":"middle",fill:i?"#444":"#777",stroke:"white","stroke-width":4,"paint-order":"stroke","font-family":"system-ui, sans-serif","font-size":i?13:11,opacity:opacity,"data-role":i?"rush-line":"rush-explanation","data-source":decision.source,"data-granted":String(decision.granted),"data-car":decision.car},line));});
+    if(typed&&typed.claim_number>=3&&!decision.granted)document.getElementById("network").dataset.liarCaught="true";
+  }
+
   function paint(now) {
     var canvas = document.getElementById("network");
     if (!canvas) return;
@@ -1156,16 +1260,17 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     var ctx = fitted.ctx;
     var view = makeView(fitted.w, fitted.h);
     drawRoads(ctx, view);
-    drawHome(ctx, view);
+    if(!isRush)drawHome(ctx, view);
     drawTown(ctx, view, townTime(now));
     var simT = simTime(now);
     var strip = data.strips[active];
     if (!strip) return;
     var cue = oneCue(strip.frames, simT);
-    var showCue = !isDemo && drawDinner(ctx, view, strip.frames, simT, cue);
+    var showCue = !isDemo && !isRush && drawDinner(ctx, view, strip.frames, simT, cue);
     if (cue && showCue) drawCue(ctx, view, cue.role);
     drawExchange(ctx, view, townTime(now));
-    if (isDemo) drawDemo(ctx, view, townTime(now));
+    if(isRush)drawRush(ctx,view,townTime(now));
+    else if (isDemo) drawDemo(ctx, view, townTime(now));
     else {
       drawPriorityHome(ctx, view, townTime(now));
       drawStory(ctx, view, townTime(now));

@@ -651,6 +651,8 @@ pub type NetCar = (u32, u32, f64, f64);
 
 #[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct NetFrame {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub make_way: Vec<(u32, u32, String)>,
     pub t: u32,
     pub cars: Vec<NetCar>,
 }
@@ -891,6 +893,7 @@ struct Experiment {
     messages: Vec<MessageHop>,
     boosted: BTreeSet<u32>,
     held: BTreeSet<u32>,
+    yielding_for: BTreeMap<u32, (u32, String)>,
     notified: BTreeSet<(u32, u32, usize, String)>,
 }
 
@@ -1022,6 +1025,7 @@ impl TownSim {
             messages: Vec::new(),
             boosted: BTreeSet::new(),
             held: BTreeSet::new(),
+            yielding_for: BTreeMap::new(),
             notified: BTreeSet::new(),
         });
         Ok(sim)
@@ -1167,6 +1171,7 @@ impl TownSim {
         };
         let mut boosted = BTreeSet::new();
         let mut held = BTreeSet::new();
+        let mut yielding_for = BTreeMap::new();
         let mut notifications = Vec::new();
         let live: Vec<_> = ex
             .bulletins
@@ -1216,6 +1221,7 @@ impl TownSim {
                         && (car.waiting || car.v < QUEUED_MPS)
                     {
                         boosted.insert(car.id);
+                        yielding_for.insert(car.id, (bulletin.car, "clear".to_string()));
                         "clear"
                     } else if incoming != path.links[k - 1]
                         && !ex.granted.contains(&car.id)
@@ -1228,6 +1234,7 @@ impl TownSim {
                                 + 1.0
                     {
                         held.insert(car.id);
+                        yielding_for.insert(car.id, (bulletin.car, "hold".to_string()));
                         "hold"
                     } else {
                         continue;
@@ -1268,6 +1275,7 @@ impl TownSim {
         let ex = self.experiment.as_mut().unwrap();
         ex.boosted = boosted;
         ex.held = held;
+        ex.yielding_for = yielding_for;
         for (key, event) in notifications {
             if ex.notified.insert(key) {
                 ex.messages.push(event);
@@ -2344,6 +2352,16 @@ impl TownSim {
 
     fn frame(&self, t: u32) -> NetFrame {
         NetFrame {
+            make_way: self
+                .experiment
+                .as_ref()
+                .map(|ex| {
+                    ex.yielding_for
+                        .iter()
+                        .map(|(car, (beneficiary, action))| (*car, *beneficiary, action.clone()))
+                        .collect()
+                })
+                .unwrap_or_default(),
             t,
             cars: self
                 .cars
