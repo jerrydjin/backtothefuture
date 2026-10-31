@@ -1,4 +1,4 @@
-//! Versioned local road-graph interchange. No remote services or OSM import.
+//! Versioned local road-graph interchange. No remote services; local OSM conversion lives in crate::osm.
 use crate::network::{Network, RoadClass};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -57,6 +57,9 @@ pub struct MapEdge {
 #[serde(deny_unknown_fields)]
 pub struct RoadMap {
     pub version: u32,
+    /// Optional hospital POI matched to a retained drivable intersection.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hospital_node: Option<usize>,
     /// Equirectangular local projection, appropriate for a small town.
     pub origin: [f64; 2],
     /// 1 for new physical maps; native town export retains its legacy 3x
@@ -124,6 +127,9 @@ impl RoadMap {
             || self.schedule_scale > 10.0
         {
             return Err("invalid map projection or schedule scale".into());
+        }
+        if self.hospital_node.is_some_and(|id| id >= self.nodes.len()) {
+            return Err("invalid hospital node".into());
         }
         for (id, n) in self.nodes.iter().enumerate() {
             if n.id != id

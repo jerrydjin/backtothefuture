@@ -52,3 +52,5 @@ pub use schema::{
     YieldRole, YieldTalk, ZonePlan,
 };
 pub use world::{validate_plan, Executor, JamType, Scenario, World, NEIGHBOR_FOG_M};
+
+pub mod osm;

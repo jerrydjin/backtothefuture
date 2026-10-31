@@ -10,6 +10,23 @@ use muse::{
 };
 
 fn main() -> ExitCode {
+    if std::env::args().nth(1).as_deref() == Some("import-osm") {
+        let args: Vec<_> = std::env::args().skip(2).collect();
+        let result = (|| -> Result<(), String> {
+            if args.len() != 3 || args[1] != "--out" {
+                return Err("usage: muse import-osm FILE.osm --out maps/X.json".into());
+            }
+            let text = std::fs::read_to_string(&args[0]).map_err(|e| e.to_string())?;
+            muse::osm::import(&text)?.write(&args[2])
+        })();
+        return match result {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => {
+                eprintln!("import-osm: {e}");
+                ExitCode::from(1)
+            }
+        };
+    }
     let args = match Args::from_env() {
         Ok(args) => args,
         Err(message) => {

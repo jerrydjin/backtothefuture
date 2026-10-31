@@ -199,6 +199,7 @@ impl Route {
 #[derive(Clone, Debug)]
 pub struct Network {
     plan_nodes: Vec<Node>,
+    pub hospital_node: Option<usize>,
     plan_edges: Vec<EdgeDef>,
     schedule_scale: f64,
     pub links: Vec<Link>,
@@ -231,6 +232,7 @@ impl Network {
         use crate::road_map::*;
         let mut map = RoadMap {
             version: 1,
+            hospital_node: self.hospital_node,
             origin: [51.5, -0.1],
             schedule_scale: self.schedule_scale,
             nodes: Vec::new(),
@@ -317,6 +319,7 @@ impl Network {
             .collect::<Result<Vec<_>, String>>()?;
         let mut net = build((nodes, edges));
         net.schedule_scale = map.schedule_scale;
+        net.hospital_node = map.hospital_node;
         if net
             .links
             .iter()
@@ -326,6 +329,10 @@ impl Network {
             return Err("map has degenerate geometry or no drivable source-to-sink route".into());
         }
         Ok(net)
+    }
+
+    pub fn sink_node(&self, index: usize) -> usize {
+        self.links[self.sinks[index].link].to
     }
 
     pub fn junction_count(&self) -> usize {
@@ -550,6 +557,23 @@ fn build((nodes, edges): (Vec<Node>, Vec<EdgeDef>)) -> Network {
         id
     };
 
+    // Distinct curves with the same endpoints (e.g. a roundabout's halves)
+    // are not reverse carriageways. Match the whole centreline geometry.
+    let mut directed_pairs: BTreeMap<(usize, usize), Vec<usize>> = BTreeMap::new();
+    for (i, e) in edges.iter().enumerate().filter(|(_, e)| !e.two_way) {
+        directed_pairs.entry((e.a, e.b)).or_default().push(i);
+    }
+    let mut reverse_edges = BTreeSet::new();
+    for (i, e) in edges.iter().enumerate().filter(|(_, e)| !e.two_way) {
+        if let Some(candidates) = directed_pairs.get(&(e.b, e.a)) {
+            for j in candidates {
+                if e.via.iter().eq(edges[*j].via.iter().rev()) {
+                    reverse_edges.insert((i, *j));
+                }
+            }
+        }
+    }
+    let has_reverse: BTreeSet<_> = reverse_edges.iter().map(|(i, _)| *i).collect();
     for (index, edge) in edges.iter().enumerate() {
         let mut shape = vec![nodes[edge.a].pos];
         shape.extend(edge.via.iter().copied());
@@ -558,7 +582,7 @@ fn build((nodes, edges): (Vec<Node>, Vec<EdgeDef>)) -> Network {
         let geometry_length = *measures(&base).last().unwrap();
         let length_factor = edge.length_m.map(|n| n / geometry_length).unwrap_or(1.0);
         let half = LANE_WIDTH_M / 2.0;
-        let forward = if edge.two_way {
+        let forward = if edge.two_way || has_reverse.contains(&index) {
             offset(&base, half)
         } else {
             base.clone()
@@ -598,8 +622,10 @@ fn build((nodes, edges): (Vec<Node>, Vec<EdgeDef>)) -> Network {
         let outs: Vec<usize> = (0..roads).filter(|&l| links[l].from == node).collect();
         for &i in &ins {
             for &o in &outs {
-                if links[i].edge == links[o].edge {
-                    continue; // no U-turns
+                if links[i].edge == links[o].edge
+                    || reverse_edges.contains(&(links[i].edge, links[o].edge))
+                {
+                    continue; // no U-turns, including separately tagged directions
                 }
                 let p0 = *links[i].pts.last().expect("link end");
                 let d0 = end_dir(&links[i].pts);
@@ -666,14 +692,14 @@ fn build((nodes, edges): (Vec<Node>, Vec<EdgeDef>)) -> Network {
     let mut sources = Vec::new();
     let mut sinks = Vec::new();
     for link in links.iter().take(roads) {
-        if degree[link.from] == 1 && nodes[link.from].rate > 0.0 {
+        if nodes[link.from].rate > 0.0 {
             sources.push(Source {
                 link: link.id,
                 rate: nodes[link.from].rate,
                 gate: nodes[link.from].gate,
             });
         }
-        if degree[link.to] == 1 && nodes[link.to].weight > 0.0 {
+        if nodes[link.to].weight > 0.0 {
             sinks.push(Sink {
                 link: link.id,
                 weight: nodes[link.to].weight,
@@ -683,6 +709,7 @@ fn build((nodes, edges): (Vec<Node>, Vec<EdgeDef>)) -> Network {
     }
 
     Network {
+        hospital_node: None,
         plan_nodes,
         plan_edges,
         schedule_scale: 3.0,

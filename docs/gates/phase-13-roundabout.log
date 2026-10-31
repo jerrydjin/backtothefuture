@@ -1,0 +1,12 @@
+   Compiling muse v0.1.0 (/workspace/backtothefuture)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.13s
+     Running tests/osm_import.rs (target/debug/deps/osm_import-83b81cdc965790c6)
+
+running 4 tests
+test directional_lane_tags_and_missing_geometry_are_handled_explicitly ... ok
+test distinct_roundabout_halves_are_not_mistaken_for_reverse_carriageways ... ok
+test deterministic_import_filters_access_and_keeps_largest_directed_component ... ok
+test importer_cli_writes_exact_format_and_rejects_bad_usage ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
