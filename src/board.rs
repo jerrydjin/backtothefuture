@@ -856,8 +856,10 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     if (p.y > bounds.maxY) bounds.maxY = p.y;
   }
   links.forEach(function (r) { r.pts.forEach(take); });
-  dinnerMain.pts.forEach(take);
-  dinnerRamp.pts.forEach(take);
+  if (!isRush) {
+    dinnerMain.pts.forEach(take);
+    dinnerRamp.pts.forEach(take);
+  }
 
   function svgNode(tag, attrs, text) {
     var node = document.createElementNS("http://www.w3.org/2000/svg", tag);
@@ -899,7 +901,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
 
   // One continuous road network. Bridges keep their white casing.
   function drawRoads(ctx, view) {
-    var lane = LANE_W * view.sc;
+    var lane = isRush ? Math.max(0.8, Math.min(2, LANE_W * view.sc)) : LANE_W * view.sc;
     function stroke(list, color, width) {
       list.forEach(function (r) {
         ctx.appendChild(svgNode("path", { d: pathFor(view, r.pts), fill: "none",
@@ -909,7 +911,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     var low = links.filter(function (r) { return r.level === 0; });
     var high = links.filter(function (r) { return r.level !== 0; });
     stroke(low, "#e2e2e2", lane + 0.6);
-    stroke(high.filter(function (r) { return r.cls !== "connector"; }), "#fff", lane + 1.6 * view.sc);
+    if (!isRush) stroke(high.filter(function (r) { return r.cls !== "connector"; }), "#fff", lane + 1.6 * view.sc);
     stroke(high, "#e2e2e2", lane + 0.6);
     if(!isRush)stroke([dinnerMain, dinnerRamp], "#e2e2e2", lane + 0.6);
   }
@@ -958,9 +960,10 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     };
   }
 
-  function drawCar(ctx, p, color, id) {
+  function drawCar(ctx, p, color, id, state) {
     ctx.appendChild(svgNode("rect", { x: -p.len, y: -p.wid / 2, width: p.len, height: p.wid,
-      rx: Math.min(1.05, p.wid / 4), fill: color, "data-car": id == null ? "dinner" : id,
+      rx: isRush ? 0 : Math.min(1.05, p.wid / 4), fill: color,
+      "data-state": state || "driving", "data-car": id == null ? "dinner" : id,
       transform: "translate(" + p.x + " " + p.y + ") rotate(" + (p.ang * 180 / Math.PI) + ")" }));
   }
 
@@ -1085,7 +1088,15 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
       var merging = ex && car[0] === (crossingFirst ? ex.yields : ex.merges);
       var priority = town.priority && town.priority.enabled && t >= town.priority.request.at_s && car[0] === town.priority.request.car_id &&
         (!town.story || town.story.priority_until_s == null || t < town.story.priority_until_s);
-      drawCar(ctx, p, priority ? "#2f6fdb" : (yielding || v < 2.5 ? "#d08a2a" : (merging ? "#333" : "#7a7a7a")), car[0]);
+      var makeWay = (a.make_way || []).find(function(s) { return s[0] === car[0]; });
+      var state = makeWay ? makeWay[2] : "driving";
+      var granted = isRush && data.rush.decisions.some(function(d) {
+        return d.car === car[0] && d.granted && d.at_s <= t;
+      });
+      var color = isRush ? (granted ? "#d23b3b" : (state === "pull_over" ? "#658bb0" :
+        (state === "hold" ? "#d08a2a" : "#7a7a7a"))) :
+        (priority ? "#2f6fdb" : (yielding || v < 2.5 ? "#d08a2a" : (merging ? "#333" : "#7a7a7a")));
+      drawCar(ctx, p, color, car[0], granted ? "emergency" : state);
       if (yielding) ctx.appendChild(svgNode("text", { x: p.x, y: p.y + 19, "text-anchor": "middle",
         fill: "#9b6520", "font-family": "system-ui, sans-serif", "font-size": 12, "data-role": "yield" }, "yield"));
       if (priority && !isDemo) ctx.appendChild(svgNode("text", { x: p.x, y: p.y + 20, "text-anchor": "middle",

@@ -125,7 +125,7 @@ impl ReplayArchive {
             let mut seen = BTreeSet::new();
             for (car, beneficiary, action) in &frame.make_way {
                 if car == beneficiary
-                    || !matches!(action.as_str(), "hold" | "clear")
+                    || !matches!(action.as_str(), "hold" | "clear" | "pull_over")
                     || !frame.cars.iter().any(|c| c.0 == *car)
                 {
                     return Err("replay has invalid make-way state".into());

@@ -27,7 +27,7 @@ fn main() -> ExitCode {
             }
         };
     }
-    let args = match Args::from_env() {
+    let mut args = match Args::from_env() {
         Ok(args) => args,
         Err(message) => {
             eprintln!("{message}");
@@ -39,6 +39,16 @@ fn main() -> ExitCode {
     if args.help {
         println!("{}", usage());
         return ExitCode::SUCCESS;
+    }
+    if args.demo && args.map.is_some() {
+        args.rush_hour = true;
+        args.boxed_in = true;
+        if args.policy == "fcfs" {
+            args.policy = "mock".into();
+        }
+        if !args.headless {
+            args.board = true;
+        }
     }
     if args.reason.is_some() {
         return match run_typed_reason(&args) {
@@ -605,6 +615,9 @@ fn run_typed_reason(args: &Args) -> Result<(), String> {
     };
     let mut session =
         muse::rush_board::Session::boxed(args.seed, policy_name, config, args.save_replay.clone())?;
+    if args.map.is_some() {
+        session.use_map(selected_map(args)?);
+    }
     if args.require_live {
         let decision = session.assess(reason)?;
         if decision.source != "model" || decision.provider != "baseten" {
