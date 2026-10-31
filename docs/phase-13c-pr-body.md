@@ -2,7 +2,7 @@ The SF experiment now starts on the real southbound Potrero arterial approach to
 
 Source: https://sfpublicworks.org/sites/default/files/3526-13_0730_Potrero%20Stscp%20Presentation.pdf#page=11
 
-Stack on codex/phase-13b-real-sf (#35). The map carries the cited profile and explicit Potrero edge path without geometry or driving-policy changes. Native town behavior is preserved. Reporting retains the same FCFS/local/broadcast runs and compares FCFS emergencies with solo trips.
+Implemented on codex/phase-13b-real-sf (#35). The Phase 11–13b stack (#31–#35) is now merged into main, so this follow-up targets main. The map carries the cited profile and explicit Potrero edge path without geometry or driving-policy changes. Native town behavior is preserved. Reporting retains the same FCFS/local/broadcast runs and compares FCFS emergencies with solo trips.
 
 Results, seeds 1–10: all 3,125 trips complete with zero collisions. Median FCFS delay by seed is 6.0–6.25 seconds. Gain vs FCFS and vs local is exactly 0 seconds, and others mean/p95 is 0 throughout. All probes are pull-over-able; single-lane has zero samples and null metrics. Demand was not increased after seeing the results.
 
