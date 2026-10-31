@@ -842,11 +842,56 @@ pub struct ScheduledCar {
     pub depart_s: f64,
 }
 
+#[derive(Clone, Copy, Debug, Serialize, serde::Deserialize)]
+pub struct BroadcastConfig {
+    pub speed_multiple: f64,
+    pub hop_delay_s: f64,
+    pub lookahead_s: f64,
+}
+impl Default for BroadcastConfig {
+    fn default() -> Self {
+        Self {
+            speed_multiple: 10.0,
+            hop_delay_s: 0.1,
+            lookahead_s: 240.0,
+        }
+    }
+}
+
+/// Host-generated message/action evidence. It contains no model controls.
+#[derive(Clone, Debug, Serialize, serde::Deserialize)]
+pub struct MessageHop {
+    pub beneficiary: u32,
+    pub route: usize,
+    pub at_s: f64,
+    pub route_m: f64,
+    pub ahead_m: f64,
+    pub lead_s: f64,
+    pub sender: String,
+    pub recipient: String,
+    pub recipient_car: Option<u32>,
+    pub connector: Option<usize>,
+    pub action: String,
+}
+struct Bulletin {
+    car: u32,
+    route: usize,
+    issued_at: f64,
+    junctions: Vec<(usize, f64)>,
+}
+
 struct Experiment {
     pending: Vec<VecDeque<ScheduledCar>>,
     first_ready: BTreeMap<(usize, u32), f64>,
     granted: BTreeSet<u32>,
     home: BTreeMap<u32, f64>,
+    route_by_car: BTreeMap<u32, usize>,
+    broadcast: Option<BroadcastConfig>,
+    bulletins: Vec<Bulletin>,
+    messages: Vec<MessageHop>,
+    boosted: BTreeSet<u32>,
+    held: BTreeSet<u32>,
+    notified: BTreeSet<(u32, u32, usize, String)>,
 }
 
 pub struct TownSim {
@@ -971,16 +1016,261 @@ impl TownSim {
             first_ready: BTreeMap::new(),
             granted: BTreeSet::new(),
             home: BTreeMap::new(),
+            route_by_car: schedule.iter().map(|s| (s.id, s.route)).collect(),
+            broadcast: None,
+            bulletins: Vec::new(),
+            messages: Vec::new(),
+            boosted: BTreeSet::new(),
+            held: BTreeSet::new(),
+            notified: BTreeSet::new(),
         });
         Ok(sim)
     }
 
     pub fn set_precedence(&mut self, car: u32, granted: bool) {
+        if granted {
+            self.publish_bulletin(car);
+        }
         if let Some(ex) = &mut self.experiment {
             if granted {
                 ex.granted.insert(car);
             } else {
                 ex.granted.remove(&car);
+            }
+        }
+    }
+
+    pub fn enable_broadcast(&mut self, config: BroadcastConfig) -> Result<(), String> {
+        if !config.speed_multiple.is_finite()
+            || config.speed_multiple <= 1.0
+            || !config.hop_delay_s.is_finite()
+            || config.hop_delay_s < 0.0
+            || !config.lookahead_s.is_finite()
+            || config.lookahead_s <= 0.0
+        {
+            return Err("invalid message propagation configuration".into());
+        }
+        self.experiment
+            .as_mut()
+            .ok_or("broadcast requires scheduled experiment")?
+            .broadcast = Some(config);
+        Ok(())
+    }
+
+    pub fn messages(&self) -> Vec<MessageHop> {
+        self.experiment
+            .as_ref()
+            .map(|e| e.messages.clone())
+            .unwrap_or_default()
+    }
+
+    fn publish_bulletin(&mut self, id: u32) {
+        let Some(ex) = self.experiment.as_ref() else {
+            return;
+        };
+        let Some(config) = ex.broadcast else {
+            return;
+        };
+        if ex.bulletins.iter().any(|b| b.car == id) {
+            return;
+        }
+        let Some(&route_id) = ex.route_by_car.get(&id) else {
+            return;
+        };
+        let route = &self.routes[route_id];
+        let origin = self
+            .cars
+            .iter()
+            .find(|c| c.id == id)
+            .map(|c| c.d)
+            .unwrap_or(0.0);
+        let mut relays: Vec<(f64, String, Option<u32>, Option<usize>, usize)> = Vec::new();
+        for (k, &link) in route.links.iter().enumerate() {
+            if self.net.links[link].is_connector() && route.start[k] > origin {
+                relays.push((
+                    route.start[k],
+                    format!("junction:{link}"),
+                    None,
+                    Some(link),
+                    k,
+                ));
+            }
+        }
+        for car in &self.cars {
+            if car.id == id {
+                continue;
+            }
+            let link = self.routes[car.route].links[car.idx];
+            if let Some(k) = route.links.iter().position(|l| *l == link) {
+                let pos = route.start[k] + car.d - self.routes[car.route].start[car.idx];
+                if pos > origin {
+                    relays.push((pos, format!("car:{}", car.id), Some(car.id), None, k));
+                }
+            }
+        }
+        relays.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
+        let mut last_pos = origin;
+        let mut at = self.time;
+        let mut sender = format!("car:{id}");
+        let mut messages = Vec::new();
+        let mut junctions = Vec::new();
+        for (pos, recipient, recipient_car, connector, k) in relays {
+            at += (pos - last_pos) / (V_MAX_MPS * config.speed_multiple) + config.hop_delay_s;
+            if connector.is_some() {
+                junctions.push((k, at));
+            }
+            messages.push(MessageHop {
+                beneficiary: id,
+                route: route_id,
+                at_s: at,
+                route_m: pos,
+                ahead_m: pos - origin,
+                lead_s: 0.0,
+                sender: sender.clone(),
+                recipient: recipient.clone(),
+                recipient_car,
+                connector,
+                action: "relay".into(),
+            });
+            sender = recipient;
+            last_pos = pos;
+        }
+        let ex = self.experiment.as_mut().unwrap();
+        ex.messages.extend(messages);
+        ex.bulletins.push(Bulletin {
+            car: id,
+            route: route_id,
+            issued_at: self.time,
+            junctions,
+        });
+    }
+
+    /// Optimistic planned arrival along existing speed limits; no speed command.
+    fn route_eta(&self, route: &Route, from: f64, to: f64) -> f64 {
+        let mut seconds = 0.0;
+        for (k, &link) in route.links.iter().enumerate() {
+            let begin = route.start[k].max(from);
+            let end = (route.start[k] + self.net.links[link].len).min(to);
+            if end > begin {
+                seconds += (end - begin) / self.net.links[link].speed;
+            }
+        }
+        seconds
+    }
+
+    fn update_make_way(&mut self) {
+        let Some(ex) = self.experiment.as_ref() else {
+            return;
+        };
+        let Some(config) = ex.broadcast else {
+            return;
+        };
+        let mut boosted = BTreeSet::new();
+        let mut held = BTreeSet::new();
+        let mut notifications = Vec::new();
+        let live: Vec<_> = ex
+            .bulletins
+            .iter()
+            .filter(|b| ex.granted.contains(&b.car))
+            .filter_map(|b| self.cars.iter().find(|c| c.id == b.car).map(|c| (b, c)))
+            .collect();
+        for car in &self.cars {
+            let Some(want_k) = self.next_connector(car) else {
+                continue;
+            };
+            // A reservation can be yielded before entry only while there is
+            // comfortable stopping room. Occupied crossings are never revoked.
+            if car.claim.is_some()
+                && self.routes[car.route].start[want_k] - car.d
+                    < car.v * car.v / (2.0 * IDM_B) + car.v * NET_DT_S + MIN_GAP_M + 0.5
+            {
+                continue;
+            }
+            let own = &self.routes[car.route];
+            let want = own.links[want_k];
+            let incoming = own.links[car.idx];
+            for (bulletin, urgent) in &live {
+                if bulletin.issued_at > self.time {
+                    continue;
+                }
+                // Never make a beneficiary yield to its own request. Its own
+                // grant also precedes younger bulletins at contested nodes.
+                if bulletin.car == car.id {
+                    break;
+                }
+                let path = &self.routes[bulletin.route];
+                for &(k, received_at) in &bulletin.junctions {
+                    if received_at > self.time
+                        || path.start[k] < urgent.d
+                        || self.net.links[path.links[k]].from != self.net.links[want].from
+                    {
+                        continue;
+                    }
+                    let eta = self.route_eta(path, urgent.d, path.start[k]);
+                    if eta > config.lookahead_s {
+                        continue;
+                    }
+                    let action = if incoming == path.links[k - 1]
+                        && path.start[k - 1] + car.d - own.start[car.idx] > urgent.d
+                        && car.id != bulletin.car
+                        && (car.waiting || car.v < QUEUED_MPS)
+                    {
+                        boosted.insert(car.id);
+                        "clear"
+                    } else if incoming != path.links[k - 1]
+                        && !ex.granted.contains(&car.id)
+                        && (self.net.conflicts_of(want).contains(&path.links[k])
+                            || want == path.links[k])
+                        && eta
+                            <= self.route_eta(own, car.d, own.start[want_k])
+                                + (self.net.links[want].len + CAR_LENGTH_M + MIN_GAP_M)
+                                    / self.net.links[want].speed
+                                + 1.0
+                    {
+                        held.insert(car.id);
+                        "hold"
+                    } else {
+                        continue;
+                    };
+                    let key = (bulletin.car, car.id, want, action.to_string());
+                    if !ex.notified.contains(&key) {
+                        notifications.push((
+                            key,
+                            MessageHop {
+                                beneficiary: bulletin.car,
+                                route: bulletin.route,
+                                at_s: self.time,
+                                route_m: path.start[k],
+                                ahead_m: path.start[k] - urgent.d,
+                                lead_s: eta,
+                                sender: format!("junction:{}", path.links[k]),
+                                recipient: format!("car:{}", car.id),
+                                recipient_car: Some(car.id),
+                                connector: Some(want),
+                                action: action.into(),
+                            },
+                        ));
+                    }
+                    break;
+                }
+                // The oldest applicable bulletin owns a contested movement.
+                if boosted.contains(&car.id) || held.contains(&car.id) {
+                    break;
+                }
+            }
+        }
+        for car in &mut self.cars {
+            if held.contains(&car.id) && car.claim.is_some() {
+                car.claim = None;
+                car.waiting = true;
+            }
+        }
+        let ex = self.experiment.as_mut().unwrap();
+        ex.boosted = boosted;
+        ex.held = held;
+        for (key, event) in notifications {
+            if ex.notified.insert(key) {
+                ex.messages.push(event);
             }
         }
     }
@@ -1014,19 +1304,31 @@ impl TownSim {
         }
     }
 
-    fn local_precedence(&self, ci: usize) -> bool {
+    fn local_precedence(&self, ci: usize) -> u8 {
         let Some(ex) = &self.experiment else {
-            return false;
+            return 0;
         };
         let car = &self.cars[ci];
-        ex.granted.contains(&car.id)
-            || self.cars.iter().any(|urgent| {
-                ex.granted.contains(&urgent.id)
-                    && self.routes[urgent.route].links[urgent.idx]
-                        == self.routes[car.route].links[car.idx]
-                    && car.d >= urgent.d
-                    && car.d - urgent.d <= MEET_M
-            })
+        if ex.granted.contains(&car.id) {
+            return 3;
+        }
+        if self.cars.iter().any(|urgent| {
+            ex.granted.contains(&urgent.id)
+                && self.routes[urgent.route].links[urgent.idx]
+                    == self.routes[car.route].links[car.idx]
+                && car.d - self.routes[car.route].start[car.idx]
+                    >= urgent.d - self.routes[urgent.route].start[urgent.idx]
+                && (car.d - self.routes[car.route].start[car.idx])
+                    - (urgent.d - self.routes[urgent.route].start[urgent.idx])
+                    <= MEET_M
+        }) {
+            return 2;
+        }
+        if ex.boosted.contains(&car.id) {
+            1
+        } else {
+            0
+        }
     }
 
     pub fn time(&self) -> f64 {
@@ -1091,6 +1393,7 @@ impl TownSim {
             }
         }
         self.release_claims();
+        self.update_make_way();
         let index = self.index();
         self.revoke_stale_claims(&index);
         self.arbitrate(&index);
@@ -1269,6 +1572,13 @@ impl TownSim {
         held: &[Vec<usize>],
         index: &[Vec<Body>],
     ) -> bool {
+        if self
+            .experiment
+            .as_ref()
+            .is_some_and(|e| e.held.contains(&self.cars[ci].id))
+        {
+            return false;
+        }
         if self.must_yield(self.cars[ci].id) {
             return false;
         }

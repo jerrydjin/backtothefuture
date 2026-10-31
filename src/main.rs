@@ -214,6 +214,10 @@ fn main() -> ExitCode {
 struct Args {
     rush_hour: bool,
     no_history: bool,
+    local_only: bool,
+    message_speed: f64,
+    hop_delay: f64,
+    lookahead_minutes: f64,
     policy: String,
     seed: u64,
     score: Option<std::path::PathBuf>,
@@ -243,6 +247,10 @@ impl Args {
         let mut parsed = Args {
             rush_hour: false,
             no_history: false,
+            local_only: false,
+            message_speed: 10.0,
+            hop_delay: 0.1,
+            lookahead_minutes: 4.0,
             policy: "fcfs".into(),
             seed: 7,
             score: None,
@@ -271,6 +279,28 @@ impl Args {
             match arg.as_str() {
                 "--rush-hour" => parsed.rush_hour = true,
                 "--no-history" => parsed.no_history = true,
+                "--local-only" => parsed.local_only = true,
+                "--message-speed" => {
+                    parsed.message_speed = args
+                        .next()
+                        .ok_or("--message-speed needs a multiple")?
+                        .parse()
+                        .map_err(|_| "invalid message speed")?
+                }
+                "--hop-delay" => {
+                    parsed.hop_delay = args
+                        .next()
+                        .ok_or("--hop-delay needs seconds")?
+                        .parse()
+                        .map_err(|_| "invalid hop delay")?
+                }
+                "--lookahead-minutes" => {
+                    parsed.lookahead_minutes = args
+                        .next()
+                        .ok_or("--lookahead-minutes needs minutes")?
+                        .parse()
+                        .map_err(|_| "invalid lookahead")?
+                }
                 "--policy" => parsed.policy = args.next().ok_or("--policy needs a name")?,
                 "--seed" => {
                     parsed.seed = args
@@ -430,6 +460,10 @@ Knobs:
   --seed N                fixed rush-hour demand seed
   --score FILE            write the paired rush-hour score JSON
   --no-history            compare rush hour without completed rider history
+  --local-only            use neighbouring-car precedence without propagation
+  --message-speed X       message speed as a multiple of maximum car speed
+  --hop-delay SECONDS     abstract forwarding delay per car/junction hop
+  --lookahead-minutes N   prepare relevant route conflicts within N minutes
   --export-replay HTML     export --replay FILE as a standalone offline board
   --replay FILE            play that saved result with zero model calls
   --help
@@ -514,8 +548,17 @@ fn run_rush_hour(args: &Args) -> Result<(), String> {
         return Err("rush-hour currently supports headless scoring; legacy board and reason modes remain available separately".into());
     }
     let policy = muse::rush_hour::policy(&args.policy)?;
+    let config = if args.local_only {
+        None
+    } else {
+        Some(muse::network::BroadcastConfig {
+            speed_multiple: args.message_speed,
+            hop_delay_s: args.hop_delay,
+            lookahead_s: args.lookahead_minutes * 60.0,
+        })
+    };
     let mut result =
-        muse::rush_hour::run_with_history(args.seed, policy.as_ref(), !args.no_history)?;
+        muse::rush_hour::run_experiment(args.seed, policy.as_ref(), !args.no_history, config)?;
     if args.require_live && result.score.model_decisions != result.run.decisions.len() {
         result.score.passed = false;
     }
