@@ -10,7 +10,24 @@ use muse::{
 };
 
 fn main() -> ExitCode {
-    let args = match Args::from_env() {
+    if std::env::args().nth(1).as_deref() == Some("import-osm") {
+        let args: Vec<_> = std::env::args().skip(2).collect();
+        let result = (|| -> Result<(), String> {
+            if args.len() != 3 || args[1] != "--out" {
+                return Err("usage: muse import-osm FILE.osm --out maps/X.json".into());
+            }
+            let text = std::fs::read_to_string(&args[0]).map_err(|e| e.to_string())?;
+            muse::osm::import(&text)?.write(&args[2])
+        })();
+        return match result {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => {
+                eprintln!("import-osm: {e}");
+                ExitCode::from(1)
+            }
+        };
+    }
+    let mut args = match Args::from_env() {
         Ok(args) => args,
         Err(message) => {
             eprintln!("{message}");
@@ -22,6 +39,16 @@ fn main() -> ExitCode {
     if args.help {
         println!("{}", usage());
         return ExitCode::SUCCESS;
+    }
+    if args.demo && args.map.is_some() {
+        args.rush_hour = true;
+        args.boxed_in = true;
+        if args.policy == "fcfs" {
+            args.policy = "mock".into();
+        }
+        if !args.headless {
+            args.board = true;
+        }
     }
     if args.reason.is_some() {
         return match run_typed_reason(&args) {
@@ -116,6 +143,9 @@ fn main() -> ExitCode {
                 eprintln!("{error}");
                 return ExitCode::from(1);
             }
+        }
+        if args.headless {
+            return ExitCode::SUCCESS;
         }
         return match muse::board_server::serve_replay(&archive.board, !args.no_open) {
             Ok(()) => ExitCode::SUCCESS,
@@ -452,7 +482,9 @@ impl Args {
         if parsed.demo && parsed.save_replay.is_some() && !parsed.headless {
             return Err("record a demo with --demo --headless --save-replay FILE".into());
         }
-        if (parsed.headless || parsed.require_live || parsed.gate_log.is_some())
+        if ((parsed.headless && parsed.replay.is_none())
+            || parsed.require_live
+            || parsed.gate_log.is_some())
             && !parsed.demo
             && parsed.reason.is_none()
             && !parsed.rush_hour
@@ -513,7 +545,7 @@ Usage:
 
 Knobs:
   --demo                   play the finite normal/merge/priority/competing story
-  --headless               drive the same demo over HTTP without a browser
+  --headless               run without a browser; --replay uses saved data
   --require-live           fail the headless gate unless every reply is Baseten
   --include-weak           also gate the weak-request grant and repeated refusals
   --gate-log FILE          append the headless run report as JSONL
@@ -588,6 +620,9 @@ fn run_typed_reason(args: &Args) -> Result<(), String> {
     };
     let mut session =
         muse::rush_board::Session::boxed(args.seed, policy_name, config, args.save_replay.clone())?;
+    if args.map.is_some() {
+        session.use_map(selected_map(args)?);
+    }
     if args.require_live {
         let decision = session.assess(reason)?;
         if decision.source != "model" || decision.provider != "baseten" {

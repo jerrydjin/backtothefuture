@@ -488,13 +488,19 @@ pub fn population_on(seed: u64, net: &Network) -> Vec<Trip> {
     let mut hospital: Vec<_> = routes
         .iter()
         .enumerate()
-        .filter(|(_, (_, sink, _))| *sink == 4)
+        .filter(|(_, (_, sink, _))| {
+            net.hospital_node
+                .map_or(*sink == 4, |id| net.sink_node(*sink) == id)
+        })
         .map(|(i, _)| i)
         .collect();
     let mut gym: Vec<_> = routes
         .iter()
         .enumerate()
-        .filter(|(_, (_, sink, _))| *sink == 5)
+        .filter(|(_, (_, sink, _))| {
+            net.hospital_node
+                .map_or(*sink == 5, |id| net.sink_node(*sink) != id)
+        })
         .map(|(i, _)| i)
         .collect();
     if hospital.is_empty() {
@@ -587,7 +593,25 @@ fn fast_class(class: RoadClass) -> bool {
 /// Hospital corridors that open on two fast links and then drop through a ramp.
 /// Computed from the map. On the current town these are routes 3, 34 and 40.
 fn corridor_routes(net: &Network) -> Vec<usize> {
-    net.routes()
+    if let Some(hospital) = net.hospital_node {
+        return net
+            .routes()
+            .iter()
+            .enumerate()
+            .filter_map(|(i, (_, sink, route))| {
+                (net.sink_node(*sink) == hospital
+                    && route
+                        .links
+                        .iter()
+                        .filter(|l| !net.links[**l].is_connector())
+                        .count()
+                        >= 2)
+                    .then_some(i)
+            })
+            .collect();
+    }
+    let native: Vec<_> = net
+        .routes()
         .iter()
         .enumerate()
         .filter_map(|(index, (_, sink, route))| {
@@ -609,6 +633,25 @@ fn corridor_routes(net: &Network) -> Vec<usize> {
                 .any(|link| net.links[*link].class == RoadClass::Ramp);
             (fast_class(net.links[plain[0]].class) && fast_class(net.links[plain[1]].class) && ramp)
                 .then_some(index)
+        })
+        .collect();
+    if !native.is_empty() {
+        return native;
+    }
+    // Imported maps need no motorway, ramp or city-specific exception.
+    let routes = net.routes();
+    routes
+        .iter()
+        .enumerate()
+        .filter_map(|(i, (_, sink, route))| {
+            (*sink == 4
+                && route
+                    .links
+                    .iter()
+                    .filter(|l| !net.links[**l].is_connector())
+                    .count()
+                    >= 2)
+                .then_some(i)
         })
         .collect()
 }
@@ -724,7 +767,14 @@ fn on_map_travel(run: &Run, car: u32) -> Result<f64, String> {
 /// Emergency delay against a solo free-flow trip, excluding time spent waiting
 /// off the map to enter. Frame resolution is one second on both sides.
 pub fn emergency_on_map_delays(seed: u64) -> Result<(usize, usize, Vec<f64>, u32, usize), String> {
-    let trips = boxed_population(seed);
+    emergency_on_map_delays_on(seed, &Network::town())
+}
+
+pub fn emergency_on_map_delays_on(
+    seed: u64,
+    net: &Network,
+) -> Result<(usize, usize, Vec<f64>, u32, usize), String> {
+    let trips = boxed_population_on(seed, net)?;
     let origin = trips
         .iter()
         .find(|t| t.truth == Truth::Emergency)
@@ -734,12 +784,12 @@ pub fn emergency_on_map_delays(seed: u64) -> Result<(usize, usize, Vec<f64>, u32
         .iter()
         .filter(|t| t.truth == Truth::Ordinary && t.route == origin)
         .count();
-    let jam = simulate_trips(seed, &Fcfs, true, None, trips.clone())?;
+    let jam = simulate_trips_on(seed, &Fcfs, true, None, trips.clone(), net)?;
     let collisions = jam.town.stats.overlaps + jam.town.stats.crossing_conflicts;
     let completed = jam.home.len();
     let mut delays = Vec::new();
     for trip in trips.iter().filter(|t| t.truth == Truth::Emergency) {
-        let solo = simulate_trips(seed, &Fcfs, true, None, vec![trip.clone()])?;
+        let solo = simulate_trips_on(seed, &Fcfs, true, None, vec![trip.clone()], net)?;
         delays.push(on_map_travel(&jam, trip.car)? - on_map_travel(&solo, trip.car)?);
     }
     Ok((origin, pulse, delays, collisions, completed))

@@ -198,7 +198,9 @@ impl Route {
 
 #[derive(Clone, Debug)]
 pub struct Network {
+    pub attribution: Option<String>,
     plan_nodes: Vec<Node>,
+    pub hospital_node: Option<usize>,
     plan_edges: Vec<EdgeDef>,
     schedule_scale: f64,
     pub links: Vec<Link>,
@@ -231,6 +233,8 @@ impl Network {
         use crate::road_map::*;
         let mut map = RoadMap {
             version: 1,
+            hospital_node: self.hospital_node,
+            attribution: self.attribution.clone(),
             origin: [51.5, -0.1],
             schedule_scale: self.schedule_scale,
             nodes: Vec::new(),
@@ -317,6 +321,8 @@ impl Network {
             .collect::<Result<Vec<_>, String>>()?;
         let mut net = build((nodes, edges));
         net.schedule_scale = map.schedule_scale;
+        net.hospital_node = map.hospital_node;
+        net.attribution = map.attribution.clone();
         if net
             .links
             .iter()
@@ -326,6 +332,10 @@ impl Network {
             return Err("map has degenerate geometry or no drivable source-to-sink route".into());
         }
         Ok(net)
+    }
+
+    pub fn sink_node(&self, index: usize) -> usize {
+        self.links[self.sinks[index].link].to
     }
 
     pub fn junction_count(&self) -> usize {
@@ -550,6 +560,23 @@ fn build((nodes, edges): (Vec<Node>, Vec<EdgeDef>)) -> Network {
         id
     };
 
+    // Distinct curves with the same endpoints (e.g. a roundabout's halves)
+    // are not reverse carriageways. Match the whole centreline geometry.
+    let mut directed_pairs: BTreeMap<(usize, usize), Vec<usize>> = BTreeMap::new();
+    for (i, e) in edges.iter().enumerate().filter(|(_, e)| !e.two_way) {
+        directed_pairs.entry((e.a, e.b)).or_default().push(i);
+    }
+    let mut reverse_edges = BTreeSet::new();
+    for (i, e) in edges.iter().enumerate().filter(|(_, e)| !e.two_way) {
+        if let Some(candidates) = directed_pairs.get(&(e.b, e.a)) {
+            for j in candidates {
+                if e.via.iter().eq(edges[*j].via.iter().rev()) {
+                    reverse_edges.insert((i, *j));
+                }
+            }
+        }
+    }
+    let has_reverse: BTreeSet<_> = reverse_edges.iter().map(|(i, _)| *i).collect();
     for (index, edge) in edges.iter().enumerate() {
         let mut shape = vec![nodes[edge.a].pos];
         shape.extend(edge.via.iter().copied());
@@ -558,7 +585,7 @@ fn build((nodes, edges): (Vec<Node>, Vec<EdgeDef>)) -> Network {
         let geometry_length = *measures(&base).last().unwrap();
         let length_factor = edge.length_m.map(|n| n / geometry_length).unwrap_or(1.0);
         let half = LANE_WIDTH_M / 2.0;
-        let forward = if edge.two_way {
+        let forward = if edge.two_way || has_reverse.contains(&index) {
             offset(&base, half)
         } else {
             base.clone()
@@ -598,8 +625,10 @@ fn build((nodes, edges): (Vec<Node>, Vec<EdgeDef>)) -> Network {
         let outs: Vec<usize> = (0..roads).filter(|&l| links[l].from == node).collect();
         for &i in &ins {
             for &o in &outs {
-                if links[i].edge == links[o].edge {
-                    continue; // no U-turns
+                if links[i].edge == links[o].edge
+                    || reverse_edges.contains(&(links[i].edge, links[o].edge))
+                {
+                    continue; // no U-turns, including separately tagged directions
                 }
                 let p0 = *links[i].pts.last().expect("link end");
                 let d0 = end_dir(&links[i].pts);
@@ -666,14 +695,14 @@ fn build((nodes, edges): (Vec<Node>, Vec<EdgeDef>)) -> Network {
     let mut sources = Vec::new();
     let mut sinks = Vec::new();
     for link in links.iter().take(roads) {
-        if degree[link.from] == 1 && nodes[link.from].rate > 0.0 {
+        if nodes[link.from].rate > 0.0 {
             sources.push(Source {
                 link: link.id,
                 rate: nodes[link.from].rate,
                 gate: nodes[link.from].gate,
             });
         }
-        if degree[link.to] == 1 && nodes[link.to].weight > 0.0 {
+        if nodes[link.to].weight > 0.0 {
             sinks.push(Sink {
                 link: link.id,
                 weight: nodes[link.to].weight,
@@ -683,6 +712,8 @@ fn build((nodes, edges): (Vec<Node>, Vec<EdgeDef>)) -> Network {
     }
 
     Network {
+        attribution: None,
+        hospital_node: None,
         plan_nodes,
         plan_edges,
         schedule_scale: 3.0,
@@ -863,6 +894,8 @@ impl TownExchange {
 /// A recorded run of the town, ready to draw.
 #[derive(Clone, Debug, Serialize, serde::Deserialize)]
 pub struct NetworkRun {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attribution: Option<String>,
     pub links: Vec<Link>,
     pub routes: Vec<Vec<usize>>,
     pub frames: Vec<NetFrame>,
@@ -1576,6 +1609,21 @@ impl TownSim {
             if chosen.is_none() && lane.is_none() && config.reroutes {
                 let urgent_path = &self.routes[route].links;
                 let sink = *old.links.last().unwrap();
+                // Occupancy is constant during this search. Count each car
+                // once per remaining link, exactly as the previous contains()
+                // scan did. Rebuild for each serial candidate so earlier
+                // lane changes/reroutes remain visible to the next search.
+                let mut occupied = vec![0usize; self.net.links.len()];
+                for other in &self.cars {
+                    let r = &self.routes[other.route];
+                    for next in r.links[other.idx..]
+                        .iter()
+                        .copied()
+                        .collect::<BTreeSet<_>>()
+                    {
+                        occupied[next] += 1;
+                    }
+                }
                 let mut best = vec![f64::INFINITY; self.net.links.len()];
                 let mut prev = vec![None; self.net.links.len()];
                 let mut heap = BinaryHeap::new();
@@ -1590,17 +1638,9 @@ impl TownSim {
                         if next != sink && urgent_path.contains(&next) {
                             continue;
                         }
-                        let occupied = self
-                            .cars
-                            .iter()
-                            .filter(|other| {
-                                let r = &self.routes[other.route];
-                                r.links[other.idx..].contains(&next)
-                            })
-                            .count() as f64;
                         let dist = cost
                             + self.net.links[next].len / self.net.links[next].speed
-                            + occupied * 2.5;
+                            + occupied[next] as f64 * 2.5;
                         if dist < best[next] {
                             best[next] = dist;
                             prev[next] = Some(at);
@@ -1986,6 +2026,7 @@ impl TownSim {
         stats: NetStats,
     ) -> NetworkRun {
         NetworkRun {
+            attribution: self.net.attribution.clone(),
             links: self.net.links.clone(),
             routes: self.routes.iter().map(|r| r.links.clone()).collect(),
             frames,
@@ -3077,6 +3118,12 @@ impl TownSim {
                     ex.yielding_for
                         .iter()
                         .map(|(car, (beneficiary, action))| (*car, *beneficiary, action.clone()))
+                        .chain(
+                            ex.pull_over
+                                .iter()
+                                .filter(|(_, p)| !p.released)
+                                .map(|(car, p)| (*car, p.beneficiary, "pull_over".into())),
+                        )
                         .collect()
                 })
                 .unwrap_or_default(),
@@ -3203,6 +3250,7 @@ fn record_town(mut sim: TownSim) -> NetworkRun {
         baseline_time_home_s: None,
     });
     NetworkRun {
+        attribution: sim.net.attribution.clone(),
         links: sim.net.links.clone(),
         routes,
         frames,
