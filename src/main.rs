@@ -33,6 +33,20 @@ fn main() -> ExitCode {
         };
     }
 
+    if let Some(path) = &args.export_map {
+        let result = selected_map(&args).and_then(|net| net.to_road_map().write(path));
+        if let Err(e) = result {
+            eprintln!("{e}");
+            return ExitCode::from(1);
+        }
+        if !args.rush_hour {
+            return ExitCode::SUCCESS;
+        }
+    }
+    if args.map.is_some() && !args.rush_hour {
+        eprintln!("--map needs --rush-hour or --scenario boxed-in");
+        return ExitCode::from(1);
+    }
     if args.rush_hour {
         return match run_rush_hour(&args) {
             Ok(()) => ExitCode::SUCCESS,
@@ -223,6 +237,8 @@ fn main() -> ExitCode {
 struct Args {
     decision_log: Option<std::path::PathBuf>,
     rush_hour: bool,
+    map: Option<std::path::PathBuf>,
+    export_map: Option<std::path::PathBuf>,
     boxed_in: bool,
     no_history: bool,
     local_only: bool,
@@ -260,6 +276,8 @@ impl Args {
         let mut parsed = Args {
             decision_log: None,
             rush_hour: false,
+            map: None,
+            export_map: None,
             boxed_in: false,
             no_history: false,
             local_only: false,
@@ -297,6 +315,11 @@ impl Args {
                 "--decision-log" => {
                     parsed.decision_log =
                         Some(args.next().ok_or("--decision-log needs a path")?.into())
+                }
+                "--map" => parsed.map = Some(args.next().ok_or("--map needs a JSON path")?.into()),
+                "--export-map" => {
+                    parsed.export_map =
+                        Some(args.next().ok_or("--export-map needs a JSON path")?.into())
                 }
                 "--rush-hour" => parsed.rush_hour = true,
                 "--scenario" => {
@@ -503,6 +526,8 @@ Knobs:
   --priority-baseline      the same trip without its priority request
   --story KIND             competing | abuse | emergency | chain | counter-offer
   --save-replay FILE       save trajectories, dialogue, reasons, and reply times
+  --map FILE              load a version-1 local road graph
+  --export-map FILE       export the current graph as version-1 JSON
   --rush-hour             run a seeded rush-hour policy experiment
   --policy NAME           fcfs, keyword, mock, or live
   --seed N                fixed rush-hour demand seed
@@ -748,6 +773,13 @@ fn run_reason(args: &Args) -> Result<(), String> {
     Ok(())
 }
 
+fn selected_map(args: &Args) -> Result<muse::network::Network, String> {
+    match &args.map {
+        Some(path) => muse::road_map::RoadMap::read(path)?.network(),
+        None => Ok(muse::network::Network::town()),
+    }
+}
+
 fn run_rush_hour(args: &Args) -> Result<(), String> {
     let policy = muse::rush_hour::policy(&args.policy)?;
     let config = if args.local_only {
@@ -761,11 +793,20 @@ fn run_rush_hour(args: &Args) -> Result<(), String> {
             ..Default::default()
         })
     };
-    let mut result = if args.boxed_in {
-        muse::rush_hour::run_boxed(args.seed, policy.as_ref(), !args.no_history, config)?
+    let net = selected_map(args)?;
+    let trips = if args.boxed_in {
+        muse::rush_hour::boxed_population_on(args.seed, &net)?
     } else {
-        muse::rush_hour::run_experiment(args.seed, policy.as_ref(), !args.no_history, config)?
+        muse::rush_hour::population_on(args.seed, &net)
     };
+    let mut result = muse::rush_hour::run_on_map(
+        args.seed,
+        policy.as_ref(),
+        !args.no_history,
+        config,
+        trips,
+        &net,
+    )?;
     if args.require_live && result.score.model_decisions != result.run.decisions.len() {
         result.score.passed = false;
     }
@@ -813,6 +854,7 @@ fn run_rush_hour(args: &Args) -> Result<(), String> {
             args.save_replay.clone(),
             args.boxed_in,
         );
+        session.use_map(net.clone());
         if let Some(reason) = &args.reason {
             if args.reason_debug {
                 muse::reason::enable_reason_debug();

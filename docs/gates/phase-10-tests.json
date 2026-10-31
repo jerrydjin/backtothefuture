@@ -1,0 +1,7 @@
+{
+  "command": "cargo test --release --offline",
+  "passed": 146,
+  "failed": 0,
+  "ignored": 3,
+  "live_run": false
+}
