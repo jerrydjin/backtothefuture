@@ -74,6 +74,9 @@ pub struct Decision {
 pub trait Policy: Send + Sync {
     fn name(&self) -> &str;
     fn decide(&self, request: &PolicyRequest) -> Decision;
+    /// Prepare independent claims only. No future outcomes or controls enter here.
+    /// Decisions remain unapplied until their original simulation timestamp.
+    fn prepare(&self, _requests: &[PolicyRequest]) {}
     fn decide_batch(&self, requests: &[PolicyRequest]) -> Vec<Decision> {
         requests.iter().map(|r| self.decide(r)).collect()
     }
@@ -200,6 +203,7 @@ pub struct Live {
     client: Option<crate::muse::GeminiChat>,
     started: std::time::Instant,
     run_budget: std::time::Duration,
+    prepared: std::sync::Mutex<BTreeMap<String, Decision>>,
 }
 impl Live {
     pub fn from_env() -> Self {
@@ -212,7 +216,7 @@ impl Live {
         });
         Self::with_client_budget(
             endpoint.map(crate::muse::GeminiChat::from_endpoint),
-            std::time::Duration::from_secs(90),
+            std::time::Duration::from_secs(540),
         )
     }
 
@@ -224,6 +228,7 @@ impl Live {
             client,
             started: std::time::Instant::now(),
             run_budget,
+            prepared: Default::default(),
         }
     }
 
@@ -390,26 +395,60 @@ impl Policy for Live {
     fn name(&self) -> &str {
         "live"
     }
+    fn prepare(&self, requests: &[PolicyRequest]) {
+        // Use exactly the public request as the cache key, including history.
+        // A changed claim/history cannot reuse a decision for the same car.
+        let decisions = self.decide_batch(requests);
+        let mut cache = self.prepared.lock().unwrap();
+        cache.clear();
+        for (request, decision) in requests.iter().zip(decisions) {
+            cache.insert(serde_json::to_string(request).unwrap(), decision);
+        }
+    }
     fn decide(&self, r: &PolicyRequest) -> Decision {
-        self.batch(std::slice::from_ref(r)).remove(0)
+        self.decide_batch(std::slice::from_ref(r)).remove(0)
     }
     fn decide_batch(&self, requests: &[PolicyRequest]) -> Vec<Decision> {
-        // At most four simultaneous provider calls. Each call handles twelve
-        // contemporaneous conflicts, with its own 28s and a shared run deadline.
-        let mut result = Vec::new();
-        for wave in requests.chunks(48) {
-            let mut decisions = std::thread::scope(|scope| {
-                let handles: Vec<_> = wave
-                    .chunks(12)
+        let keys: Vec<_> = requests
+            .iter()
+            .map(|r| serde_json::to_string(r).unwrap())
+            .collect();
+        let mut cache = self.prepared.lock().unwrap();
+        let mut ready = BTreeMap::new();
+        let mut missing = Vec::new();
+        for (i, key) in keys.iter().enumerate() {
+            if let Some(d) = cache.remove(key) {
+                ready.insert(i, d);
+            } else {
+                missing.push(i);
+            }
+        }
+        drop(cache);
+        // Four provider calls maximum, twelve independent rows per call.
+        // Every row's retries share its chunk's 28-second deadline; all work
+        // also obeys the 540-second run ceiling (including queueing).
+        for wave in missing.chunks(48) {
+            let chunks: Vec<Vec<_>> = wave
+                .chunks(12)
+                .map(|ids| ids.iter().map(|i| requests[*i].clone()).collect())
+                .collect();
+            let batches = std::thread::scope(|scope| {
+                let handles: Vec<_> = chunks
+                    .iter()
                     .map(|chunk| scope.spawn(move || self.batch(chunk)))
                     .collect();
                 handles
                     .into_iter()
-                    .flat_map(|h| h.join().expect("batch worker"))
+                    .map(|h| h.join().expect("batch worker"))
                     .collect::<Vec<_>>()
             });
-            result.append(&mut decisions);
+            for (i, d) in wave.iter().zip(batches.into_iter().flatten()) {
+                ready.insert(*i, d);
+            }
         }
+        let result = (0..requests.len())
+            .map(|i| ready.remove(&i).unwrap())
+            .collect();
         result
     }
 }
@@ -750,6 +789,9 @@ pub struct Score {
     pub collateral: f64,
     pub model_decisions: usize,
     pub fallback_decisions: usize,
+    /// Absent for offline runs to preserve their exact wire bytes.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fallback_causes: BTreeMap<String, usize>,
     pub collisions: u32,
     pub baseline_collisions: u32,
     pub passed: bool,
@@ -827,6 +869,24 @@ pub(crate) fn simulate_trips_on(
     if let Some(config) = broadcast {
         sim.enable_broadcast(config)?;
     }
+    // Earliest claims cannot have a completed earlier trip for their rider.
+    // Repeated claims are assessed later, against actual completed history.
+    let mut riders = BTreeSet::new();
+    let independent: Vec<_> = trips
+        .iter()
+        .filter(|t| {
+            let first = riders.insert(t.rider);
+            !history_enabled || first
+        })
+        .map(|t| PolicyRequest {
+            car: t.car,
+            rider: t.rider,
+            reason: t.reason.clone(),
+            at_s: t.request_s,
+            history: Vec::new(),
+        })
+        .collect();
+    policy.prepare(&independent);
     let mut stats = NetStats::default();
     let mut frames = Vec::new();
     let mut cursor = 0;
@@ -1005,6 +1065,13 @@ pub fn score(seed: u64, policy: &str, run: &Run, baseline: &Run) -> Result<Score
             .iter()
             .filter(|d| d.source == "fallback")
             .count(),
+        fallback_causes: {
+            let mut counts = BTreeMap::new();
+            for d in run.decisions.iter().filter(|d| d.source == "fallback") {
+                *counts.entry(d.fallback_reason.clone()).or_insert(0) += 1;
+            }
+            counts
+        },
         collisions,
         baseline_collisions,
         passed: collisions == 0

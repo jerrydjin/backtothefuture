@@ -1,0 +1,11 @@
+    Blocking waiting for file lock on build directory
+   Compiling muse v0.1.0 (/workspace/backtothefuture)
+    Finished `release` profile [optimized] target(s) in 1m 40s
+     Running tests/live_prefetch.rs (target/release/deps/live_prefetch-3c0d78133b267409)
+
+running 2 tests
+test prefetch_contains_only_independent_claims_and_preserves_causal_history ... ok
+test score_counts_each_fallback_cause_without_changing_mock_wire_bytes ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.30s
+
