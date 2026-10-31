@@ -23,6 +23,7 @@ pub mod prefs;
 pub mod reason;
 pub mod reason_server;
 pub mod replay;
+pub mod road_map;
 pub mod rush_board;
 pub mod rush_hour;
 pub mod rush_server;

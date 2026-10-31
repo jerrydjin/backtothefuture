@@ -103,6 +103,7 @@ pub struct Session {
     session_s: f64,
     save: Option<PathBuf>,
     boxed: bool,
+    net: crate::network::Network,
 }
 impl Session {
     /// Boxed corridor, mock background grants, and a policy used only for the
@@ -140,6 +141,7 @@ impl Session {
             session_s: 0.0,
             save,
             boxed: true,
+            net: crate::network::Network::town(),
         })
     }
 
@@ -165,13 +167,17 @@ impl Session {
             session_s: 0.0,
             save,
             boxed,
+            net: crate::network::Network::town(),
         }
     }
-    fn trips(&self) -> Vec<rush_hour::Trip> {
+    pub fn use_map(&mut self, net: crate::network::Network) {
+        self.net = net;
+    }
+    fn trips(&self) -> Result<Vec<rush_hour::Trip>, String> {
         if self.boxed {
-            rush_hour::boxed_population(self.seed)
+            rush_hour::boxed_population_on(self.seed, &self.net)
         } else {
-            rush_hour::population(self.seed)
+            Ok(rush_hour::population_on(self.seed, &self.net))
         }
     }
 
@@ -204,7 +210,7 @@ impl Session {
     /// One policy call for the typed rider. Does not tick the town, so a
     /// `--require-live` miss can fail closed without a boxed replay.
     pub fn assess(&self, reason: &ReasonText) -> Result<Decision, String> {
-        let trips = self.trips();
+        let trips = self.trips()?;
         let index = Self::typed_index(&trips, self.boxed)?;
         let trip = &trips[index];
         let request = PolicyRequest {
@@ -221,7 +227,7 @@ impl Session {
     }
 
     pub fn evaluate(&mut self, reason: &ReasonText) -> Result<DinnerBoard, String> {
-        let mut trips = self.trips();
+        let mut trips = self.trips()?;
         // A unique rider. On the ordinary board this is an actual gym route:
         // unknown on their first claim. The planned destination is NOT passed
         // to the policy. Only a completed trip can become evidence later.
@@ -249,7 +255,14 @@ impl Session {
         let mut fixed = self.decisions.clone();
         fixed.insert(target.car, decision.clone());
         let policy = rush_hour::RecordedPolicy { decisions: fixed };
-        let result = rush_hour::run_custom(self.seed, &policy, true, self.config, trips.clone())?;
+        let result = rush_hour::run_on_map(
+            self.seed,
+            &policy,
+            true,
+            self.config,
+            trips.clone(),
+            &self.net,
+        )?;
         if !result.score.passed {
             return Err("typed rush-hour simulation failed safety/completion checks".into());
         }
@@ -264,7 +277,7 @@ impl Session {
             denied.requester = "Fair, I'll wait my turn".into();
             let mut deny_fixed = self.decisions.clone();
             deny_fixed.insert(target.car, denied);
-            let denied_run = rush_hour::run_custom(
+            let denied_run = rush_hour::run_on_map(
                 self.seed,
                 &rush_hour::RecordedPolicy {
                     decisions: deny_fixed,
@@ -272,6 +285,7 @@ impl Session {
                 true,
                 self.config,
                 trips,
+                &self.net,
             )?;
             if !denied_run.score.passed {
                 return Err("denied twin failed safety/completion checks".into());

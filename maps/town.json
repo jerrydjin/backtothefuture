@@ -1,0 +1,959 @@
+{
+  "version": 1,
+  "origin": [
+    51.5,
+    -0.1
+  ],
+  "schedule_scale": 3.0,
+  "nodes": [
+    {
+      "id": 0,
+      "lat": 51.49944304707151,
+      "lon": -0.1,
+      "local_m": [
+        0.0,
+        62.0
+      ],
+      "trim_m": 0.0,
+      "zipper": false,
+      "demand_per_s": 0.16,
+      "sink_weight": 1.0,
+      "gate": 0,
+      "negotiate": false
+    },
+    {
+      "id": 1,
+      "lat": 51.499461013295004,
+      "lon": -0.0982683565228094,
+      "local_m": [
+        120.0,
+        60.0
+      ],
+      "trim_m": 7.0,
+      "zipper": false,
+      "demand_per_s": 0.0,
+      "sink_weight": 0.0,
+      "gate": 1,
+      "negotiate": false
+    },
+    {
+      "id": 2,
+      "lat": 51.499425080848006,
+      "lon": -0.09523798043772581,
+      "local_m": [
+        330.0,
+        64.0
+      ],
+      "trim_m": 7.0,
+      "zipper": false,
+      "demand_per_s": 0.0,
+      "sink_weight": 0.0,
+      "gate": 2,
+      "negotiate": false
+    },
+    {
+      "id": 3,
+      "lat": 51.49947897951851,
+      "lon": -0.09249621159884067,
+      "local_m": [
+        520.0,
+        58.0
+      ],
+      "trim_m": 7.0,
+      "zipper": false,
+      "demand_per_s": 0.0,
+      "sink_weight": 0.0,
+      "gate": 3,
+      "negotiate": false
+    },
+    {
+      "id": 4,
+      "lat": 51.49944304707151,
+      "lon": -0.09076456812165005,
+      "local_m": [
+        640.0,
+        62.0
+      ],
+      "trim_m": 0.0,
+      "zipper": false,
+      "demand_per_s": 0.16,
+      "sink_weight": 1.0,
+      "gate": 4,
+      "negotiate": false
+    },
+    {
+      "id": 5,
+      "lat": 51.5,
+      "lon": -0.09523798043772581,
+      "local_m": [
+        330.0,
+        0.0
+      ],
+      "trim_m": 0.0,
+      "zipper": false,
+      "demand_per_s": 0.14,
+      "sink_weight": 1.0,
+      "gate": 5,
+      "negotiate": false
+    },
+    {
+      "id": 6,
+      "lat": 51.49850880344952,
+      "lon": -0.09523798043772581,
+      "local_m": [
+        330.0,
+        166.0
+      ],
+      "trim_m": 7.0,
+      "zipper": true,
+      "demand_per_s": 0.0,
+      "sink_weight": 0.0,
+      "gate": 6,
+      "negotiate": false
+    },
+    {
+      "id": 7,
+      "lat": 51.49789795185052,
+      "lon": -0.09523798043772581,
+      "local_m": [
+        330.0,
+        234.0
+      ],
+      "trim_m": 7.0,
+      "zipper": true,
+      "demand_per_s": 0.0,
+      "sink_weight": 0.0,
+      "gate": 7,
+      "negotiate": false
+    },
+    {
+      "id": 8,
+      "lat": 51.49847287100251,
+      "lon": -0.09249621159884067,
+      "local_m": [
+        520.0,
+        170.0
+      ],
+      "trim_m": 7.0,
+      "zipper": true,
+      "demand_per_s": 0.0,
+      "sink_weight": 0.0,
+      "gate": 8,
+      "negotiate": false
+    },
+    {
+      "id": 9,
+      "lat": 51.497933884297524,
+      "lon": -0.09249621159884067,
+      "local_m": [
+        520.0,
+        230.0
+      ],
+      "trim_m": 7.0,
+      "zipper": true,
+      "demand_per_s": 0.0,
+      "sink_weight": 0.0,
+      "gate": 9,
+      "negotiate": false
+    },
+    {
+      "id": 10,
+      "lat": 51.49687387711103,
+      "lon": -0.1,
+      "local_m": [
+        0.0,
+        348.0
+      ],
+      "trim_m": 0.0,
+      "zipper": false,
+      "demand_per_s": 0.17,
+      "sink_weight": 1.0,
+      "gate": 10,
+      "negotiate": false
+    },
+    {
+      "id": 11,
+      "lat": 51.49685591088753,
+      "lon": -0.0982683565228094,
+      "local_m": [
+        120.0,
+        350.0
+      ],
+      "trim_m": 7.0,
+      "zipper": false,
+      "demand_per_s": 0.0,
+      "sink_weight": 0.0,
+      "gate": 11,
+      "negotiate": false
+    },
+    {
+      "id": 12,
+      "lat": 51.496819978440534,
+      "lon": -0.09523798043772581,
+      "local_m": [
+        330.0,
+        354.0
+      ],
+      "trim_m": 7.0,
+      "zipper": false,
+      "demand_per_s": 0.0,
+      "sink_weight": 0.0,
+      "gate": 12,
+      "negotiate": false
+    },
+    {
+      "id": 13,
+      "lat": 51.49685591088753,
+      "lon": -0.09249621159884067,
+      "local_m": [
+        520.0,
+        350.0
+      ],
+      "trim_m": 7.0,
+      "zipper": false,
+      "demand_per_s": 0.0,
+      "sink_weight": 0.0,
+      "gate": 13,
+      "negotiate": false
+    },
+    {
+      "id": 14,
+      "lat": 51.49689184333453,
+      "lon": -0.09076456812165005,
+      "local_m": [
+        640.0,
+        346.0
+      ],
+      "trim_m": 0.0,
+      "zipper": false,
+      "demand_per_s": 0.17,
+      "sink_weight": 1.0,
+      "gate": 14,
+      "negotiate": false
+    },
+    {
+      "id": 15,
+      "lat": 51.498257276320516,
+      "lon": -0.1,
+      "local_m": [
+        0.0,
+        194.0
+      ],
+      "trim_m": 0.0,
+      "zipper": false,
+      "demand_per_s": 0.5,
+      "sink_weight": 3.0,
+      "gate": 15,
+      "negotiate": false
+    },
+    {
+      "id": 16,
+      "lat": 51.49827524254402,
+      "lon": -0.09653671304561877,
+      "local_m": [
+        240.0,
+        192.0
+      ],
+      "trim_m": 10.0,
+      "zipper": false,
+      "demand_per_s": 0.0,
+      "sink_weight": 0.0,
+      "gate": 16,
+      "negotiate": false
+    },
+    {
+      "id": 17,
+      "lat": 51.49827524254402,
+      "lon": -0.09408355145293207,
+      "local_m": [
+        410.0,
+        192.0
+      ],
+      "trim_m": 10.0,
+      "zipper": true,
+      "demand_per_s": 0.0,
+      "sink_weight": 0.0,
+      "gate": 17,
+      "negotiate": true
+    },
+    {
+      "id": 18,
+      "lat": 51.49827524254402,
+      "lon": -0.09333317261281614,
+      "local_m": [
+        462.0,
+        192.0
+      ],
+      "trim_m": 10.0,
+      "zipper": false,
+      "demand_per_s": 0.0,
+      "sink_weight": 0.0,
+      "gate": 18,
+      "negotiate": false
+    },
+    {
+      "id": 19,
+      "lat": 51.498293208767514,
+      "lon": -0.09076456812165005,
+      "local_m": [
+        640.0,
+        190.0
+      ],
+      "trim_m": 0.0,
+      "zipper": false,
+      "demand_per_s": 0.0,
+      "sink_weight": 3.0,
+      "gate": 20,
+      "negotiate": false
+    },
+    {
+      "id": 20,
+      "lat": 51.49814947897952,
+      "lon": -0.09076456812165005,
+      "local_m": [
+        640.0,
+        206.0
+      ],
+      "trim_m": 0.0,
+      "zipper": false,
+      "demand_per_s": 0.44,
+      "sink_weight": 3.0,
+      "gate": 20,
+      "negotiate": false
+    },
+    {
+      "id": 21,
+      "lat": 51.49813151275602,
+      "lon": -0.09321772971433676,
+      "local_m": [
+        470.0,
+        208.0
+      ],
+      "trim_m": 10.0,
+      "zipper": true,
+      "demand_per_s": 0.0,
+      "sink_weight": 0.0,
+      "gate": 21,
+      "negotiate": true
+    },
+    {
+      "id": 22,
+      "lat": 51.49813151275602,
+      "lon": -0.09422785507603129,
+      "local_m": [
+        400.0,
+        208.0
+      ],
+      "trim_m": 10.0,
+      "zipper": false,
+      "demand_per_s": 0.0,
+      "sink_weight": 0.0,
+      "gate": 22,
+      "negotiate": false
+    },
+    {
+      "id": 23,
+      "lat": 51.49813151275602,
+      "lon": -0.09639240942251956,
+      "local_m": [
+        250.0,
+        208.0
+      ],
+      "trim_m": 10.0,
+      "zipper": true,
+      "demand_per_s": 0.0,
+      "sink_weight": 0.0,
+      "gate": 23,
+      "negotiate": true
+    },
+    {
+      "id": 24,
+      "lat": 51.49811354653252,
+      "lon": -0.1,
+      "local_m": [
+        0.0,
+        210.0
+      ],
+      "trim_m": 0.0,
+      "zipper": false,
+      "demand_per_s": 0.0,
+      "sink_weight": 3.0,
+      "gate": 15,
+      "negotiate": false
+    }
+  ],
+  "edges": [
+    {
+      "id": 0,
+      "from": 0,
+      "to": 1,
+      "lanes": 2,
+      "speed_limit_mps": 11.0,
+      "length_m": 120.48591165011612,
+      "one_way": false,
+      "class": "arterial",
+      "shape": [
+        {
+          "lat": 51.499496945742,
+          "lon": -0.09913417826140469,
+          "local_m": [
+            60.0,
+            56.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "from": 1,
+      "to": 2,
+      "lanes": 2,
+      "speed_limit_mps": 11.0,
+      "length_m": 210.7434463128059,
+      "one_way": false,
+      "class": "arterial",
+      "shape": [
+        {
+          "lat": 51.499371182177505,
+          "lon": -0.09682532029181722,
+          "local_m": [
+            220.0,
+            70.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "from": 2,
+      "to": 3,
+      "lanes": 2,
+      "speed_limit_mps": 11.0,
+      "length_m": 190.65195062922513,
+      "one_way": false,
+      "class": "arterial",
+      "shape": [
+        {
+          "lat": 51.499514911965505,
+          "lon": -0.09379494420673364,
+          "local_m": [
+            430.0,
+            54.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "from": 3,
+      "to": 4,
+      "lanes": 2,
+      "speed_limit_mps": 11.0,
+      "length_m": 120.36686146610498,
+      "one_way": false,
+      "class": "arterial",
+      "shape": [
+        {
+          "lat": 51.499425080848006,
+          "lon": -0.09163038986024535,
+          "local_m": [
+            580.0,
+            64.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "from": 5,
+      "to": 2,
+      "lanes": 1,
+      "speed_limit_mps": 9.0,
+      "length_m": 64.56414948199694,
+      "one_way": false,
+      "class": "street",
+      "shape": [
+        {
+          "lat": 51.4997305066475,
+          "lon": -0.0952957018869655,
+          "local_m": [
+            326.0,
+            30.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "from": 10,
+      "to": 11,
+      "lanes": 2,
+      "speed_limit_mps": 11.0,
+      "length_m": 120.93420940339325,
+      "one_way": false,
+      "class": "arterial",
+      "shape": [
+        {
+          "lat": 51.49680201221703,
+          "lon": -0.09913417826140469,
+          "local_m": [
+            60.0,
+            356.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "from": 11,
+      "to": 12,
+      "lanes": 2,
+      "speed_limit_mps": 11.0,
+      "length_m": 210.72489323494986,
+      "one_way": false,
+      "class": "arterial",
+      "shape": [
+        {
+          "lat": 51.49690980955803,
+          "lon": -0.0967531684802676,
+          "local_m": [
+            225.0,
+            344.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "from": 12,
+      "to": 13,
+      "lanes": 2,
+      "speed_limit_mps": 11.0,
+      "length_m": 190.46930782191225,
+      "one_way": false,
+      "class": "arterial",
+      "shape": [
+        {
+          "lat": 51.49678404599353,
+          "lon": -0.09386709601828325,
+          "local_m": [
+            425.0,
+            358.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "from": 13,
+      "to": 14,
+      "lanes": 2,
+      "speed_limit_mps": 11.0,
+      "length_m": 120.7108173581568,
+      "one_way": false,
+      "class": "arterial",
+      "shape": [
+        {
+          "lat": 51.49692777578153,
+          "lon": -0.09155823804869576,
+          "local_m": [
+            585.0,
+            342.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "from": 1,
+      "to": 11,
+      "lanes": 1,
+      "speed_limit_mps": 9.0,
+      "length_m": 290.8560862117897,
+      "one_way": false,
+      "class": "street",
+      "shape": [
+        {
+          "lat": 51.49874236435501,
+          "lon": -0.09835493869666892,
+          "local_m": [
+            114.0,
+            140.0
+          ]
+        },
+        {
+          "lat": 51.49757455982753,
+          "lon": -0.0982106350735697,
+          "local_m": [
+            124.0,
+            270.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "from": 2,
+      "to": 6,
+      "lanes": 1,
+      "speed_limit_mps": 9.0,
+      "length_m": 102.35351858425166,
+      "one_way": false,
+      "class": "street",
+      "shape": [
+        {
+          "lat": 51.49896694214876,
+          "lon": -0.09518025898848613,
+          "local_m": [
+            334.0,
+            115.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "from": 6,
+      "to": 7,
+      "lanes": 1,
+      "speed_limit_mps": 9.0,
+      "length_m": 68.0,
+      "one_way": false,
+      "class": "street",
+      "shape": []
+    },
+    {
+      "id": 12,
+      "from": 7,
+      "to": 12,
+      "lanes": 1,
+      "speed_limit_mps": 9.0,
+      "length_m": 120.3008334792149,
+      "one_way": false,
+      "class": "street",
+      "shape": [
+        {
+          "lat": 51.497349982033775,
+          "lon": -0.0952957018869655,
+          "local_m": [
+            326.0,
+            295.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "from": 3,
+      "to": 8,
+      "lanes": 1,
+      "speed_limit_mps": 9.0,
+      "length_m": 112.32224792925567,
+      "one_way": false,
+      "class": "street",
+      "shape": [
+        {
+          "lat": 51.49896694214876,
+          "lon": -0.09255393304808035,
+          "local_m": [
+            516.0,
+            115.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "from": 8,
+      "to": 9,
+      "lanes": 1,
+      "speed_limit_mps": 9.0,
+      "length_m": 60.0,
+      "one_way": false,
+      "class": "street",
+      "shape": []
+    },
+    {
+      "id": 15,
+      "from": 9,
+      "to": 13,
+      "lanes": 1,
+      "speed_limit_mps": 9.0,
+      "length_m": 120.30071061935216,
+      "one_way": false,
+      "class": "street",
+      "shape": [
+        {
+          "lat": 51.49739489759253,
+          "lon": -0.09243849014960098,
+          "local_m": [
+            524.0,
+            290.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "from": 15,
+      "to": 16,
+      "lanes": 2,
+      "speed_limit_mps": 15.0,
+      "length_m": 240.09303846616024,
+      "one_way": true,
+      "class": "motorway",
+      "shape": [
+        {
+          "lat": 51.49823931009702,
+          "lon": -0.0982683565228094,
+          "local_m": [
+            120.0,
+            196.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "from": 16,
+      "to": 17,
+      "lanes": 2,
+      "speed_limit_mps": 15.0,
+      "length_m": 170.0534168064099,
+      "one_way": true,
+      "class": "motorway",
+      "shape": [
+        {
+          "lat": 51.498293208767514,
+          "lon": -0.09523798043772581,
+          "local_m": [
+            330.0,
+            190.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "from": 17,
+      "to": 18,
+      "lanes": 2,
+      "speed_limit_mps": 15.0,
+      "length_m": 52.0,
+      "one_way": true,
+      "class": "motorway",
+      "shape": []
+    },
+    {
+      "id": 19,
+      "from": 18,
+      "to": 19,
+      "lanes": 2,
+      "speed_limit_mps": 15.0,
+      "length_m": 178.02164302370338,
+      "one_way": true,
+      "class": "motorway",
+      "shape": [
+        {
+          "lat": 51.498293208767514,
+          "lon": -0.0919189971064438,
+          "local_m": [
+            560.0,
+            190.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "from": 16,
+      "to": 6,
+      "lanes": 1,
+      "speed_limit_mps": 11.0,
+      "length_m": 94.30016934300367,
+      "one_way": true,
+      "class": "ramp",
+      "shape": [
+        {
+          "lat": 51.498347107438015,
+          "lon": -0.09587291637936238,
+          "local_m": [
+            286.0,
+            184.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "from": 6,
+      "to": 17,
+      "lanes": 1,
+      "speed_limit_mps": 11.0,
+      "length_m": 84.45830395364665,
+      "one_way": true,
+      "class": "ramp",
+      "shape": [
+        {
+          "lat": 51.498347107438015,
+          "lon": -0.09460304449608925,
+          "local_m": [
+            374.0,
+            184.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "from": 18,
+      "to": 8,
+      "lanes": 1,
+      "speed_limit_mps": 11.0,
+      "length_m": 62.803281272018616,
+      "one_way": true,
+      "class": "ramp",
+      "shape": [
+        {
+          "lat": 51.498347107438015,
+          "lon": -0.0928425402942788,
+          "local_m": [
+            496.0,
+            184.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "from": 20,
+      "to": 21,
+      "lanes": 2,
+      "speed_limit_mps": 15.0,
+      "length_m": 170.02673451966004,
+      "one_way": true,
+      "class": "motorway",
+      "shape": [
+        {
+          "lat": 51.49813151275602,
+          "lon": -0.0919189971064438,
+          "local_m": [
+            560.0,
+            208.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "from": 21,
+      "to": 22,
+      "lanes": 2,
+      "speed_limit_mps": 15.0,
+      "length_m": 70.0,
+      "one_way": true,
+      "class": "motorway",
+      "shape": []
+    },
+    {
+      "id": 25,
+      "from": 22,
+      "to": 23,
+      "lanes": 2,
+      "speed_limit_mps": 15.0,
+      "length_m": 150.06061869908936,
+      "one_way": true,
+      "class": "motorway",
+      "shape": [
+        {
+          "lat": 51.49811354653252,
+          "lon": -0.09523798043772581,
+          "local_m": [
+            330.0,
+            210.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 26,
+      "from": 23,
+      "to": 24,
+      "lanes": 2,
+      "speed_limit_mps": 15.0,
+      "length_m": 250.0177970201621,
+      "one_way": true,
+      "class": "motorway",
+      "shape": [
+        {
+          "lat": 51.49813151275602,
+          "lon": -0.0982683565228094,
+          "local_m": [
+            120.0,
+            208.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 27,
+      "from": 9,
+      "to": 21,
+      "lanes": 1,
+      "speed_limit_mps": 11.0,
+      "length_m": 54.629612370054865,
+      "one_way": true,
+      "class": "ramp",
+      "shape": [
+        {
+          "lat": 51.49804168163852,
+          "lon": -0.09290026174351848,
+          "local_m": [
+            492.0,
+            218.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 28,
+      "from": 22,
+      "to": 7,
+      "lanes": 1,
+      "speed_limit_mps": 11.0,
+      "length_m": 74.76848534595848,
+      "one_way": true,
+      "class": "ramp",
+      "shape": [
+        {
+          "lat": 51.49804168163852,
+          "lon": -0.09468962666994879,
+          "local_m": [
+            368.0,
+            218.0
+          ]
+        }
+      ]
+    },
+    {
+      "id": 29,
+      "from": 7,
+      "to": 23,
+      "lanes": 1,
+      "speed_limit_mps": 11.0,
+      "length_m": 84.33727601769,
+      "one_way": true,
+      "class": "ramp",
+      "shape": [
+        {
+          "lat": 51.49804168163852,
+          "lon": -0.09581519493012268,
+          "local_m": [
+            290.0,
+            218.0
+          ]
+        }
+      ]
+    }
+  ]
+}

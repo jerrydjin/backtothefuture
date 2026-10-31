@@ -441,19 +441,29 @@ impl Rng {
 /// Twelve repeat riders each make three claims, with enough time to complete
 /// their earlier trips. Identities are shuffled independently of their truth.
 pub fn population(seed: u64) -> Vec<Trip> {
-    let routes = Network::town().routes();
-    let hospital: Vec<_> = routes
+    population_on(seed, &Network::town())
+}
+
+pub fn population_on(seed: u64, net: &Network) -> Vec<Trip> {
+    let routes = net.routes();
+    let mut hospital: Vec<_> = routes
         .iter()
         .enumerate()
         .filter(|(_, (_, sink, _))| *sink == 4)
         .map(|(i, _)| i)
         .collect();
-    let gym: Vec<_> = routes
+    let mut gym: Vec<_> = routes
         .iter()
         .enumerate()
         .filter(|(_, (_, sink, _))| *sink == 5)
         .map(|(i, _)| i)
         .collect();
+    if hospital.is_empty() {
+        hospital = (0..routes.len()).collect();
+    }
+    if gym.is_empty() {
+        gym = (0..routes.len()).collect();
+    }
     let mut rng = Rng(seed.max(1));
     let mut ids: Vec<u32> = (1000..1240).collect();
     for i in (1..ids.len()).rev() {
@@ -587,15 +597,21 @@ fn off_corridor(net: &Network, origin: usize) -> usize {
 /// A fresh generator stream picks the corridor and the pulse; it does not
 /// retune individual seeds.
 pub fn boxed_population(seed: u64) -> Vec<Trip> {
-    let mut trips = population(seed);
-    let net = Network::town();
-    let corridors = corridor_routes(&net);
+    boxed_population_on(seed, &Network::town()).expect("native town has a boxed corridor")
+}
+
+pub fn boxed_population_on(seed: u64, net: &Network) -> Result<Vec<Trip>, String> {
+    let mut trips = population_on(seed, net);
+    let corridors = corridor_routes(net);
+    if corridors.is_empty() {
+        return Err("map has no eligible boxed-in hospital corridor; use --rush-hour".into());
+    }
     let mut rng = Rng(seed.max(1));
     // The raw xorshift word for seeds 1–5 is divisible by 3, so the first
     // sample cannot choose a corridor. The seed residue itself does.
     let origin = corridors[(seed as usize * 2 + 1) % corridors.len()];
     let pulse = 42 + rng.pick(11);
-    let off = off_corridor(&net, origin);
+    let off = off_corridor(net, origin);
     trips.sort_by_key(|t| {
         (
             match t.truth {
@@ -651,7 +667,7 @@ pub fn boxed_population(seed: u64) -> Vec<Trip> {
         .into();
     }
     trips.sort_by(|a, b| a.request_s.total_cmp(&b.request_s).then(a.car.cmp(&b.car)));
-    trips
+    Ok(trips)
 }
 
 fn on_map_travel(run: &Run, car: u32) -> Result<f64, String> {
@@ -781,6 +797,24 @@ pub(crate) fn simulate_trips(
     broadcast: Option<BroadcastConfig>,
     trips: Vec<Trip>,
 ) -> Result<Run, String> {
+    simulate_trips_on(
+        seed,
+        policy,
+        history_enabled,
+        broadcast,
+        trips,
+        &Network::town(),
+    )
+}
+
+pub(crate) fn simulate_trips_on(
+    seed: u64,
+    policy: &dyn Policy,
+    history_enabled: bool,
+    broadcast: Option<BroadcastConfig>,
+    trips: Vec<Trip>,
+    net: &Network,
+) -> Result<Run, String> {
     let demand: Vec<_> = trips
         .iter()
         .map(|t| ScheduledCar {
@@ -789,7 +823,7 @@ pub(crate) fn simulate_trips(
             depart_s: t.depart_s,
         })
         .collect();
-    let mut sim = TownSim::with_schedule(seed, &demand)?;
+    let mut sim = TownSim::with_schedule_on(seed, &demand, net.clone())?;
     if let Some(config) = broadcast {
         sim.enable_broadcast(config)?;
     }
@@ -1068,8 +1102,27 @@ pub(crate) fn run_custom(
     broadcast: Option<BroadcastConfig>,
     trips: Vec<Trip>,
 ) -> Result<ScoredRun, String> {
-    let baseline = simulate_trips(seed, &Fcfs, history_enabled, None, trips.clone())?;
-    let run = simulate_trips(seed, policy, history_enabled, broadcast, trips.clone())?;
+    run_on_map(
+        seed,
+        policy,
+        history_enabled,
+        broadcast,
+        trips,
+        &Network::town(),
+    )
+}
+
+/// Every counterfactual uses this same graph and exactly the supplied demand.
+pub fn run_on_map(
+    seed: u64,
+    policy: &dyn Policy,
+    history_enabled: bool,
+    broadcast: Option<BroadcastConfig>,
+    trips: Vec<Trip>,
+    net: &Network,
+) -> Result<ScoredRun, String> {
+    let baseline = simulate_trips_on(seed, &Fcfs, history_enabled, None, trips.clone(), net)?;
+    let run = simulate_trips_on(seed, policy, history_enabled, broadcast, trips.clone(), net)?;
     let mut score = score(seed, policy.name(), &run, &baseline)?;
     if broadcast.is_none() {
         return Ok(ScoredRun { run, score });
@@ -1077,7 +1130,7 @@ pub(crate) fn run_custom(
     let replay = RecordedPolicy {
         decisions: run.decisions.iter().map(|d| (d.car, d.clone())).collect(),
     };
-    let local = simulate_trips(seed, &replay, history_enabled, None, trips)?;
+    let local = simulate_trips_on(seed, &replay, history_enabled, None, trips, net)?;
     score.spread_enabled = true;
     let gains: Vec<_> = run
         .trips
@@ -1086,7 +1139,6 @@ pub(crate) fn run_custom(
         .filter_map(|t| Some(local.home.get(&t.car)? - run.home.get(&t.car)?))
         .collect();
     score.emergency_gain_vs_local = median(&gains);
-    let net = Network::town();
     let traces = motion_traces(&run);
     let grants: Vec<_> = run.decisions.iter().filter(|d| d.granted).collect();
     let mut slowed = 0;

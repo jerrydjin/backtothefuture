@@ -144,6 +144,9 @@ struct EdgeDef {
     via: Vec<[f64; 2]>,
     class: RoadClass,
     two_way: bool,
+    lanes: u8,
+    speed: f64,
+    length_m: Option<f64>,
 }
 
 #[derive(Clone, Debug)]
@@ -195,6 +198,9 @@ impl Route {
 
 #[derive(Clone, Debug)]
 pub struct Network {
+    plan_nodes: Vec<Node>,
+    plan_edges: Vec<EdgeDef>,
+    schedule_scale: f64,
     pub links: Vec<Link>,
     nodes: Vec<Node>,
     /// Per link: the connectors leaving its end.
@@ -211,6 +217,115 @@ impl Network {
     /// The fixed town map: a motorway with two interchanges, two arterials, three cross streets.
     pub fn town() -> Self {
         build(town_plan())
+    }
+
+    pub fn lanes(&self, link: usize) -> u8 {
+        if self.links[link].is_connector() {
+            1
+        } else {
+            self.plan_edges[self.links[link].edge].lanes
+        }
+    }
+
+    pub fn to_road_map(&self) -> crate::road_map::RoadMap {
+        use crate::road_map::*;
+        let mut map = RoadMap {
+            version: 1,
+            origin: [51.5, -0.1],
+            schedule_scale: self.schedule_scale,
+            nodes: Vec::new(),
+            edges: Vec::new(),
+        };
+        map.nodes = self
+            .plan_nodes
+            .iter()
+            .enumerate()
+            .map(|(id, n)| MapNode {
+                id,
+                location: map.point(n.pos),
+                trim_m: n.trim,
+                zipper: n.zipper,
+                demand_per_s: n.rate,
+                sink_weight: n.weight,
+                gate: Some(n.gate),
+                negotiate: n.negotiate,
+            })
+            .collect();
+        map.edges = self
+            .plan_edges
+            .iter()
+            .enumerate()
+            .map(|(id, e)| {
+                let mut shape = vec![self.plan_nodes[e.a].pos];
+                shape.extend(e.via.iter().copied());
+                shape.push(self.plan_nodes[e.b].pos);
+                let length = e
+                    .length_m
+                    .unwrap_or_else(|| *measures(&spline(&shape, 2.0)).last().unwrap());
+                MapEdge {
+                    id,
+                    from: e.a,
+                    to: e.b,
+                    lanes: e.lanes,
+                    speed_limit_mps: e.speed,
+                    length_m: length,
+                    one_way: !e.two_way,
+                    class: e.class,
+                    shape: e.via.iter().map(|p| map.point(*p)).collect(),
+                }
+            })
+            .collect();
+        map
+    }
+
+    pub fn from_road_map(map: &crate::road_map::RoadMap) -> Result<Self, String> {
+        map.validate()?;
+        let nodes = map
+            .nodes
+            .iter()
+            .map(|n| {
+                Ok(Node {
+                    pos: map.xy(&n.location)?,
+                    trim: n.trim_m,
+                    zipper: n.zipper,
+                    rate: n.demand_per_s,
+                    weight: n.sink_weight,
+                    gate: n.gate.unwrap_or(n.id),
+                    negotiate: n.negotiate,
+                })
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        let edges = map
+            .edges
+            .iter()
+            .map(|e| {
+                Ok(EdgeDef {
+                    a: e.from,
+                    b: e.to,
+                    via: e
+                        .shape
+                        .iter()
+                        .map(|p| map.xy(p))
+                        .collect::<Result<Vec<_>, String>>()?,
+                    class: e.class,
+                    two_way: !e.one_way,
+                    lanes: e.lanes,
+                    speed: e.speed_limit_mps,
+                    length_m: Some(e.length_m),
+                })
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        let mut net = build((nodes, edges));
+        net.schedule_scale = map.schedule_scale;
+        if net
+            .links
+            .iter()
+            .any(|l| !l.len.is_finite() || l.len <= 0.0 || l.pts.len() < 2)
+            || net.routes().is_empty()
+        {
+            return Err("map has degenerate geometry or no drivable source-to-sink route".into());
+        }
+        Ok(net)
     }
 
     pub fn junction_count(&self) -> usize {
@@ -332,6 +447,13 @@ fn town_plan() -> (Vec<Node>, Vec<EdgeDef>) {
             via: via.to_vec(),
             class,
             two_way,
+            lanes: if matches!(class, RoadClass::Motorway | RoadClass::Arterial) {
+                2
+            } else {
+                1
+            },
+            speed: class.speed(),
+            length_m: None,
         });
     };
 
@@ -377,6 +499,8 @@ fn town_plan() -> (Vec<Node>, Vec<EdgeDef>) {
 }
 
 fn build((nodes, edges): (Vec<Node>, Vec<EdgeDef>)) -> Network {
+    let plan_nodes = nodes.clone();
+    let plan_edges = edges.clone();
     let mut degree = vec![0usize; nodes.len()];
     for edge in &edges {
         degree[edge.a] += 1;
@@ -431,6 +555,8 @@ fn build((nodes, edges): (Vec<Node>, Vec<EdgeDef>)) -> Network {
         shape.extend(edge.via.iter().copied());
         shape.push(nodes[edge.b].pos);
         let base = spline(&shape, 2.0);
+        let geometry_length = *measures(&base).last().unwrap();
+        let length_factor = edge.length_m.map(|n| n / geometry_length).unwrap_or(1.0);
         let half = LANE_WIDTH_M / 2.0;
         let forward = if edge.two_way {
             offset(&base, half)
@@ -439,29 +565,25 @@ fn build((nodes, edges): (Vec<Node>, Vec<EdgeDef>)) -> Network {
         };
         let forward = trim(&forward, trim_of(edge.a), trim_of(edge.b));
         push(
-            &mut links,
-            forward,
-            edge.class,
-            edge.a,
-            edge.b,
-            index,
-            None,
-            edge.class.speed(),
+            &mut links, forward, edge.class, edge.a, edge.b, index, None, edge.speed,
         );
+        let forward_id = links.len() - 1;
+        links[forward_id].len *= length_factor;
+        for d in &mut links[forward_id].cum {
+            *d *= length_factor;
+        }
         if edge.two_way {
             let mut back = base.clone();
             back.reverse();
             let back = trim(&offset(&back, half), trim_of(edge.b), trim_of(edge.a));
             push(
-                &mut links,
-                back,
-                edge.class,
-                edge.b,
-                edge.a,
-                index,
-                None,
-                edge.class.speed(),
+                &mut links, back, edge.class, edge.b, edge.a, index, None, edge.speed,
             );
+            let reverse_id = links.len() - 1;
+            links[reverse_id].len *= length_factor;
+            for d in &mut links[reverse_id].cum {
+                *d *= length_factor;
+            }
         }
     }
 
@@ -561,6 +683,9 @@ fn build((nodes, edges): (Vec<Node>, Vec<EdgeDef>)) -> Network {
     }
 
     Network {
+        plan_nodes,
+        plan_edges,
+        schedule_scale: 3.0,
         links,
         nodes,
         moves,
@@ -956,7 +1081,10 @@ impl TownSim {
     }
 
     pub fn with_talk(seed: u64, talk: Box<dyn MergeTalk>) -> Self {
-        let net = Network::town();
+        Self::with_network(seed, talk, Network::town())
+    }
+
+    fn with_network(seed: u64, talk: Box<dyn MergeTalk>, net: Network) -> Self {
         let mut routes = Vec::new();
         let mut trips = vec![Vec::new(); net.sources.len()];
         for (source, sink, route) in net.routes() {
@@ -1002,27 +1130,36 @@ impl TownSim {
     /// car sizes, gaps, crossing occupancy and integration remain in metres.
     /// Legacy boards keep the original map and their exact trajectories.
     pub fn with_schedule(seed: u64, schedule: &[ScheduledCar]) -> Result<Self, String> {
-        let mut sim = Self::new(seed);
+        Self::with_schedule_on(seed, schedule, Network::town())
+    }
+
+    pub fn with_schedule_on(
+        seed: u64,
+        schedule: &[ScheduledCar],
+        net: Network,
+    ) -> Result<Self, String> {
+        let scale = net.schedule_scale;
+        let mut sim = Self::with_network(seed, Box::new(ScriptedTalk), net);
         for link in &mut sim.net.links {
             for p in &mut link.pts {
-                p[0] *= 3.0;
-                p[1] *= 3.0;
+                p[0] *= scale;
+                p[1] *= scale;
             }
             for d in &mut link.cum {
-                *d *= 3.0;
+                *d *= scale;
             }
-            link.len *= 3.0;
+            link.len *= scale;
         }
         for node in &mut sim.net.nodes {
-            node.pos[0] *= 3.0;
-            node.pos[1] *= 3.0;
-            node.trim *= 3.0;
+            node.pos[0] *= scale;
+            node.pos[1] *= scale;
+            node.trim *= scale;
         }
         for route in &mut sim.routes {
             for d in &mut route.start {
-                *d *= 3.0;
+                *d *= scale;
             }
-            route.total *= 3.0;
+            route.total *= scale;
         }
         let mut sorted = schedule.to_vec();
         if sorted
@@ -1097,10 +1234,9 @@ impl TownSim {
         if config.lane_changes {
             let original = self.net.links.len();
             for link in 0..original {
-                if !matches!(
-                    self.net.links[link].class,
-                    RoadClass::Arterial | RoadClass::Motorway
-                ) {
+                if self.net.links[link].is_connector()
+                    || self.net.plan_edges[self.net.links[link].edge].lanes < 2
+                {
                     continue;
                 }
                 let mut lane = self.net.links[link].clone();
