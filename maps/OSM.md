@@ -1,7 +1,7 @@
 # OSM import
 
 ```
-muse import-osm FILE.osm --out maps/X.json
+malleable import-osm FILE.osm --out maps/X.json
 ```
 
 Input is OSM XML, up to 64 MiB; PBF and DTDs are rejected. Import is local and

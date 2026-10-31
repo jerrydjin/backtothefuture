@@ -1,7 +1,7 @@
-use muse::{osm, replay::ReplayArchive};
+use malleable::{osm, replay::ReplayArchive};
 use std::path::Path;
 fn run(args: &[&str]) {
-    let result = std::process::Command::new(env!("CARGO_BIN_EXE_muse"))
+    let result = std::process::Command::new(env!("CARGO_BIN_EXE_malleable"))
         .args(args)
         .output()
         .unwrap();
@@ -13,7 +13,7 @@ fn run(args: &[&str]) {
 }
 #[test]
 fn loaded_map_demo_reason_and_saved_replay_preserve_projected_motion() {
-    let dir = std::env::temp_dir().join(format!("muse-map-board-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("malleable-map-board-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let map = osm::import(include_str!("fixtures/import.osm")).unwrap();
     let path = dir.join("map.json");
@@ -118,7 +118,7 @@ fn loaded_map_demo_reason_and_saved_replay_preserve_projected_motion() {
     ]);
     assert_eq!(
         std::fs::read_to_string(&html).unwrap(),
-        muse::board::render_board_html(&archive.board)
+        malleable::board::render_board_html(&archive.board)
     );
     let reason = dir.join("reason.json");
     run(&[

@@ -38,9 +38,9 @@ node scripts/check-map-board.cjs /tmp/import-board.html
 Once the real extract is available (see maps/OSM.md), the required commands are:
 
 ```sh
-muse --demo --map maps/sf-general.json --policy mock --seed 11 --save-replay recordings/sf-boxed-11.json
-muse --demo --reason 'my passenger is having a seizure' --map maps/sf-general.json --policy mock --seed 11
-muse --replay recordings/sf-boxed-11.json --export-replay /tmp/sf-boxed-11.html
+malleable --demo --map maps/sf-general.json --policy mock --seed 11 --save-replay recordings/sf-boxed-11.json
+malleable --demo --reason 'my passenger is having a seizure' --map maps/sf-general.json --policy mock --seed 11
+malleable --replay recordings/sf-boxed-11.json --export-replay /tmp/sf-boxed-11.html
 ```
 
 Capture the actual SF board after replay/export, label it correctly and append

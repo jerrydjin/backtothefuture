@@ -1,14 +1,14 @@
-//! Muse day-1 scaffold.
+//! Malleable day-1 scaffold.
 //!
 //! Plain-English merge preferences go in. One zone plan comes out.
 //! Local cars execute that plan, or a dumb baseline. The judge only
-//! scores trajectories. Muse never ticks the world and never brakes.
+//! scores trajectories. The model never ticks the world and never brakes.
 
 #![forbid(unsafe_code)]
 
 pub mod demand;
 
-pub const DINNER_SENTENCE: &str = "You say what matters in plain English — the traffic bends. Muse plans the merge; the cars just drive. Dumb equal stays jammed; the scoreboard goes green.";
+pub const DINNER_SENTENCE: &str = "You say what matters in plain English — the traffic bends. The model plans the merge; the cars just drive. Dumb equal stays jammed; the scoreboard goes green.";
 
 pub mod agents;
 pub mod board;

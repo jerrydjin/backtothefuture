@@ -1,4 +1,4 @@
-use muse::network::{run_town, Network, TownSim, NET_DT_S, QUEUED_MPS};
+use malleable::network::{run_town, Network, TownSim, NET_DT_S, QUEUED_MPS};
 
 #[test]
 fn routes_follow_the_roads() {
@@ -57,7 +57,7 @@ fn rush_hour_queues_form_and_drain() {
             stats.exited > 200,
             "seed {seed}: traffic should flow {stats:?}"
         );
-        let queued = |frame: &muse::network::NetFrame| {
+        let queued = |frame: &malleable::network::NetFrame| {
             frame.cars.iter().filter(|car| car.3 < QUEUED_MPS).count() as u32
         };
         let first = queued(&run.frames[0]);
@@ -75,7 +75,7 @@ fn the_town_is_deterministic() {
     let a = run_town(7);
     let b = run_town(7);
     assert_eq!(a.frames.len(), b.frames.len());
-    let json = |run: &muse::network::NetworkRun| serde_json::to_string(&run.frames).expect("json");
+    let json = |run: &malleable::network::NetworkRun| serde_json::to_string(&run.frames).expect("json");
     assert_eq!(json(&a), json(&b));
     assert_eq!(
         serde_json::to_string(&a.exchange).unwrap(),
@@ -102,7 +102,7 @@ fn one_merge_speaks_and_the_yielder_waits() {
         assert!((1..=8).contains(&words), "{}", line.say);
         assert!(log.contains(&line.say), "{log}");
     }
-    let along = |frame: &muse::network::NetFrame, id: u32| {
+    let along = |frame: &malleable::network::NetFrame, id: u32| {
         frame
             .cars
             .iter()

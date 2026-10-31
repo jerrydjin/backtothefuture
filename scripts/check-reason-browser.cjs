@@ -2,7 +2,7 @@ const { chromium } = require('playwright');
 const { spawn } = require('child_process');
 const assert = require('assert');
 (async () => {
-  const child = spawn('./target/debug/muse', ['--board','--no-open'], {
+  const child = spawn('./target/debug/malleable', ['--board','--no-open'], {
     env:{...process.env,BASETEN_API_KEY:'',MODEL_API_KEY:'',MERGE_API_KEY:'',GEMINI_API_KEY:''},
   });
   let output = '';

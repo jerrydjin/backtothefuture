@@ -287,7 +287,7 @@ mod tests {
         let board =
             crate::board::story_board_from_run(&dinner, "scripted", crate::story::StoryKind::Chain);
         let path =
-            std::env::temp_dir().join(format!("muse-live-recording-{}.json", std::process::id()));
+            std::env::temp_dir().join(format!("malleable-live-recording-{}.json", std::process::id()));
         let mut reply = Reply::new(&board.town, Box::new(Live));
         reply.recording = Some(Recording {
             board: Arc::new(board),

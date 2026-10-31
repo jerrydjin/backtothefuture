@@ -1,4 +1,4 @@
-<osm version="0.6" generator="muse synthetic importer test; not real SF data">
+<osm version="0.6" generator="malleable synthetic importer test; not real SF data">
  <node id="1" lat="37.750" lon="-122.410"/>
  <node id="2" lat="37.750" lon="-122.408"/>
  <node id="3" lat="37.752" lon="-122.408"/>

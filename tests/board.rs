@@ -1,6 +1,6 @@
 use std::process::Command;
 
-use muse::{dinner_board, render_board_html, EpisodeOpts, FakeEcho, JamType, Scenario};
+use malleable::{dinner_board, render_board_html, EpisodeOpts, FakeEcho, JamType, Scenario};
 
 const FAIR: &str = "Zipper fairly so both approaches get home.";
 
@@ -200,7 +200,7 @@ fn board_dinner_is_red_red_green() {
 
 #[test]
 fn help_points_at_the_board_without_fakeecho() {
-    let output = Command::new(env!("CARGO_BIN_EXE_muse"))
+    let output = Command::new(env!("CARGO_BIN_EXE_malleable"))
         .arg("--help")
         .output()
         .expect("help");
@@ -214,7 +214,7 @@ fn help_points_at_the_board_without_fakeecho() {
 
 #[test]
 fn cli_labels_the_stub_scripted() {
-    let output = Command::new(env!("CARGO_BIN_EXE_muse"))
+    let output = Command::new(env!("CARGO_BIN_EXE_malleable"))
         .args(["--cars", "6", "--jam", "symmetric", "--prefs", FAIR])
         .output()
         .expect("dinner run");

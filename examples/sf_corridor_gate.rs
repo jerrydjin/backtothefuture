@@ -1,5 +1,5 @@
 //! Score the preregistered SF profile once per paired policy, without tuning.
-use muse::{
+use malleable::{
     network::{BroadcastConfig, Network},
     road_map::RoadMap,
     rush_hour::{self, Fcfs, Mock, Run, Truth},
@@ -124,7 +124,7 @@ fn main() -> Result<(), String> {
         if artifacts.is_some() && *seed == profile.seeds[0] {
             let dir = artifacts.as_ref().unwrap();
             std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-            muse::replay::ReplayArchive::new(muse::rush_board::from_run(broadcast, None)?).write(
+            malleable::replay::ReplayArchive::new(malleable::rush_board::from_run(broadcast, None)?).write(
                 std::path::Path::new(dir)
                     .join("sf-peak-1.replay.json")
                     .as_path(),

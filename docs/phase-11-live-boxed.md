@@ -28,8 +28,8 @@ No live request was run. Live gates are UNMEASURED, not PASS. Run exactly:
 
 ```sh
 cargo build --release
-/usr/bin/time -f 'wall_s=%e' -o phase-11-live-11.time target/release/muse --map maps/town.json --scenario boxed-in --headless --policy live --seed 11 --require-live --score phase-11-live-11.score.json --decision-log phase-11-live-11.decisions.json 2> phase-11-live-11.log
-/usr/bin/time -f 'wall_s=%e' -o phase-11-live-12.time target/release/muse --map maps/town.json --scenario boxed-in --headless --policy live --seed 12 --require-live --score phase-11-live-12.score.json --decision-log phase-11-live-12.decisions.json 2> phase-11-live-12.log
+/usr/bin/time -f 'wall_s=%e' -o phase-11-live-11.time target/release/malleable --map maps/town.json --scenario boxed-in --headless --policy live --seed 11 --require-live --score phase-11-live-11.score.json --decision-log phase-11-live-11.decisions.json 2> phase-11-live-11.log
+/usr/bin/time -f 'wall_s=%e' -o phase-11-live-12.time target/release/malleable --map maps/town.json --scenario boxed-in --headless --policy live --seed 12 --require-live --score phase-11-live-12.score.json --decision-log phase-11-live-12.decisions.json 2> phase-11-live-12.log
 ```
 
 For each seed the requested gate is model_decisions / trips >= .95,

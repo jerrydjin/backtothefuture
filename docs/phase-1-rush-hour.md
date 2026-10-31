@@ -33,8 +33,8 @@ Local keyword precedence has **zero median emergency gain** on these seeds and g
 ```sh
 cargo test --offline
 cargo build --offline
-./target/debug/muse --rush-hour --headless --policy fcfs --seed 1 --score /tmp/fcfs.json
-./target/debug/muse --rush-hour --headless --policy keyword --seed 1 --score /tmp/keyword.json
+./target/debug/malleable --rush-hour --headless --policy fcfs --seed 1 --score /tmp/fcfs.json
+./target/debug/malleable --rush-hour --headless --policy keyword --seed 1 --score /tmp/keyword.json
 python3 scripts/rush-hour-gate.py --output /tmp/five-seeds.jsonl
 cargo fmt --check
 git diff --check

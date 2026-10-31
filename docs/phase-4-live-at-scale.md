@@ -43,7 +43,7 @@ Requester / other, copied from seed 1. All strings satisfy the eight-word contra
 cargo test --offline
 cargo build --offline
 python3 scripts/rush-hour-live-five.py --output /tmp/rush-live-five.jsonl
-./target/debug/muse --rush-hour --headless --policy live --seed 1 --require-live --score /tmp/live.json --decision-log /tmp/decisions.json
+./target/debug/malleable --rush-hour --headless --policy live --seed 1 --require-live --score /tmp/live.json --decision-log /tmp/decisions.json
 cargo fmt --check
 git diff --check
 ```

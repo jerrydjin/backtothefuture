@@ -1,6 +1,6 @@
 # STATUS
 
-Dinner sentence: "You say what matters in plain English — the traffic bends. Muse plans the merge; the cars just drive. Dumb equal stays jammed; the scoreboard goes green."
+Dinner sentence: "You say what matters in plain English — the traffic bends. The model plans the merge; the cars just drive. Dumb equal stays jammed; the scoreboard goes green."
 
 ## On main
 
@@ -8,7 +8,7 @@ The meter-scale ramp merge is on main. Closed ramp, N cars, neighbor view. Plain
 
 Sticky fail, N=6 symmetric, scripted, no API key: selfish collides and stays RED. Dumb-equal waits and stays RED. A fair scripted plan goes GREEN. A priority plan that starves one approach stays RED on fairness.
 
-The scripted stub runs until `MODEL_API_KEY` is set. Curl does the HTTP. With a key, the client label is `muse`. `ALLOW_CHEAT=0` with no key fails closed.
+The scripted stub runs until `MODEL_API_KEY` is set. Curl does the HTTP. With a key, the client label is `model`. `ALLOW_CHEAT=0` with no key fails closed.
 
 `--show` on the symmetric dinner path draws the gore wreck, the held jam, and the cleared road in the terminal. `cargo run -- --board` opens that same path as a live window. The window is a quiet birds-eye: a white diagram of the road network and small flat cars. One yield or merge cue sits on the relevant car. Sticky RED / RED / GREEN is three tiny pills. Each frame still carries a home count.
 
@@ -37,7 +37,7 @@ The board is a road, in meters.
 - `--show` is a top-down trace: two approaches, the gore, speeds at the mouths. A wreck, a held jam, and a cleared road are labeled. Rectangles only.
 - `--board` lays those same meters in one block of a small town. The dinner road runs to a home marker. Flat cars follow the trajectories. One yield or merge cue. Three tiny sticky pills.
 
-Schemas stayed. Muse still emits only a `ZonePlan`. Locals still execute. The judge is still a pure read of the trajectory.
+Schemas stayed. The model still emits only a `ZonePlan`. Locals still execute. The judge is still a pure read of the trajectory.
 
 ## Town
 
@@ -47,14 +47,14 @@ The board's background is now a real network sim (`src/network.rs`), not replaye
 - Cars spawn at the map edges, pick a destination, and drive the fastest route across links. Car-following is IDM under the dinner caps. Step is 0.25 s; the board gets one frame a second.
 - Junctions have no lights. A car asks for its path through a junction a short stopping distance out. Crossing paths never hold two cars. Minor roads give way to a priority car inside a 3 s gap. Motorway merges zipper, and ramp terminals take turns. Nobody enters a junction whose exit is full.
 - Demand rises to a rush and falls again. Queues build at the merges and off-ramps, spill back, then drain before the loop. Queued cars draw amber.
-- The town never feeds the judge or Muse. The sticky path is unchanged: selfish RED, dumb-equal RED, scripted GREEN.
+- The town never feeds the judge or the model. The sticky path is unchanged: selfish RED, dumb-equal RED, scripted GREEN.
 
 ## Still cut
 
 - No photoreal, CARLA, or Earth twin
 - No V2X radio race
 - No lights or pedestrians
-- Muse is not in the brake loop
+- The model is not in the brake loop
 - No car meshes, no ChemStation
 - No stack rewrite
 

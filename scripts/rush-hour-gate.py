@@ -8,7 +8,7 @@ import tempfile
 import time
 
 p=argparse.ArgumentParser(description=__doc__)
-p.add_argument('--binary',default='./target/debug/muse')
+p.add_argument('--binary',default='./target/debug/malleable')
 p.add_argument('--output',required=True)
 p.add_argument('--policies',nargs='+',default=['fcfs','keyword'])
 a=p.parse_args()

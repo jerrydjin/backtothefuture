@@ -1,12 +1,12 @@
-use muse::replay::ReplayArchive;
+use malleable::replay::ReplayArchive;
 
 #[test]
 fn typed_reason_can_be_saved_and_exported_without_new_decisions() {
-    let dir = std::env::temp_dir().join(format!("muse-recording-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("malleable-recording-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let replay = dir.join("grant.json");
     let html = dir.join("grant.html");
-    let run = std::process::Command::new(env!("CARGO_BIN_EXE_muse"))
+    let run = std::process::Command::new(env!("CARGO_BIN_EXE_malleable"))
         .args([
             "--reason",
             "My passenger has severe chest pain",
@@ -37,7 +37,7 @@ fn typed_reason_can_be_saved_and_exported_without_new_decisions() {
     assert_eq!(reason.time_home_s, typed.home_at_s);
     assert_eq!(archive.reply_seconds, vec![Some(reason.decision.reply_s)]);
     let before = std::fs::read(&replay).unwrap();
-    let run = std::process::Command::new(env!("CARGO_BIN_EXE_muse"))
+    let run = std::process::Command::new(env!("CARGO_BIN_EXE_malleable"))
         .arg("--replay")
         .arg(&replay)
         .arg("--export-replay")

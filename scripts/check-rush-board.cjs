@@ -7,7 +7,7 @@ const policy=live?'live':'mock';
 const prefix=live?'phase-5':'phase-5-mock';
 const replay='/tmp/'+prefix+'-session.json';
 const timing=fs.openSync('docs/gates/'+prefix+'-browser.timing.log','w');
-const child=spawn('./target/debug/muse',['--board','--rush-hour','--no-open','--policy',policy,'--seed','1','--save-replay',replay,'--score','/tmp/'+prefix+'-score.json',...(live?['--require-live']:[])],{stdio:['ignore','pipe',timing]});
+const child=spawn('./target/debug/malleable',['--board','--rush-hour','--no-open','--policy',policy,'--seed','1','--save-replay',replay,'--score','/tmp/'+prefix+'-score.json',...(live?['--require-live']:[])],{stdio:['ignore','pipe',timing]});
 let browser;
 (async()=>{
   let output='';

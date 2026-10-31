@@ -1,0 +1,20 @@
+Byte comparison of driving_gate score stdout.
+Main outputs were captured from the release example on main before the rename:
+`driving_gate typical seed=1 end=10` and `driving_gate seed=1 end=10`.
+Branch outputs were captured after the rename with:
+`cargo run -q --release --example driving_gate -- typical seed=1 end=10`
+and `cargo run -q --release --example driving_gate -- boxed-in seed=1 end=10`.
+Runs without `typical` use the boxed population. The `boxed-in` token does not
+select a third mode. cmp prints nothing and exits 0 when the files are identical.
+
+command: cargo run -q --release --example driving_gate -- typical seed=1 end=10
+cmp main-typical.jsonl branch-typical.jsonl
+identical: true
+bytes: 123039
+sha256: 50046c2dcb22219dff7db31ccda66d6c6ca38aada08cbb58eeef2b5ed114da70
+
+command: cargo run -q --release --example driving_gate -- boxed-in seed=1 end=10
+cmp main-boxed.jsonl branch-boxed.jsonl
+identical: true
+bytes: 123037
+sha256: a704e49f9bd5e17e05744fe0ecd8e8263ce18510c6ce97901299edd544fad12e

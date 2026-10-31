@@ -2,7 +2,7 @@
 //! this pins the same RED / RED / GREEN verdicts at the larger fleets a
 //! network board will draw, and checks a rerun gives the same scores.
 
-use muse::{run_episode, EpisodeOpts, FakeEcho, JamType, Scenario, Verdict, FAIRNESS_MAX};
+use malleable::{run_episode, EpisodeOpts, FakeEcho, JamType, Scenario, Verdict, FAIRNESS_MAX};
 
 const FAIR: &str = "Zipper fairly so both approaches get home.";
 const JAMS: [JamType; 3] = [
@@ -47,17 +47,17 @@ fn sticky_board_holds_at_fleet_scale() {
             assert_eq!(
                 report.muse.verdict,
                 Verdict::Green,
-                "{cars} {jam} muse {}",
+                "{cars} {jam} plan {}",
                 report.muse
             );
             assert_eq!(
                 report.muse.cars_home, cars,
-                "{cars} {jam} muse {}",
+                "{cars} {jam} plan {}",
                 report.muse
             );
             assert!(
                 report.muse.fairness <= FAIRNESS_MAX,
-                "{cars} {jam} muse {}",
+                "{cars} {jam} plan {}",
                 report.muse
             );
         }

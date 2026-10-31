@@ -1,6 +1,6 @@
 use std::cell::Cell;
 
-use muse::{
+use malleable::{
     default_horizon, interpret_english, judge, rollout, run_episode, validate_plan, Bias,
     DumbEqual, EpisodeOpts, FakeEcho, FollowPlan, JamType, LaneIntent, MuseClient, OrderIntent,
     Prefs, Scenario, Selfish, Verdict, World, ZonePlan, FAIRNESS_MAX,
@@ -24,7 +24,7 @@ fn fair(cars: u32, jam: JamType) -> Scenario {
 }
 
 #[test]
-fn sticky_fail_baseline_red_and_muse_green() {
+fn sticky_fail_baseline_red_and_plan_green() {
     for cars in [2, 3, 4, 6, 8] {
         for jam in [
             JamType::Symmetric,
@@ -63,7 +63,7 @@ fn sticky_fail_baseline_red_and_muse_green() {
             assert_eq!(
                 report.muse.verdict,
                 Verdict::Green,
-                "{cars} {jam} muse {} plan {}",
+                "{cars} {jam} plan {} plan {}",
                 report.muse,
                 report.plan_json
             );
@@ -78,7 +78,7 @@ fn sticky_fail_baseline_red_and_muse_green() {
 fn selfish_ignores_a_broadcast_plan() {
     let scenario = fair(6, JamType::Symmetric);
     let world = World::spawn(&scenario).unwrap();
-    let prompt = muse::render_prompt(&scenario.prefs, &world.snapshot());
+    let prompt = malleable::render_prompt(&scenario.prefs, &world.snapshot());
     let plan = ZonePlan::parse(&FakeEcho.complete(&prompt)).unwrap();
     let mut seeded = world.clone();
     seeded.broadcast_plan(&plan);
@@ -116,7 +116,7 @@ fn structured_bias_in_the_prompt_overrides_fair_english() {
     assert_eq!(report.muse.reasons, vec!["unfair".to_string()]);
     let plan = ZonePlan::parse(&report.plan_json).unwrap();
     let first = plan.intents.iter().find(|intent| intent.rank == 0).unwrap();
-    assert_eq!(first.approach, muse::Approach::Ramp);
+    assert_eq!(first.approach, malleable::Approach::Ramp);
 }
 
 #[test]
@@ -133,7 +133,7 @@ fn mid_run_rewrite_stays_green() {
     )
     .unwrap();
     assert_eq!(report.muse.verdict, Verdict::Green, "{}", report.muse);
-    assert!(client.hits.get() > 1, "rewrite should call Muse again");
+    assert!(client.hits.get() > 1, "rewrite should call the model again");
 }
 
 #[test]
@@ -145,25 +145,25 @@ fn reversed_queue_is_rejected_and_brakes_are_rejected() {
             OrderIntent {
                 rank: 0,
                 agent_id: 1,
-                approach: muse::Approach::Main,
+                approach: malleable::Approach::Main,
                 lane: LaneIntent::Through,
             },
             OrderIntent {
                 rank: 1,
                 agent_id: 0,
-                approach: muse::Approach::Main,
+                approach: malleable::Approach::Main,
                 lane: LaneIntent::Through,
             },
             OrderIntent {
                 rank: 2,
                 agent_id: 2,
-                approach: muse::Approach::Ramp,
+                approach: malleable::Approach::Ramp,
                 lane: LaneIntent::Through,
             },
             OrderIntent {
                 rank: 3,
                 agent_id: 3,
-                approach: muse::Approach::Ramp,
+                approach: malleable::Approach::Ramp,
                 lane: LaneIntent::Through,
             },
         ],

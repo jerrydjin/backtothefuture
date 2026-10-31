@@ -1,9 +1,9 @@
-use muse::make_way::{
+use malleable::make_way::{
     car_connected, choose, in_yield_window, rejoin, time_relays, CarLocal, DrivingAction,
     MakeWayMessage, Propagation, Rejoin, RelayHop, RoadGraph, LOCAL_YIELD_M, PULLOVER_MAX_S,
     PULLOVER_MIN_S,
 };
-use muse::world::CAR_LENGTH_M;
+use malleable::world::CAR_LENGTH_M;
 
 struct Grid {
     length: Vec<f64>,
@@ -219,17 +219,17 @@ fn lookahead_reaches_the_queue_on_a_long_motorway_link() {
             .any(|(id, action)| *id == 11 && matches!(action, DrivingAction::Ignore)),
         "{actions:?}"
     );
-    assert!(muse::make_way::lane_change_window(
+    assert!(malleable::make_way::lane_change_window(
         112.0, 15.0, 240.0, true, 8.0, 280.0
     ));
-    assert!(!muse::make_way::lane_change_window(
+    assert!(!malleable::make_way::lane_change_window(
         200.0, 15.0, 240.0, true, 15.0, 180.0
     ));
-    assert!(!muse::make_way::lane_change_window(
+    assert!(!malleable::make_way::lane_change_window(
         112.0, 15.0, 240.0, false, 8.0, 280.0
     )); // no parallel lane
         // Free-flow-ish car near the exit is not caught on this link.
-    assert!(!muse::make_way::lane_change_window(
+    assert!(!malleable::make_way::lane_change_window(
         80.0, 11.0, 240.0, true, 10.0, 20.0
     ));
 }

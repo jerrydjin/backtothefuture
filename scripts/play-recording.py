@@ -18,11 +18,11 @@ a = p.parse_args()
 if a.legacy and a.recording:
     p.error("choose --legacy or --recording")
 root = Path(__file__).resolve().parent.parent
-binary = Path(a.binary).resolve() if a.binary else root / "target/debug/muse"
+binary = Path(a.binary).resolve() if a.binary else root / "target/debug/malleable"
 sources = [root / "Cargo.toml", root / "Cargo.lock", *root.glob("src/**/*.rs")]
 if not a.binary and (not binary.exists() or any(path.stat().st_mtime > binary.stat().st_mtime for path in sources if path.exists())):
     subprocess.run(["cargo", "build", "--quiet"], cwd=root, check=True)
-with tempfile.TemporaryDirectory(prefix="muse-recording-") as directory:
+with tempfile.TemporaryDirectory(prefix="malleable-recording-") as directory:
     rush = not a.legacy and (a.recording or (root / "recordings/rush-hour.json").exists())
     if rush:
         clips = ["rush-hour"] if a.recording else [c for c in ["rush-hour", "rush-grant", "rush-liar", "rush-deny"] if (root / f"recordings/{c}.json").exists()]

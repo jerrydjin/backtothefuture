@@ -33,10 +33,10 @@ cargo test --offline
 cargo test --offline --test propagation
 cargo build --offline
 python3 scripts/propagation-gate.py --output /tmp/propagation-five-seeds.jsonl
-./target/debug/muse --rush-hour --headless --policy mock --seed 1 --score /tmp/spread.json
-./target/debug/muse --rush-hour --headless --policy mock --seed 1 --local-only --score /tmp/local.json
+./target/debug/malleable --rush-hour --headless --policy mock --seed 1 --score /tmp/spread.json
+./target/debug/malleable --rush-hour --headless --policy mock --seed 1 --local-only --score /tmp/local.json
 # Configurable propagation and forecast horizon:
-./target/debug/muse --rush-hour --headless --policy mock --seed 1 --message-speed 10 --hop-delay 0.1 --lookahead-minutes 4
+./target/debug/malleable --rush-hour --headless --policy mock --seed 1 --message-speed 10 --hop-delay 0.1 --lookahead-minutes 4
 cargo fmt --check
 git diff --check
 ```

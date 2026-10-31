@@ -121,14 +121,14 @@ No live runs were made. Michael runs every live gate.
 cargo build --release --offline --examples
 cargo test --release --offline
 target/release/examples/sf_corridor_gate maps/sf-zsfg.json /tmp/sf-13c > /tmp/sf-13c-scores.jsonl
-target/release/muse --replay /tmp/sf-13c/sf-peak-1.replay.json --headless --save-replay /tmp/sf-13c-again.json
+target/release/malleable --replay /tmp/sf-13c/sf-peak-1.replay.json --headless --save-replay /tmp/sf-13c-again.json
 cmp /tmp/sf-13c/sf-peak-1.replay.json /tmp/sf-13c-again.json
-target/release/muse --replay /tmp/sf-13c/sf-peak-1.replay.json --export-replay /tmp/sf-13c.html
+target/release/malleable --replay /tmp/sf-13c/sf-peak-1.replay.json --export-replay /tmp/sf-13c.html
 node scripts/check-sf-board.cjs /tmp/sf-13c.html /tmp/sf-13c/sf-peak-1.replay.json /tmp/sf-13c/sf-peak-1.messages.json /tmp/sf-13c.png /tmp/sf-13c-browser.json 300
 ```
 
 To run the same SF population through the normal CLI with mock policy:
 
 ```sh
-target/release/muse --map maps/sf-zsfg.json --scenario boxed-in --headless --policy mock --seed 1 --save-messages /tmp/sf.messages.json --save-replay /tmp/sf.replay.json
+target/release/malleable --map maps/sf-zsfg.json --scenario boxed-in --headless --policy mock --seed 1 --save-messages /tmp/sf.messages.json --save-replay /tmp/sf.replay.json
 ```

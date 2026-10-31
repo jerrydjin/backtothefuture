@@ -7,7 +7,7 @@ from pathlib import Path
 import subprocess
 
 p = argparse.ArgumentParser(description=__doc__)
-p.add_argument("--binary", default="./target/debug/muse")
+p.add_argument("--binary", default="./target/debug/malleable")
 p.add_argument("--output", required=True)
 p.add_argument("--logs", required=True)
 a = p.parse_args()

@@ -1,16 +1,16 @@
-use muse::board::{render_board_html, story_board_from_run};
-use muse::replay::ReplayArchive;
-use muse::story::StoryKind;
+use malleable::board::{render_board_html, story_board_from_run};
+use malleable::replay::ReplayArchive;
+use malleable::story::StoryKind;
 
-fn dinner() -> muse::DinnerRun {
-    muse::run_dinner(
-        &muse::Scenario::new(
+fn dinner() -> malleable::DinnerRun {
+    malleable::run_dinner(
+        &malleable::Scenario::new(
             6,
-            muse::JamType::Symmetric,
+            malleable::JamType::Symmetric,
             "Zipper fairly so both approaches get home.",
         ),
-        &muse::FakeEcho,
-        &muse::EpisodeOpts::default(),
+        &malleable::FakeEcho,
+        &malleable::EpisodeOpts::default(),
     )
     .unwrap()
 }
@@ -27,7 +27,7 @@ fn replay_preserves_every_storys_exact_motion_words_reasons_and_source() {
     ] {
         let board = story_board_from_run(&dinner, "scripted", kind);
         let path =
-            std::env::temp_dir().join(format!("muse-replay-{}-{kind:?}.json", std::process::id()));
+            std::env::temp_dir().join(format!("malleable-replay-{}-{kind:?}.json", std::process::id()));
         let mut archive = ReplayArchive::new(board);
         archive.reply_seconds = vec![Some(19.035)];
         archive.write(&path).unwrap();

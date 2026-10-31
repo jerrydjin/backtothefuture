@@ -58,7 +58,7 @@ pub struct DinnerRun {
 }
 
 impl DinnerRun {
-    /// Terminal report. `client_label` is `scripted` or `muse`; the plan score stays `report.muse`.
+    /// Terminal report. `client_label` is `scripted` or `model`; the plan score stays `report.muse`.
     pub fn to_report(&self, client_label: &str, opts: &EpisodeOpts) -> EpisodeReport {
         let selfish_trace = opts
             .show

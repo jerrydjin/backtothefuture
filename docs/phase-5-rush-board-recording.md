@@ -52,9 +52,9 @@ node scripts/check-rush-board.cjs --live
 node scripts/check-rush-recording.cjs
 node scripts/check-reason-browser.cjs
 node scripts/check-recording-browser.cjs
-./target/debug/muse --board --rush-hour --policy live --seed 1 --save-replay /tmp/rush-session.json
-./target/debug/muse --rush-hour --headless --policy live --seed 1 --require-live --save-replay /tmp/rush-live.json --score /tmp/rush.json
-./target/debug/muse --replay recordings/rush-hour.json --export-replay /tmp/rush.html
+./target/debug/malleable --board --rush-hour --policy live --seed 1 --save-replay /tmp/rush-session.json
+./target/debug/malleable --rush-hour --headless --policy live --seed 1 --require-live --save-replay /tmp/rush-live.json --score /tmp/rush.json
+./target/debug/malleable --replay recordings/rush-hour.json --export-replay /tmp/rush.html
 git diff --check
 ```
 

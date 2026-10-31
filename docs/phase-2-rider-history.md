@@ -28,8 +28,8 @@ Emergency gain is **0s in both modes**. The numerical >=80% retention test passe
 ```sh
 cargo test --offline
 cargo build --offline
-./target/debug/muse --rush-hour --headless --policy mock --seed 1 --score /tmp/history.json
-./target/debug/muse --rush-hour --headless --policy mock --seed 1 --no-history --score /tmp/no-history.json
+./target/debug/malleable --rush-hour --headless --policy mock --seed 1 --score /tmp/history.json
+./target/debug/malleable --rush-hour --headless --policy mock --seed 1 --no-history --score /tmp/no-history.json
 python3 scripts/history-gate.py --output /tmp/history-five-seeds.jsonl
 cargo fmt --check
 git diff --check

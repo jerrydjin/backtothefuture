@@ -1,4 +1,4 @@
-use muse::rush_hour::{self, Decision, Mock, Policy, PolicyRequest};
+use malleable::rush_hour::{self, Decision, Mock, Policy, PolicyRequest};
 use std::sync::Mutex;
 
 #[derive(Default)]

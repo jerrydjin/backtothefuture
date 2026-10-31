@@ -129,7 +129,7 @@ pub fn render_prompt(prefs: &Prefs, state: &WorldState) -> String {
         .map(|bias| bias.to_string())
         .unwrap_or_else(|| "none".to_string());
     format!(
-        "You are Muse. You plan one merge zone. You do not drive, brake, or tick cars.\n\
+        "You are the model. You plan one merge zone. You do not drive, brake, or tick cars.\n\
 Emit a single JSON object and nothing else.\n\
 Schema: {{\"zone_id\":\"merge-1\",\"intents\":[{{\"rank\":0,\"agent_id\":0,\"approach\":\"main\",\"lane\":\"through\"}}]}}\n\
 Rules:\n\
@@ -202,7 +202,7 @@ impl HttpMuse {
         let url = format!("{}/chat/completions", self.base.trim_end_matches('/'));
         let body = openai_body(
             &self.model,
-            "You are Muse. Reply with one ZonePlan JSON object and no other text.",
+            "You are the model. Reply with one ZonePlan JSON object and no other text.",
             prompt,
             false,
         );
@@ -738,7 +738,7 @@ impl MuseKind {
     pub fn label(&self) -> &'static str {
         match self {
             MuseKind::FakeEcho(_) => "scripted",
-            MuseKind::Http(_) => "muse",
+            MuseKind::Http(_) => "model",
         }
     }
 }
@@ -783,7 +783,7 @@ mod tests {
         assert!(MuseKind::from_key(None, false).is_err());
         let live = MuseKind::from_key(Some("test-key"), false).unwrap();
         assert!(matches!(live, MuseKind::Http(_)));
-        assert_eq!(live.label(), "muse");
+        assert_eq!(live.label(), "model");
     }
 
     #[test]

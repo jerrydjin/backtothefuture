@@ -4,7 +4,7 @@ import argparse,json,subprocess,tempfile,time
 from pathlib import Path
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--output',required=True)
-p.add_argument('--binary',default='./target/debug/muse')
+p.add_argument('--binary',default='./target/debug/malleable')
 a=p.parse_args();output=Path(a.output);assert not output.exists()
 output.parent.mkdir(parents=True,exist_ok=True)
 with tempfile.TemporaryDirectory() as tmp:

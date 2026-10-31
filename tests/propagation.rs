@@ -1,4 +1,4 @@
-use muse::{
+use malleable::{
     network::BroadcastConfig,
     rush_hour::{self, Mock},
 };
@@ -61,7 +61,7 @@ fn bulletins_follow_grants_and_relay_causally_without_self_holds() {
 
 #[test]
 fn invalid_propagation_configuration_is_rejected() {
-    let demand = [muse::network::ScheduledCar {
+    let demand = [malleable::network::ScheduledCar {
         id: 1,
         route: 0,
         depart_s: 0.0,
@@ -80,7 +80,7 @@ fn invalid_propagation_configuration_is_rejected() {
             ..Default::default()
         },
     ] {
-        let mut sim = muse::network::TownSim::with_schedule(1, &demand).unwrap();
+        let mut sim = malleable::network::TownSim::with_schedule(1, &demand).unwrap();
         assert!(sim.enable_broadcast(config).is_err());
     }
 }

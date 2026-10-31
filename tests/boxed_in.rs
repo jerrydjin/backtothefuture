@@ -1,5 +1,5 @@
-use muse::network::{Network, RoadClass};
-use muse::rush_hour::{self, Truth};
+use malleable::network::{Network, RoadClass};
+use malleable::rush_hour::{self, Truth};
 
 #[test]
 fn boxed_rule_is_fixed_and_typical_demand_is_separate() {
