@@ -1234,6 +1234,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     var caught=(rush.caught_at||[]).filter(function(pair){return pair[1]<=t;}).length;
     var gain=rush.score.emergency_gain_vs_local;
     var subtitle = Math.abs(gain).toFixed(1)+(gain>=0?"s saved vs local · ":"s later vs local · ")+caught+" liars caught · collisions "+rush.score.collisions+" · completed "+rush.score.completed+"/"+rush.score.trips+(rush.score.passed?"":" · gate failed");
+    if(rush.message_log && rush.message_log.requests.length && !rush.message_log.events.some(function(h){return h.action!=="relay";}))subtitle+=" · no driving maneuvers";
     ctx.appendChild(svgNode("text",{x:14,y:24,fill:"#666","font-family":"system-ui, sans-serif","font-size":12,"data-role":"rush-score"},subtitle));
     if(typed&&typed.show_payoff){
       var payoff="cleared "+Math.round(typed.clear_ahead_m)+"m ahead · home "+Math.round(typed.sooner_s)+"s sooner · others +"+Number(typed.others_s).toFixed(1)+"s";
@@ -1245,7 +1246,7 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
       var later=nextFrame.cars.find(function(c){return c[0]===car[0];});
       var carM=later ? car[2]+(later[2]-car[2])*(t-Math.floor(t)) : car[2]+car[3]*(t-Math.floor(t));
       var at=rushPoint(view,car[1],carM-2.2);
-      ctx.appendChild(svgNode("circle",{cx:at.x,cy:at.y,r:5,fill:"none",stroke:"#6a93ae","stroke-width":1,"data-role":"rush-granted","data-car":d.car}));
+      ctx.appendChild(svgNode("circle",{cx:at.x,cy:at.y,r:5,fill:"none",stroke:"#d23b3b","stroke-width":1,"data-role":"rush-granted","data-car":d.car}));
       // Use the exact --save-messages evidence, including action deliveries:
       // direct car deliveries can precede a scheduled junction relay.
       var log = rush.message_log;
@@ -1257,23 +1258,25 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
       if(!hops.length)return;
       var originHop=hops.find(function(h){return h.action==="relay";}) || hops[0];
       var originM=originHop.route_m-originHop.ahead_m;
-      var previousM=originM,previousT=request ? request.issued_at : d.at_s,head=originM;
-      // A monotone envelope of recorded deliveries. Never invent propagation
-      // speed or use the current car position as the message's starting point.
-      for(var i=0;i<hops.length;i++){
-        var h=hops[i];
-        if(h.route_m<=previousM)continue;
-        if(t<h.at_s){
-          head=previousM+(h.route_m-previousM)*Math.max(0,Math.min(1,(t-previousT)/(h.at_s-previousT)));
-          break;
-        }
-        head=h.route_m;previousM=head;previousT=h.at_s;
-      }
+      // Only delivered evidence may advance the front. Do not interpolate
+      // toward a future relay or action: that would draw ahead of the data.
+      var head=originM;
+      hops.forEach(function(h){if(h.at_s<=t)head=Math.max(head,h.route_m);});
       if(head>carM){
         ctx.appendChild(svgNode("path",{d:rushPath(view,hops[0].route,Math.max(originM,carM),head),fill:"none",stroke:"#6a93ae","stroke-width":1,opacity:.8,"data-role":"rush-pulse","data-beneficiary":d.car,"data-head-m":head,"data-car-m":carM,"data-evidence":"save-messages"}));
         var dot=rushPoint(view,hops[0].route,head);
         ctx.appendChild(svgNode("line",{x1:dot.x-3,y1:dot.y-3,x2:dot.x+3,y2:dot.y+3,stroke:"#6a93ae","stroke-width":1,"data-role":"rush-pulse-head","data-beneficiary":d.car}));
       }
+    });
+    // A receipt is an acknowledgment, not a driving maneuver. In a free-flow
+    // run the host can deliver a bulletin and correctly choose to keep driving.
+    var receiptSeen={};
+    (rush.message_log ? rush.message_log.events : rush.messages).slice().sort(function(a,b){return b.at_s-a.at_s;}).forEach(function(h){
+      if(h.action!=="relay" || h.recipient_car==null || h.at_s>t || t>=h.at_s+1 || receiptSeen[h.recipient_car])return;
+      var at=carSpot(view,t,h.recipient_car);if(!at)return;
+      receiptSeen[h.recipient_car]=true;
+      ctx.appendChild(svgNode("circle",{cx:at.x,cy:at.y,r:5,fill:"none",stroke:"#6a93ae","stroke-width":1,"data-role":"rush-received","data-car":h.recipient_car,"data-beneficiary":h.beneficiary,"data-delivered-at":h.at_s}));
+      ctx.appendChild(svgNode("text",{x:at.x+8,y:at.y-8,fill:"#567287",stroke:"white","stroke-width":3,"paint-order":"stroke","font-family":"system-ui, sans-serif","font-size":10,"data-role":"rush-received-label"},"received · continuing"));
     });
     var farthestCue=null;
     (frame.make_way||[]).forEach(function(state){
@@ -1288,7 +1291,8 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     });
     if(farthestCue)ctx.appendChild(svgNode("text",{x:Math.max(60,Math.min(view.width-100,farthestCue.x+10)),y:farthestCue.y-9,fill:"#8c7b5b",stroke:"white","stroke-width":3,"paint-order":"stroke","font-family":"system-ui, sans-serif","font-size":10,"data-role":"rush-ahead-cue"},farthestCue.action==="clear"?"clearing ahead":"holding ahead"));
     var decisions=rush.decisions.filter(function(d){return d.at_s<=t&&t<d.at_s+16&&cars[d.car];});
-    var decision=typed&&t>=typed.decision.at_s&&t<typed.decision.at_s+20?typed.decision:decisions[Math.floor(t/4)%Math.max(1,decisions.length)];
+    var grantedDecision=decisions.filter(function(d){return d.granted;}).sort(function(a,b){return b.at_s-a.at_s;})[0];
+    var decision=typed&&t>=typed.decision.at_s&&t<typed.decision.at_s+20?typed.decision:(grantedDecision || decisions[Math.floor(t/4)%Math.max(1,decisions.length)]);
     if(!decision)return;
     var c=cars[decision.car];if(!c)return;
     var at=rushPoint(view,c[1],c[2]);

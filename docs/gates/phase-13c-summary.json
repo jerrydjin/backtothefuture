@@ -1,0 +1,102 @@
+{
+  "preregistration": {
+    "preregistration_commits": [
+      "085057d1b2d7e462b370832391c30613f8498711",
+      "0c4a1bbc0485e96cbd2b86b05e979457264b5eca"
+    ],
+    "implementation_commit": "a9ba9e516899adbeba983a949d64cdacab3b9e65",
+    "started_utc": "2026-10-31T14:11:07.593889+00:00",
+    "map_sha256": "062aadb0acb90cee8d65cb87c5c8c1702e1d7f25dcbcee569eab5831755849d0",
+    "profile_sha256": "185cfcbbde33a9c66521c65788a7e115ab39e7f5f4de7239cba5622693291e8a",
+    "command": "target/release/examples/sf_corridor_gate maps/sf-zsfg.json docs/gates/phase-13c",
+    "no_scores_run_before_preregistration": true
+  },
+  "geometry_unchanged_from_phase_13b": true,
+  "profile_unchanged_after_scores": true,
+  "source_url": "https://sfpublicworks.org/sites/default/files/3526-13_0730_Potrero%20Stscp%20Presentation.pdf",
+  "source_page": 11,
+  "directional_vph": 1250,
+  "runs": 10,
+  "total_trips": 3125,
+  "all_completed": true,
+  "collisions": 0,
+  "town": [
+    {
+      "scenario": "boxed",
+      "seeds": [
+        1,
+        20
+      ],
+      "byte_identical": true,
+      "sha256": "47ea42e9d43d3b8eedfb07b2b2ddab02e842d3756b19f91a3fa0660d7bc1db3a"
+    },
+    {
+      "scenario": "typical",
+      "seeds": [
+        1,
+        20
+      ],
+      "byte_identical": true,
+      "sha256": "9cec7a3b104fe36fb1d944bf66eba2c3112605e3078cdf8cd426df3ee3b8cf89"
+    }
+  ],
+  "replay_roundtrip_byte_identical": true,
+  "replay_model_calls": 0,
+  "tests": {
+    "passed": 167,
+    "failed": 0,
+    "ignored": 3,
+    "command": "cargo test --release --offline"
+  },
+  "browser": {
+    "drivingManeuvers": 0,
+    "receiptCuesChecked": 38,
+    "checkedStates": 0,
+    "screenshot": {
+      "time": 347.156,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [],
+      "received": [
+        {
+          "car": 1305,
+          "beneficiary": 1164,
+          "at": 347.14555473672846
+        },
+        {
+          "car": 1114,
+          "beneficiary": 1164,
+          "at": 346.7701500166964
+        },
+        {
+          "car": 1027,
+          "beneficiary": 1164,
+          "at": 346.5177652204098
+        },
+        {
+          "car": 1177,
+          "beneficiary": 1164,
+          "at": 346.1652984252586
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 575.4416349150578,
+          "car": 465.1244364199388,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "svgs": 1
+    },
+    "errors": []
+  },
+  "ready_for_review_existing_prs": [
+    31,
+    32,
+    33,
+    34
+  ]
+}

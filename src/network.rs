@@ -198,6 +198,7 @@ impl Route {
 
 #[derive(Clone, Debug)]
 pub struct Network {
+    pub demand_profile: Option<crate::demand::CorridorDemand>,
     pub attribution: Option<String>,
     plan_nodes: Vec<Node>,
     pub hospital_node: Option<usize>,
@@ -233,6 +234,7 @@ impl Network {
         use crate::road_map::*;
         let mut map = RoadMap {
             version: 1,
+            demand_profile: self.demand_profile.clone(),
             hospital_node: self.hospital_node,
             attribution: self.attribution.clone(),
             origin: [51.5, -0.1],
@@ -323,6 +325,24 @@ impl Network {
         net.schedule_scale = map.schedule_scale;
         net.hospital_node = map.hospital_node;
         net.attribution = map.attribution.clone();
+        net.demand_profile = map.demand_profile.clone();
+        if let Some(profile) = &net.demand_profile {
+            let edge = &map.edges[profile.source_edge];
+            let link = net
+                .links
+                .iter()
+                .find(|l| l.edge == profile.source_edge && l.from == edge.from)
+                .ok_or("demand source edge has no directed road")?
+                .id;
+            if !net.sources.iter().any(|s| s.link == link) {
+                net.sources.push(Source {
+                    link,
+                    rate: profile.vehicles_per_hour / 3600.0,
+                    gate: net.nodes[edge.from].gate,
+                });
+            }
+            profile.route(&net)?;
+        }
         if net
             .links
             .iter()
@@ -373,6 +393,53 @@ impl Network {
                 }
             }
         }
+        // A declared corridor is a geographic route, even if a side-street
+        // shortcut is faster. All its turns must exist in the host graph.
+        if let Some(profile) = &self.demand_profile {
+            let roads: Option<Vec<_>> = profile
+                .expected_road_edges
+                .iter()
+                .map(|edge| {
+                    self.links
+                        .iter()
+                        .find(|l| {
+                            !l.is_connector()
+                                && l.edge == *edge
+                                && l.from == self.plan_edges[*edge].a
+                        })
+                        .map(|l| l.id)
+                })
+                .collect();
+            if let Some(roads) = roads {
+                let source = self
+                    .sources
+                    .iter()
+                    .position(|s| Some(&s.link) == roads.first());
+                let sink = self
+                    .sinks
+                    .iter()
+                    .position(|s| Some(&s.link) == roads.last());
+                if let (Some(source), Some(sink)) = (source, sink) {
+                    let mut links = vec![roads[0]];
+                    let mut valid = true;
+                    for pair in roads.windows(2) {
+                        if let Some(connector) = self.moves[pair[0]]
+                            .iter()
+                            .find(|c| self.links[**c].via == Some((pair[0], pair[1])))
+                        {
+                            links.extend([*connector, pair[1]]);
+                        } else {
+                            valid = false;
+                            break;
+                        }
+                    }
+                    if valid && !out.iter().any(|(_, _, r)| r.links == links) {
+                        out.push((source, sink, Route::new(links, self)));
+                    }
+                }
+            }
+        }
+
         out
     }
 }
@@ -712,6 +779,7 @@ fn build((nodes, edges): (Vec<Node>, Vec<EdgeDef>)) -> Network {
     }
 
     Network {
+        demand_profile: None,
         attribution: None,
         hospital_node: None,
         plan_nodes,
