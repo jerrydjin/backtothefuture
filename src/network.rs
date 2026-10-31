@@ -849,6 +849,8 @@ pub struct BroadcastConfig {
     pub speed_multiple: f64,
     pub hop_delay_s: f64,
     pub lookahead_s: f64,
+    pub lane_changes: bool,
+    pub reroutes: bool,
 }
 impl Default for BroadcastConfig {
     fn default() -> Self {
@@ -856,6 +858,8 @@ impl Default for BroadcastConfig {
             speed_multiple: 10.0,
             hop_delay_s: 0.1,
             lookahead_s: 240.0,
+            lane_changes: true,
+            reroutes: true,
         }
     }
 }
@@ -895,6 +899,9 @@ struct Experiment {
     held: BTreeSet<u32>,
     yielding_for: BTreeMap<u32, (u32, String)>,
     notified: BTreeSet<(u32, u32, usize, String)>,
+    acted: BTreeSet<u32>,
+    parallel: BTreeMap<usize, usize>,
+    hold_seconds: BTreeMap<u32, f64>,
 }
 
 pub struct TownSim {
@@ -1027,6 +1034,9 @@ impl TownSim {
             held: BTreeSet::new(),
             yielding_for: BTreeMap::new(),
             notified: BTreeSet::new(),
+            acted: BTreeSet::new(),
+            parallel: BTreeMap::new(),
+            hold_seconds: BTreeMap::new(),
         });
         Ok(sim)
     }
@@ -1055,9 +1065,38 @@ impl TownSim {
             return Err("invalid message propagation configuration".into());
         }
         self.experiment
-            .as_mut()
-            .ok_or("broadcast requires scheduled experiment")?
-            .broadcast = Some(config);
+            .as_ref()
+            .ok_or("broadcast requires scheduled experiment")?;
+        if config.lane_changes {
+            let original = self.net.links.len();
+            for link in 0..original {
+                if !matches!(
+                    self.net.links[link].class,
+                    RoadClass::Arterial | RoadClass::Motorway
+                ) {
+                    continue;
+                }
+                let mut lane = self.net.links[link].clone();
+                lane.id = self.net.links.len();
+                lane.pts = offset(&lane.pts, LANE_WIDTH_M);
+                lane.cum = measures(&lane.pts);
+                // Lane stations share the road's longitudinal metres.
+                let factor = lane.len / lane.cum.last().copied().unwrap_or(lane.len);
+                for d in &mut lane.cum {
+                    *d *= factor;
+                }
+                self.net.moves.push(self.net.moves[link].clone());
+                self.net.conflicts.push(Vec::new());
+                self.net.approaches[lane.to].push(lane.id);
+                self.experiment
+                    .as_mut()
+                    .unwrap()
+                    .parallel
+                    .insert(link, lane.id);
+                self.net.links.push(lane);
+            }
+        }
+        self.experiment.as_mut().unwrap().broadcast = Some(config);
         Ok(())
     }
 
@@ -1162,6 +1201,217 @@ impl TownSim {
         seconds
     }
 
+    /// Both gaps include one integration step and a full braking-distance margin.
+    pub fn accepted_lane_gap(front: f64, speed: f64, other_front: f64, other_speed: f64) -> bool {
+        let gap = (front - other_front).abs() - CAR_LENGTH_M;
+        let follower_speed = if front > other_front {
+            other_speed
+        } else {
+            speed
+        };
+        gap >= MIN_GAP_M
+            + follower_speed * NET_DT_S
+            + follower_speed * follower_speed / (2.0 * IDM_B)
+    }
+
+    fn apply_route_actions(&mut self) {
+        let Some(ex) = &self.experiment else {
+            return;
+        };
+        let Some(config) = ex.broadcast else {
+            return;
+        };
+        if !config.lane_changes && !config.reroutes {
+            return;
+        }
+        let mut candidates = Vec::new();
+        for (ci, car) in self.cars.iter().enumerate() {
+            if ex.acted.contains(&car.id) || ex.granted.contains(&car.id) || car.claim.is_some() {
+                continue;
+            }
+            let own = &self.routes[car.route];
+            if self.net.links[own.links[car.idx]].is_connector()
+                || car.d - own.start[car.idx] < CAR_LENGTH_M + MIN_GAP_M
+            {
+                continue;
+            }
+            for b in &ex.bulletins {
+                let Some(urgent) = self.cars.iter().find(|c| c.id == b.car) else {
+                    continue;
+                };
+                let path = &self.routes[b.route];
+                let Some((k, received)) = b.junctions.iter().find(|(k, t)| {
+                    *t <= self.time
+                        && path.start[*k] > urgent.d
+                        && own.links[car.idx..]
+                            .iter()
+                            .any(|l| *l == path.links[*k - 1])
+                }) else {
+                    continue;
+                };
+                let eta = self.route_eta(path, urgent.d, path.start[*k]);
+                if eta > config.lookahead_s {
+                    continue;
+                }
+                candidates.push((ci, b.car, b.route, path.start[*k], eta, *received));
+                break;
+            }
+        }
+        // Apply serially so the second lane change sees the first one's body.
+        for (ci, beneficiary, route, route_m, eta, _) in candidates {
+            let car = &self.cars[ci];
+            let old = &self.routes[car.route];
+            let link = old.links[car.idx];
+            let front = car.d - old.start[car.idx];
+            let lane = self
+                .experiment
+                .as_ref()
+                .unwrap()
+                .parallel
+                .get(&link)
+                .copied();
+            let mut chosen = None;
+            let urgent_path = &self.routes[route];
+            let on_emergency_lane = urgent_path
+                .links
+                .iter()
+                .position(|l| *l == link)
+                .is_some_and(|k| {
+                    urgent_path.start[k] + front
+                        > self
+                            .cars
+                            .iter()
+                            .find(|c| c.id == beneficiary)
+                            .map(|c| c.d)
+                            .unwrap_or(f64::INFINITY)
+                });
+            if config.lane_changes && on_emergency_lane {
+                if let Some(lane) = lane {
+                    let gap = self
+                        .cars
+                        .iter()
+                        .enumerate()
+                        .filter(|(oi, _)| *oi != ci)
+                        .all(|(_, other)| {
+                            let r = &self.routes[other.route];
+                            (self.rear_index(other)..=other.idx).all(|i| {
+                                r.links[i] != lane
+                                    || Self::accepted_lane_gap(
+                                        front,
+                                        car.v,
+                                        other.d - r.start[i],
+                                        other.v,
+                                    )
+                            })
+                        });
+                    if gap
+                        && self.net.links[link].len - front
+                            > car.v * car.v / (2.0 * IDM_B) + CAR_LENGTH_M + MIN_GAP_M
+                    {
+                        let mut links = old.links.clone();
+                        links[car.idx] = lane;
+                        chosen = Some((links, "lane_change"));
+                    }
+                }
+            }
+            if chosen.is_none() && config.reroutes {
+                let urgent_path = &self.routes[route].links;
+                let sink = *old.links.last().unwrap();
+                let mut best = vec![f64::INFINITY; self.net.links.len()];
+                let mut prev = vec![None; self.net.links.len()];
+                let mut heap = BinaryHeap::new();
+                best[link] = 0.0;
+                heap.push(Visit(0.0, link));
+                while let Some(Visit(cost, at)) = heap.pop() {
+                    if cost > best[at] {
+                        continue;
+                    }
+                    for next in successors(&self.net, at) {
+                        // Leave the emergency corridor; reconnect only at the destination.
+                        if next != sink && urgent_path.contains(&next) {
+                            continue;
+                        }
+                        let occupied = self
+                            .cars
+                            .iter()
+                            .filter(|other| {
+                                let r = &self.routes[other.route];
+                                r.links[other.idx..].contains(&next)
+                            })
+                            .count() as f64;
+                        let dist = cost
+                            + self.net.links[next].len / self.net.links[next].speed
+                            + occupied * 2.5;
+                        if dist < best[next] {
+                            best[next] = dist;
+                            prev[next] = Some(at);
+                            heap.push(Visit(dist, next));
+                        }
+                    }
+                }
+                if let Some(suffix) = walk_back(&prev, link, sink) {
+                    let mut links = old.links[..car.idx].to_vec();
+                    links.extend(suffix);
+                    let candidate = Route::new(links.clone(), &self.net);
+                    let estimate = |r: &Route| {
+                        r.links[car.idx + 1..]
+                            .iter()
+                            .map(|l| {
+                                self.net.links[*l].len / self.net.links[*l].speed
+                                    + 2.5
+                                        * self
+                                            .cars
+                                            .iter()
+                                            .filter(|other| {
+                                                let route = &self.routes[other.route];
+                                                route.links[other.idx..].contains(l)
+                                            })
+                                            .count()
+                                            as f64
+                            })
+                            .sum::<f64>()
+                    };
+                    if estimate(&candidate) <= estimate(old) + 3.0
+                        && candidate.links != old.links
+                        && candidate.total - car.d <= 1.25 * (old.total - car.d)
+                        && candidate.total > car.d
+                    {
+                        chosen = Some((links, "reroute"));
+                    }
+                }
+            }
+            if let Some((links, action)) = chosen {
+                let car_id = car.id;
+                let next = Route::new(links, &self.net);
+                let route_id = self.routes.len();
+                self.routes.push(next);
+                self.cars[ci].route = route_id;
+                self.cars[ci].claim = None;
+                let ex = self.experiment.as_mut().unwrap();
+                ex.acted.insert(car_id);
+                ex.messages.push(MessageHop {
+                    beneficiary,
+                    route,
+                    at_s: self.time,
+                    route_m,
+                    ahead_m: route_m
+                        - self
+                            .cars
+                            .iter()
+                            .find(|c| c.id == beneficiary)
+                            .map(|c| c.d)
+                            .unwrap_or(0.0),
+                    lead_s: eta,
+                    sender: format!("route:{route}"),
+                    recipient: format!("car:{car_id}"),
+                    recipient_car: Some(car_id),
+                    connector: None,
+                    action: action.into(),
+                });
+            }
+        }
+    }
+
     fn update_make_way(&mut self) {
         let Some(ex) = self.experiment.as_ref() else {
             return;
@@ -1180,6 +1430,9 @@ impl TownSim {
             .filter_map(|b| self.cars.iter().find(|c| c.id == b.car).map(|c| (b, c)))
             .collect();
         for car in &self.cars {
+            if ex.acted.contains(&car.id) {
+                continue;
+            }
             let Some(want_k) = self.next_connector(car) else {
                 continue;
             };
@@ -1223,7 +1476,8 @@ impl TownSim {
                         boosted.insert(car.id);
                         yielding_for.insert(car.id, (bulletin.car, "clear".to_string()));
                         "clear"
-                    } else if incoming != path.links[k - 1]
+                    } else if ex.hold_seconds.get(&car.id).copied().unwrap_or(0.0) < 3.0
+                        && incoming != path.links[k - 1]
                         && !ex.granted.contains(&car.id)
                         && (self.net.conflicts_of(want).contains(&path.links[k])
                             || want == path.links[k])
@@ -1273,6 +1527,9 @@ impl TownSim {
             }
         }
         let ex = self.experiment.as_mut().unwrap();
+        for id in &held {
+            *ex.hold_seconds.entry(*id).or_default() += NET_DT_S;
+        }
         ex.boosted = boosted;
         ex.held = held;
         ex.yielding_for = yielding_for;
@@ -1401,6 +1658,7 @@ impl TownSim {
             }
         }
         self.release_claims();
+        self.apply_route_actions();
         self.update_make_way();
         let index = self.index();
         self.revoke_stale_claims(&index);
@@ -1596,6 +1854,17 @@ impl TownSim {
             return false;
         };
         let want = route.links[k];
+        if let Some(ex) = &self.experiment {
+            let parallel = |l: usize| ex.parallel.values().any(|p| *p == l);
+            if (parallel(link)
+                || held[want]
+                    .iter()
+                    .any(|i| parallel(self.routes[self.cars[*i].route].links[self.cars[*i].idx])))
+                && (held[want].iter().any(|i| *i != ci) || index[want].iter().any(|b| b.car != ci))
+            {
+                return false;
+            }
+        }
         // Nobody on, or cleared for, a crossing path.
         for &other in self.net.conflicts_of(want) {
             if held[other].iter().any(|&c| c != ci) || index[other].iter().any(|b| b.car != ci) {

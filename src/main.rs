@@ -568,6 +568,7 @@ fn run_rush_hour(args: &Args) -> Result<(), String> {
             speed_multiple: args.message_speed,
             hop_delay_s: args.hop_delay,
             lookahead_s: args.lookahead_minutes * 60.0,
+            ..Default::default()
         })
     };
     let mut result = if args.boxed_in {
