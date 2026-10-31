@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "id": "potrero-stalled-truck",
+  "kind": "blocked_lane",
+  "map": "maps/sf-zsfg.json",
+  "edge": 15,
+  "from_node": 55,
+  "to_node": 45,
+  "lane": 0,
+  "position_m": 80.0,
+  "length_m": 8.0,
+  "start_s": 240.0,
+  "duration_s": 300.0,
+  "rationale": "An eight-metre stalled delivery truck blocks the southbound through lane mid-block between 20th and 21st Streets for five minutes on the hospital approach."
+}

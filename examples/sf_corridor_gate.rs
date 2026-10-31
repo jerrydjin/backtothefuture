@@ -41,7 +41,15 @@ fn main() -> Result<(), String> {
         .demand_profile
         .as_ref()
         .ok_or("map has no preregistered demand")?;
-    let net = map.network()?;
+    let plain_net = map.network()?;
+    let incident = args
+        .next()
+        .map(malleable::incident::LaneIncident::read)
+        .transpose()?;
+    let mut net = plain_net.clone();
+    if let Some(definition) = &incident {
+        net.add_incident(definition.clone())?;
+    }
     for seed in &profile.seeds {
         let trips = rush_hour::population_on(*seed, &net);
         let compared = rush_hour::compare_on_map(
@@ -56,9 +64,16 @@ fn main() -> Result<(), String> {
         let fcfs = &compared.baseline;
         let local = compared.local.as_ref().unwrap();
         let mut delays = std::collections::BTreeMap::new();
+        let mut incident_solos = Vec::new();
         for trip in trips.iter().filter(|t| t.truth == Truth::Emergency) {
-            let solo =
-                rush_hour::simulate_trips_on(*seed, &Fcfs, true, None, vec![trip.clone()], &net)?;
+            let solo = rush_hour::simulate_trips_on(
+                *seed,
+                &Fcfs,
+                true,
+                None,
+                vec![trip.clone()],
+                &plain_net,
+            )?;
             let total = fcfs
                 .home
                 .get(&trip.car)
@@ -67,6 +82,19 @@ fn main() -> Result<(), String> {
             let on_map = on_map(fcfs, trip.car)
                 .zip(on_map(&solo, trip.car))
                 .map(|(a, b)| a - b);
+            if incident.is_some() {
+                let isolated = rush_hour::simulate_trips_on(
+                    *seed,
+                    &Fcfs,
+                    true,
+                    None,
+                    vec![trip.clone()],
+                    &net,
+                )?;
+                incident_solos.push(json!({"car":trip.car,"route_type":kind(&net,trip.route),
+                    "solo_incident_delay_total_s":isolated.home.get(&trip.car).zip(solo.home.get(&trip.car)).map(|(a,b)|a-b),
+                    "fcfs_queue_delay_over_solo_incident_s":fcfs.home.get(&trip.car).zip(isolated.home.get(&trip.car)).map(|(a,b)|a-b)}));
+            }
             delays.insert(trip.car, (total, on_map));
         }
         let mut by_type = Vec::new();
@@ -124,13 +152,18 @@ fn main() -> Result<(), String> {
         if artifacts.is_some() && *seed == profile.seeds[0] {
             let dir = artifacts.as_ref().unwrap();
             std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+            let prefix = if incident.is_some() {
+                "sf-incident"
+            } else {
+                "sf-peak"
+            };
             malleable::replay::ReplayArchive::new(malleable::rush_board::from_run(broadcast, None)?).write(
                 std::path::Path::new(dir)
-                    .join("sf-peak-1.replay.json")
+                    .join(format!("{prefix}-1.replay.json"))
                     .as_path(),
             )?;
             std::fs::write(
-                format!("{dir}/sf-peak-1.messages.json"),
+                format!("{dir}/{prefix}-1.messages.json"),
                 serde_json::to_vec_pretty(&broadcast.run.message_log).unwrap(),
             )
             .map_err(|e| e.to_string())?;
@@ -144,12 +177,22 @@ fn main() -> Result<(), String> {
             broadcast.score.emergency_gain,
             broadcast.score.emergency_gain_vs_local
         );
-        println!(
-            "{}",
-            json!({"seed":seed,"profile":profile,"preregistration_commit":"0c4a1bb","route":route,
+        let mut output = json!({"seed":seed,"profile":profile,"preregistration_commit":"0c4a1bb","route":route,
             "fcfs_score":rush_hour::score(*seed,"fcfs",fcfs,fcfs)?,
-            "local_score":rush_hour::score(*seed,"mock",local,fcfs)?,"mock_score":broadcast.score,"by_route_type":by_type})
-        );
+            "local_score":rush_hour::score(*seed,"mock",local,fcfs)?,"mock_score":broadcast.score,"by_route_type":by_type});
+        if let Some(definition) = &incident {
+            output["incident"] = json!(definition);
+            output["incident_preregistration_commit"] = json!("a6d710d");
+            output["solo_with_incident_delays"] = json!(incident_solos);
+            output["fcfs_motion_stats"] = json!(fcfs.town.stats);
+            output["mock_motion_stats"] = json!(broadcast.run.town.stats);
+            let mut events = std::collections::BTreeMap::<&str, usize>::new();
+            for event in &broadcast.run.messages {
+                *events.entry(&event.action).or_default() += 1;
+            }
+            output["message_event_counts"] = json!(events);
+        }
+        println!("{}", output);
     }
     Ok(())
 }

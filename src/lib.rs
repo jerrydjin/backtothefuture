@@ -7,6 +7,7 @@
 #![forbid(unsafe_code)]
 
 pub mod demand;
+pub mod incident;
 
 pub const DINNER_SENTENCE: &str = "You say what matters in plain English — the traffic bends. The model plans the merge; the cars just drive. Dumb equal stays jammed; the scoreboard goes green.";
 

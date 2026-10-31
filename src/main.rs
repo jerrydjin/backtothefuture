@@ -269,6 +269,7 @@ struct Args {
     save_messages: Option<std::path::PathBuf>,
     rush_hour: bool,
     map: Option<std::path::PathBuf>,
+    incident: Option<std::path::PathBuf>,
     export_map: Option<std::path::PathBuf>,
     boxed_in: bool,
     no_history: bool,
@@ -309,6 +310,7 @@ impl Args {
             save_messages: None,
             rush_hour: false,
             map: None,
+            incident: None,
             export_map: None,
             boxed_in: false,
             no_history: false,
@@ -351,6 +353,13 @@ impl Args {
                 "--decision-log" => {
                     parsed.decision_log =
                         Some(args.next().ok_or("--decision-log needs a path")?.into())
+                }
+                "--incident" => {
+                    parsed.incident = Some(
+                        args.next()
+                            .ok_or("--incident needs a scenario JSON path")?
+                            .into(),
+                    )
                 }
                 "--map" => parsed.map = Some(args.next().ok_or("--map needs a JSON path")?.into()),
                 "--export-map" => {
@@ -473,6 +482,11 @@ impl Args {
         if !(2..=64).contains(&parsed.cars) {
             return Err("cars must be from 2 to 64".into());
         }
+        if parsed.incident.is_some()
+            && (parsed.map.is_none() || parsed.replay.is_some() || parsed.export_map.is_some())
+        {
+            return Err("--incident needs --map and a fresh run, not replay/export-map".into());
+        }
         if parsed.replay.is_some() && (parsed.story.is_some() || parsed.priority.is_some()) {
             return Err("--replay uses saved decisions; choose a replay or a new story".into());
         }
@@ -565,6 +579,7 @@ Knobs:
   --story KIND             competing | abuse | emergency | chain | counter-offer
   --save-replay FILE       save trajectories, dialogue, reasons, and reply times
   --map FILE              load a version-1 local road graph
+  --incident FILE         apply a declared physical lane blockage to --map runs
   --export-map FILE       export the current graph as version-1 JSON
   --rush-hour             run a seeded rush-hour policy experiment
   --policy NAME           fcfs, keyword, mock, or live
@@ -816,10 +831,14 @@ fn run_reason(args: &Args) -> Result<(), String> {
 }
 
 fn selected_map(args: &Args) -> Result<malleable::network::Network, String> {
-    match &args.map {
-        Some(path) => malleable::road_map::RoadMap::read(path)?.network(),
-        None => Ok(malleable::network::Network::town()),
+    let mut net = match &args.map {
+        Some(path) => malleable::road_map::RoadMap::read(path)?.network()?,
+        None => malleable::network::Network::town(),
+    };
+    if let Some(path) = &args.incident {
+        net.add_incident(malleable::incident::LaneIncident::read(path)?)?;
     }
+    Ok(net)
 }
 
 fn run_rush_hour(args: &Args) -> Result<(), String> {

@@ -59,3 +59,19 @@ keep their original population rules and serialized format.
 For that map, `--rush-hour` and `--scenario boxed-in` select the same cited
 Potrero peak experiment. Source, pre-score commits and measured results:
 [Phase 13c](../docs/phase-13c-sf-demand.md).
+
+A physical lane incident is a separate scenario input, not part of demand:
+
+```sh
+malleable --map maps/sf-zsfg.json --scenario boxed-in --incident scenarios/sf-potrero-incident.json --headless --policy mock --seed 1
+```
+
+`--incident` takes a version-1 blocked-lane JSON file. `edge`, `from_node` and
+`to_node` identify an existing directed road; `position_m` is the footprint's
+rear station on the trimmed host lane and `length_m` its extent. Times are
+seconds from the experiment start, active on `[start_s, start_s+duration_s)`.
+The first version supports the original through lane (`lane: 0`), with invalid
+lanes/references/footprints rejected before simulation. The input is carried
+through paired worlds and replay; it never enters the model request schema.
+See [Phase 13d](../docs/phase-13d-sf-incident.md) for the frozen scenario,
+activation-clearance semantics and untuned results.
