@@ -1,0 +1,272 @@
+{
+  "base": "010d7a85c17d9d7a8a58cd011f03388afc334913",
+  "preregistration": "9200880a98a1b70d7ff64840c09fb03d5473e94f",
+  "part_a": {
+    "local": {
+      "valid": true,
+      "gain_mean_s": 0.0,
+      "gain_min_s": 0.0,
+      "gain_max_s": 0.0,
+      "n": 10,
+      "drivers_asked": 0,
+      "driver_seconds": 0.0,
+      "gain_per_driver_second": null,
+      "passes": 10,
+      "collisions": 0,
+      "completed": 3125,
+      "trips": 3125,
+      "bypass_users": 0,
+      "reroute_requests": 0,
+      "others_vs_local": {
+        "mean_s": 0.0,
+        "p95_s": 0.0,
+        "max_s": 0.0
+      },
+      "others_vs_fcfs": {
+        "mean_s": 0.0,
+        "p95_s": 0.0,
+        "max_s": 0.0
+      }
+    },
+    "broadcast": {
+      "valid": true,
+      "gain_mean_s": 7.8,
+      "gain_min_s": 7.75,
+      "gain_max_s": 8.0,
+      "n": 10,
+      "drivers_asked": 20,
+      "driver_seconds": 19.0,
+      "gain_per_driver_second": 4.105263157894737,
+      "passes": 10,
+      "collisions": 0,
+      "completed": 3125,
+      "trips": 3125,
+      "bypass_users": 0,
+      "reroute_requests": 0,
+      "others_vs_local": {
+        "mean_s": -5.168378812199037,
+        "p95_s": 0.5,
+        "max_s": 1.5
+      },
+      "others_vs_fcfs": {
+        "mean_s": -5.168378812199037,
+        "p95_s": 0.5,
+        "max_s": 1.5
+      }
+    },
+    "moving_slot": {
+      "valid": true,
+      "gain_mean_s": 303.5,
+      "gain_min_s": 302.25,
+      "gain_max_s": 305.0,
+      "n": 10,
+      "drivers_asked": 0,
+      "driver_seconds": 71.25,
+      "gain_per_driver_second": 42.59649122807018,
+      "passes": 10,
+      "collisions": 0,
+      "completed": 3125,
+      "trips": 3125,
+      "bypass_users": 0,
+      "reroute_requests": 0,
+      "others_vs_local": {
+        "mean_s": -2.1691011235955058,
+        "p95_s": 0.75,
+        "max_s": 2.5
+      },
+      "others_vs_fcfs": {
+        "mean_s": -2.1691011235955058,
+        "p95_s": 0.75,
+        "max_s": 2.5
+      }
+    },
+    "moving_slot_v2": {
+      "valid": true,
+      "gain_mean_s": 303.5,
+      "gain_min_s": 302.25,
+      "gain_max_s": 305.0,
+      "n": 10,
+      "drivers_asked": 0,
+      "driver_seconds": 71.25,
+      "gain_per_driver_second": 42.59649122807018,
+      "passes": 10,
+      "collisions": 0,
+      "completed": 3125,
+      "trips": 3125,
+      "bypass_users": 0,
+      "reroute_requests": 0,
+      "others_vs_local": {
+        "mean_s": -2.1691011235955058,
+        "p95_s": 0.75,
+        "max_s": 2.5
+      },
+      "others_vs_fcfs": {
+        "mean_s": -2.1691011235955058,
+        "p95_s": 0.75,
+        "max_s": 2.5
+      }
+    }
+  },
+  "part_b": {
+    "local": {
+      "valid": true,
+      "gain_mean_s": 0.0,
+      "gain_min_s": 0.0,
+      "gain_max_s": 0.0,
+      "n": 100,
+      "drivers_asked": 0,
+      "driver_seconds": 0.0,
+      "gain_per_driver_second": null,
+      "passes": 10,
+      "collisions": 0,
+      "completed": 3125,
+      "trips": 3125,
+      "bypass_users": 0,
+      "reroute_requests": 0,
+      "others_vs_local": {
+        "mean_s": 0.0,
+        "p95_s": 0.0,
+        "max_s": 0.0
+      },
+      "others_vs_fcfs": {
+        "mean_s": 0.0,
+        "p95_s": 0.0,
+        "max_s": 0.0
+      }
+    },
+    "broadcast": {
+      "valid": true,
+      "gain_mean_s": 13.18,
+      "gain_min_s": 1.25,
+      "gain_max_s": 23.75,
+      "n": 100,
+      "drivers_asked": 1251,
+      "driver_seconds": 51270.0,
+      "gain_per_driver_second": 0.02570704115467135,
+      "passes": 0,
+      "collisions": 0,
+      "completed": 3125,
+      "trips": 3125,
+      "bypass_users": 0,
+      "reroute_requests": 0,
+      "others_vs_local": {
+        "mean_s": 10.568842975206612,
+        "p95_s": 84.0,
+        "max_s": 575.75
+      },
+      "others_vs_fcfs": {
+        "mean_s": 10.568842975206612,
+        "p95_s": 84.0,
+        "max_s": 575.75
+      }
+    },
+    "moving_slot": {
+      "valid": true,
+      "gain_mean_s": 0.0,
+      "gain_min_s": 0.0,
+      "gain_max_s": 0.0,
+      "n": 100,
+      "drivers_asked": 18,
+      "driver_seconds": 0.0,
+      "gain_per_driver_second": null,
+      "passes": 10,
+      "collisions": 0,
+      "completed": 3125,
+      "trips": 3125,
+      "bypass_users": 0,
+      "reroute_requests": 0,
+      "others_vs_local": {
+        "mean_s": 0.0,
+        "p95_s": 0.0,
+        "max_s": 0.0
+      },
+      "others_vs_fcfs": {
+        "mean_s": 0.0,
+        "p95_s": 0.0,
+        "max_s": 0.0
+      }
+    },
+    "moving_slot_v2": {
+      "valid": true,
+      "gain_mean_s": 0.0,
+      "gain_min_s": 0.0,
+      "gain_max_s": 0.0,
+      "n": 100,
+      "drivers_asked": 18,
+      "driver_seconds": 0.0,
+      "gain_per_driver_second": null,
+      "passes": 10,
+      "collisions": 0,
+      "completed": 3125,
+      "trips": 3125,
+      "bypass_users": 0,
+      "reroute_requests": 0,
+      "others_vs_local": {
+        "mean_s": 0.0,
+        "p95_s": 0.0,
+        "max_s": 0.0
+      },
+      "others_vs_fcfs": {
+        "mean_s": 0.0,
+        "p95_s": 0.0,
+        "max_s": 0.0
+      }
+    },
+    "v2_nz_2s_9_5m": {
+      "valid": true,
+      "gain_mean_s": 2.1275,
+      "gain_min_s": -1.0,
+      "gain_max_s": 4.25,
+      "n": 100,
+      "drivers_asked": 29,
+      "driver_seconds": 4787.0,
+      "gain_per_driver_second": 0.044443283893879255,
+      "passes": 1,
+      "collisions": 0,
+      "completed": 3125,
+      "trips": 3125,
+      "bypass_users": 0,
+      "reroute_requests": 0,
+      "others_vs_local": {
+        "mean_s": 0.20057851239669422,
+        "p95_s": 0.5,
+        "max_s": 531.0
+      },
+      "others_vs_fcfs": {
+        "mean_s": 0.20057851239669422,
+        "p95_s": 0.5,
+        "max_s": 531.0
+      }
+    },
+    "v2_ca_3s_12m": {
+      "valid": true,
+      "gain_mean_s": 2.1275,
+      "gain_min_s": -1.0,
+      "gain_max_s": 4.25,
+      "n": 100,
+      "drivers_asked": 29,
+      "driver_seconds": 4787.0,
+      "gain_per_driver_second": 0.044443283893879255,
+      "passes": 1,
+      "collisions": 0,
+      "completed": 3125,
+      "trips": 3125,
+      "bypass_users": 0,
+      "reroute_requests": 0,
+      "others_vs_local": {
+        "mean_s": 0.20057851239669422,
+        "p95_s": 0.5,
+        "max_s": 531.0
+      },
+      "others_vs_fcfs": {
+        "mean_s": 0.20057851239669422,
+        "p95_s": 0.5,
+        "max_s": 531.0
+      }
+    }
+  },
+  "score_sha256": {
+    "docs/gates/phase-13g-bypass-scores.jsonl": "99a253e93b137473c4f6d1760e12c3f59a9cc36d983f46afcf5e182be6233176",
+    "docs/gates/phase-13g-potrero-margins.jsonl": "12ec18addb32737e2030db4cf39871311c44913bb77667efaad03e80eae31320"
+  }
+}

@@ -176,6 +176,28 @@ pub fn queue_conflict<'a>(ambulance: &Actor, cars: &'a [Actor]) -> Option<&'a Ac
         .then_some(car)
 }
 
+/// Cited following-gap recommendations translated into a conservative whole
+/// receiving-gap envelope. See phase-13g-preregistration.md for scope/limits.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum QueueGapPolicy {
+    NzTwoSeconds,
+    CaThreeSeconds,
+}
+impl QueueGapPolicy {
+    pub fn headway_s(self) -> f64 {
+        match self {
+            Self::NzTwoSeconds => 2.0,
+            Self::CaThreeSeconds => 3.0,
+        }
+    }
+    pub fn envelope_m(self) -> f64 {
+        CAR_LENGTH_M + 2.0 * self.headway_s() * 1.25
+    }
+    pub fn gap_m(self, follower_mps: f64) -> f64 {
+        self.headway_s() * follower_mps.max(1.25)
+    }
+}
+
 /// Post-13e variant frozen in phase-13f-preregistration.md. Execution still
 /// goes through the existing receiver, physical gap checks, and gap-shift return.
 pub fn plan_v2(
@@ -184,6 +206,28 @@ pub fn plan_v2(
     cars: &[Actor],
     graph: &Graph,
     blocks: &[Block],
+) -> Plan {
+    plan_v2_inner(now, ambulance, cars, graph, blocks, None)
+}
+
+pub fn plan_v2_cited(
+    now: f64,
+    ambulance: &Actor,
+    cars: &[Actor],
+    graph: &Graph,
+    blocks: &[Block],
+    policy: QueueGapPolicy,
+) -> Plan {
+    plan_v2_inner(now, ambulance, cars, graph, blocks, Some(policy))
+}
+
+fn plan_v2_inner(
+    now: f64,
+    ambulance: &Actor,
+    cars: &[Actor],
+    graph: &Graph,
+    blocks: &[Block],
+    policy: Option<QueueGapPolicy>,
 ) -> Plan {
     let mut result = plan(now, ambulance, cars, graph, blocks);
     let Some(car) = queue_conflict(ambulance, cars) else {
@@ -196,10 +240,29 @@ pub fn plan_v2(
     };
     let remaining = graph.length[link] - car.offset_m;
     if graph.connector[link]
-        || remaining < 40.0
+        || remaining < policy.map_or(40.0, QueueGapPolicy::envelope_m)
         || !make_way::pullover_room(remaining, car.speed_mps)
     {
         return result;
+    }
+    if let Some(rule) = policy {
+        if cars
+            .iter()
+            .filter(|other| other.id != car.id && other.links.first() == Some(&lane))
+            .any(|other| {
+                let (gap, follower) = if other.offset_m >= car.offset_m {
+                    (other.offset_m - CAR_LENGTH_M - car.offset_m, car.speed_mps)
+                } else {
+                    (
+                        car.offset_m - CAR_LENGTH_M - other.offset_m,
+                        other.speed_mps,
+                    )
+                };
+                gap + 1e-9 < rule.gap_m(follower)
+            })
+        {
+            return result;
+        }
     }
     result.asks.retain(|ask| ask.car != car.id);
     result.asks.push(Ask {

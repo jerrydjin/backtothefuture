@@ -1,0 +1,101 @@
+{
+  "preregistration": "9200880",
+  "valid_seeds": 10,
+  "invalid_seeds": 0,
+  "probe_count_per_seed": 1,
+  "setup_fix_not_planner_improvement": true,
+  "arms": {
+    "local": {
+      "mean_gain_s": 0.0,
+      "min_gain_s": 0.0,
+      "max_gain_s": 0.0,
+      "max_others_loss_s": 0.0,
+      "positive_driver_seconds": 0.0,
+      "passes": 10,
+      "actual_bypass_users": 0,
+      "delivered_reroutes": 0
+    },
+    "broadcast": {
+      "mean_gain_s": 7.8,
+      "min_gain_s": 7.75,
+      "max_gain_s": 8.0,
+      "max_others_loss_s": 1.5,
+      "positive_driver_seconds": 19.0,
+      "passes": 10,
+      "actual_bypass_users": 0,
+      "delivered_reroutes": 0
+    },
+    "moving_slot": {
+      "mean_gain_s": 303.5,
+      "min_gain_s": 302.25,
+      "max_gain_s": 305.0,
+      "max_others_loss_s": 2.5,
+      "positive_driver_seconds": 71.25,
+      "passes": 10,
+      "actual_bypass_users": 0,
+      "delivered_reroutes": 0
+    },
+    "moving_slot_v2": {
+      "mean_gain_s": 303.5,
+      "min_gain_s": 302.25,
+      "max_gain_s": 305.0,
+      "max_others_loss_s": 2.5,
+      "positive_driver_seconds": 71.25,
+      "passes": 10,
+      "actual_bypass_users": 0,
+      "delivered_reroutes": 0
+    }
+  },
+  "dispatches": [
+    {
+      "seed": 1,
+      "car": 1181,
+      "request_s": 241.0
+    },
+    {
+      "seed": 2,
+      "car": 1071,
+      "request_s": 241.75
+    },
+    {
+      "seed": 3,
+      "car": 1136,
+      "request_s": 242.5
+    },
+    {
+      "seed": 4,
+      "car": 1121,
+      "request_s": 240.25
+    },
+    {
+      "seed": 5,
+      "car": 1244,
+      "request_s": 241.25
+    },
+    {
+      "seed": 6,
+      "car": 1280,
+      "request_s": 242.0
+    },
+    {
+      "seed": 7,
+      "car": 1222,
+      "request_s": 242.75
+    },
+    {
+      "seed": 8,
+      "car": 1059,
+      "request_s": 240.5
+    },
+    {
+      "seed": 9,
+      "car": 1035,
+      "request_s": 241.25
+    },
+    {
+      "seed": 10,
+      "car": 1307,
+      "request_s": 242.25
+    }
+  ]
+}

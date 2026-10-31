@@ -969,6 +969,20 @@ pub fn simulate_trips_on(
     trips: Vec<Trip>,
     net: &Network,
 ) -> Result<Run, String> {
+    simulate_trips_on_observed(seed, policy, history_enabled, broadcast, trips, net, |_| {})
+}
+
+/// Opt-in read-only evidence collection at every pre-integration host step.
+/// The callback cannot mutate TownSim; legacy runs use a no-op observer.
+pub fn simulate_trips_on_observed(
+    seed: u64,
+    policy: &dyn Policy,
+    history_enabled: bool,
+    broadcast: Option<BroadcastConfig>,
+    trips: Vec<Trip>,
+    net: &Network,
+    mut observe: impl FnMut(&TownSim),
+) -> Result<Run, String> {
     let demand: Vec<_> = trips
         .iter()
         .map(|t| ScheduledCar {
@@ -1050,6 +1064,7 @@ pub fn simulate_trips_on(
                 decisions.push(d);
             }
         }
+        observe(&sim);
         stats.overlaps += sim.overlaps();
         stats.crossing_conflicts += sim.crossing_conflicts();
         let home = sim.completed_trips();

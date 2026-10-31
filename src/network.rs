@@ -1119,6 +1119,26 @@ pub enum MakeWayMode {
     Broadcast,
     MovingSlot,
     MovingSlotV2,
+    MovingSlotV2Nz2s,
+    MovingSlotV2Ca3s,
+}
+impl MakeWayMode {
+    fn is_slot(self) -> bool {
+        self != Self::Broadcast
+    }
+    fn is_v2(self) -> bool {
+        matches!(
+            self,
+            Self::MovingSlotV2 | Self::MovingSlotV2Nz2s | Self::MovingSlotV2Ca3s
+        )
+    }
+    fn queue_policy(self) -> Option<crate::slot::QueueGapPolicy> {
+        match self {
+            Self::MovingSlotV2Nz2s => Some(crate::slot::QueueGapPolicy::NzTwoSeconds),
+            Self::MovingSlotV2Ca3s => Some(crate::slot::QueueGapPolicy::CaThreeSeconds),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Serialize, serde::Deserialize)]
@@ -1448,11 +1468,7 @@ impl TownSim {
         let Some(ex) = self.experiment.as_mut() else {
             return;
         };
-        if ex
-            .broadcast
-            .is_some_and(|c| matches!(c.mode, MakeWayMode::MovingSlot | MakeWayMode::MovingSlotV2))
-            && !wording.is_empty()
-        {
+        if ex.broadcast.is_some_and(|c| c.mode.is_slot()) && !wording.is_empty() {
             ex.wording.insert(car, wording.to_string());
         }
     }
@@ -1465,11 +1481,9 @@ impl TownSim {
     }
 
     fn moving_slot(&self) -> bool {
-        self.experiment.as_ref().is_some_and(|e| {
-            e.broadcast.is_some_and(|c| {
-                matches!(c.mode, MakeWayMode::MovingSlot | MakeWayMode::MovingSlotV2)
-            })
-        })
+        self.experiment
+            .as_ref()
+            .is_some_and(|e| e.broadcast.is_some_and(|c| c.mode.is_slot()))
     }
 
     pub fn set_precedence(&mut self, car: u32, granted: bool) {
@@ -1575,10 +1589,7 @@ impl TownSim {
         let Some(config) = ex.broadcast else {
             return;
         };
-        if matches!(
-            config.mode,
-            MakeWayMode::MovingSlot | MakeWayMode::MovingSlotV2
-        ) {
+        if config.mode.is_slot() {
             self.publish_slot_request(id);
             return;
         }
@@ -2448,6 +2459,11 @@ impl TownSim {
         self.cars.iter().filter(|car| car.v < QUEUED_MPS).count() as u32
     }
 
+    /// Read-only speed evidence for opt-in experiment observers.
+    pub fn speed_of(&self, id: u32) -> Option<f64> {
+        self.cars.iter().find(|car| car.id == id).map(|car| car.v)
+    }
+
     /// Every car's id, link, and front and rear along that link, for checks.
     pub fn bodies(&self) -> Vec<(u32, usize, f64, f64)> {
         let index = self.index();
@@ -2793,8 +2809,14 @@ impl TownSim {
             .collect();
         let blocks = self.slot_blocks();
         let graph = self.slot_graph();
-        if self.experiment.as_ref()?.broadcast?.mode == MakeWayMode::MovingSlotV2 {
-            let mut planned = crate::slot::plan_v2(self.time, &ambulance, &cars, &graph, &blocks);
+        if self.experiment.as_ref()?.broadcast?.mode.is_v2() {
+            let mut planned = if let Some(policy) =
+                self.experiment.as_ref()?.broadcast?.mode.queue_policy()
+            {
+                crate::slot::plan_v2_cited(self.time, &ambulance, &cars, &graph, &blocks, policy)
+            } else {
+                crate::slot::plan_v2(self.time, &ambulance, &cars, &graph, &blocks)
+            };
             let ex = self.experiment.as_ref()?;
             if ex
                 .slot_shift
@@ -2876,7 +2898,7 @@ impl TownSim {
         let kind = slot_kind_name(item.ask.kind).to_string();
         let queue_yield = item.ask.kind == crate::slot::MoveKind::QueueYield;
         if queue_yield {
-            if config.mode != MakeWayMode::MovingSlotV2
+            if !config.mode.is_v2()
                 || ex.granted.contains(&item.ask.car)
                 || ex.slot_sent.iter().any(|(_, car)| *car == item.ask.car)
             {
@@ -2909,11 +2931,37 @@ impl TownSim {
                 let remaining =
                     self.net.links[self.routes[self.cars[ci].route].links[self.cars[ci].idx]].len
                         - self.link_offset(ci);
-                if remaining < 40.0
+                let margin = if queue_yield {
+                    config
+                        .mode
+                        .queue_policy()
+                        .map_or(40.0, crate::slot::QueueGapPolicy::envelope_m)
+                } else {
+                    40.0
+                };
+                let cited_gap = !queue_yield
+                    || config.mode.queue_policy().is_none_or(|policy| {
+                        self.index()[to_link]
+                            .iter()
+                            .filter(|body| body.car != ci)
+                            .all(|body| {
+                                let (gap, follower) = if body.front >= self.link_offset(ci) {
+                                    (body.rear - self.link_offset(ci), self.cars[ci].v)
+                                } else {
+                                    (
+                                        self.link_offset(ci) - CAR_LENGTH_M - body.front,
+                                        self.cars[body.car].v,
+                                    )
+                                };
+                                gap + 1e-9 >= policy.gap_m(follower)
+                            })
+                    });
+                if remaining < margin
+                    || !cited_gap
                     || !self.gap_on_link(ci, to_link)
                     || (queue_yield && !make_way::pullover_room(remaining, self.cars[ci].v))
                 {
-                    return if remaining < 40.0 {
+                    return if remaining < margin {
                         SlotSend::Drop
                     } else {
                         SlotSend::Later
