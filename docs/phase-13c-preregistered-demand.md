@@ -45,6 +45,8 @@ no invented cross-street or opposing-flow count is added.
 - The first **300 seconds** form a warm-up. At **300, 360, …, 840 s**, replace
   the next scheduled ordinary trip with an emergency probe: **10 probes**, not
   10 extra cars. These are experimental probes, not a measured ambulance rate.
+  Each request occurs 45 s after scheduled departure, matching the existing
+  typical experiment’s request offset; this offset is fixed before scores.
 - Every emergency begins on the real multi-lane arterial. Ordinary traffic
   traverses the same counted segment and exits at the hospital frontage; it
   is through traffic, not 300 patients all visiting the hospital.
