@@ -2,7 +2,7 @@ const {chromium}=require('playwright');
 const {spawn}=require('child_process');
 const fs=require('fs'),assert=require('assert');
 let browser;
-const child=spawn('python3',['scripts/play-recording.py','--no-open','--binary','target/debug/muse']);
+const child=spawn('python3',['scripts/play-recording.py','--no-open']);
 (async()=>{
   let output='';
   const url=await new Promise((resolve,reject)=>{child.stdout.on('data',b=>{output+=b;const m=output.match(/recording: (http:\/\/[^\s]+)/);if(m)resolve(m[1]);});child.on('exit',()=>reject(new Error('player exited before readiness')));});

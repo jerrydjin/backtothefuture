@@ -1,0 +1,26 @@
+{
+  "seed": 1,
+  "observed_in": "exploratory board recording before independent-row prompt clarification",
+  "car": 1233,
+  "reason": "My partner is in active labour",
+  "history": [],
+  "before": {
+    "granted": false,
+    "source": "model",
+    "explanation": "Another labour claim already honoured kindly",
+    "requester": "Fair, I'll wait my turn",
+    "other": "Wishing comfort, please wait briefly"
+  },
+  "after": {
+    "car": 1233,
+    "at_s": 145.0,
+    "granted": true,
+    "explanation": "Active labour needs urgent priority",
+    "requester": "I'll go carefully to hospital now",
+    "other": "Please go, I'll wait here",
+    "source": "model",
+    "provider": "baseten",
+    "fallback_reason": ""
+  },
+  "change": "Prompt explicitly keeps each row/rider history independent and permits concurrent genuine emergencies. No host rewrite of model precedence."
+}

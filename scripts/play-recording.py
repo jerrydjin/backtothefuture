@@ -19,7 +19,8 @@ if a.legacy and a.recording:
     p.error("choose --legacy or --recording")
 root = Path(__file__).resolve().parent.parent
 binary = Path(a.binary).resolve() if a.binary else root / "target/debug/muse"
-if not a.binary:
+sources = [root / "Cargo.toml", root / "Cargo.lock", *root.glob("src/**/*.rs")]
+if not a.binary and (not binary.exists() or any(path.stat().st_mtime > binary.stat().st_mtime for path in sources if path.exists())):
     subprocess.run(["cargo", "build", "--quiet"], cwd=root, check=True)
 with tempfile.TemporaryDirectory(prefix="muse-recording-") as directory:
     rush = not a.legacy and (a.recording or (root / "recordings/rush-hour.json").exists())

@@ -1,0 +1,167 @@
+{
+  "live": true,
+  "policy": "live",
+  "initial_score": {
+    "seed": 1,
+    "policy": "live",
+    "trips": 240,
+    "completed": 240,
+    "peak_cars": 211,
+    "emergency_gain": 1.5,
+    "others_cost": {
+      "mean_s": 13.424768518518519,
+      "p95_s": 68.25
+    },
+    "liar_win_rate": 0.3333333333333333,
+    "third_claim_liar_win_rate": 0,
+    "history_enabled": true,
+    "spread_enabled": true,
+    "emergency_gain_vs_local": 2.875,
+    "clear_ahead_m": 769.7004880777906,
+    "clear_ahead_s": 95,
+    "lead_distance_m": 1981.8530876725026,
+    "lead_time_s": 291.2142695831985,
+    "collateral": 0,
+    "model_decisions": 240,
+    "fallback_decisions": 0,
+    "collisions": 0,
+    "baseline_collisions": 0,
+    "passed": true
+  },
+  "far": {
+    "at_s": 76,
+    "car": 1128,
+    "beneficiary": 1104,
+    "action": "clear",
+    "ahead_m": 1039.1004880777905
+  },
+  "typed": [
+    {
+      "reason": "My passenger has chest pain",
+      "car": 1039,
+      "claim_number": 1,
+      "past": [],
+      "decision": {
+        "car": 1039,
+        "at_s": 45,
+        "granted": true,
+        "explanation": "Acute chest pain needs urgent priority",
+        "requester": "Chest pain emergency, I'll go now",
+        "other": "Chest pain? Please go, I'll wait",
+        "source": "model",
+        "provider": "baseten",
+        "fallback_reason": ""
+      },
+      "completed_destination": "gym",
+      "home_at_s": 210.5,
+      "request_at_session_s": 45,
+      "completed_at_session_s": 210.5
+    },
+    {
+      "reason": "My passenger has chest pain",
+      "car": 1039,
+      "claim_number": 2,
+      "past": [
+        {
+          "claim": "My passenger has chest pain",
+          "granted": true,
+          "destination": "gym",
+          "completed_at_s": 210.5
+        }
+      ],
+      "decision": {
+        "car": 1039,
+        "at_s": 45,
+        "granted": false,
+        "explanation": "Repeated chest pain claim ended at gym",
+        "requester": "Fair, I'll wait my turn",
+        "other": "Chest pain again after gym trips? Sorry.",
+        "source": "model",
+        "provider": "baseten",
+        "fallback_reason": ""
+      },
+      "completed_destination": "gym",
+      "home_at_s": 210.5,
+      "request_at_session_s": 1785,
+      "completed_at_session_s": 1950.5
+    },
+    {
+      "reason": "My passenger has chest pain",
+      "car": 1039,
+      "claim_number": 3,
+      "past": [
+        {
+          "claim": "My passenger has chest pain",
+          "granted": true,
+          "destination": "gym",
+          "completed_at_s": 210.5
+        },
+        {
+          "claim": "My passenger has chest pain",
+          "granted": false,
+          "destination": "gym",
+          "completed_at_s": 1950.5
+        }
+      ],
+      "decision": {
+        "car": 1039,
+        "at_s": 45,
+        "granted": false,
+        "explanation": "Repeated chest pain trips ended at gym",
+        "requester": "Fair, I'll wait my turn",
+        "other": "Chest pain again after gym trips? Sorry.",
+        "source": "model",
+        "provider": "baseten",
+        "fallback_reason": ""
+      },
+      "completed_destination": "gym",
+      "home_at_s": 210.5,
+      "request_at_session_s": 3525,
+      "completed_at_session_s": 3690.5
+    },
+    {
+      "reason": "I'm bored",
+      "car": 1039,
+      "claim_number": 4,
+      "past": [
+        {
+          "claim": "My passenger has chest pain",
+          "granted": true,
+          "destination": "gym",
+          "completed_at_s": 210.5
+        },
+        {
+          "claim": "My passenger has chest pain",
+          "granted": false,
+          "destination": "gym",
+          "completed_at_s": 1950.5
+        },
+        {
+          "claim": "My passenger has chest pain",
+          "granted": false,
+          "destination": "gym",
+          "completed_at_s": 3690.5
+        }
+      ],
+      "decision": {
+        "car": 1039,
+        "at_s": 45,
+        "granted": false,
+        "explanation": "Boredom is not an emergency",
+        "requester": "Fair, I'll wait my turn",
+        "other": "Boredom isn't urgent, please wait kindly",
+        "source": "model",
+        "provider": "baseten",
+        "fallback_reason": ""
+      },
+      "completed_destination": "gym",
+      "home_at_s": 210.5,
+      "request_at_session_s": 5265,
+      "completed_at_session_s": 5430.5
+    }
+  ],
+  "svg": 1,
+  "injection_http": 400,
+  "abuse_http": 400,
+  "page_errors": []
+}
