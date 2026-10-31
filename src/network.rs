@@ -8,7 +8,7 @@
 //! rush eases. No lights, no pedestrians.
 
 use std::cmp::Ordering;
-use std::collections::BinaryHeap;
+use std::collections::{BTreeMap, BTreeSet, BinaryHeap, VecDeque};
 
 use crate::story::{StoryKind, StoryRun};
 use serde::Serialize;
@@ -833,6 +833,22 @@ struct DemoTrip {
     phase: u8,
 }
 
+/// Fixed demand for paired rush-hour experiments. Routes/IDs never depend on
+/// which policy admitted earlier cars. Departure is demand time, not teleportation.
+#[derive(Clone, Debug)]
+pub struct ScheduledCar {
+    pub id: u32,
+    pub route: usize,
+    pub depart_s: f64,
+}
+
+struct Experiment {
+    pending: Vec<VecDeque<ScheduledCar>>,
+    first_ready: BTreeMap<(usize, u32), f64>,
+    granted: BTreeSet<u32>,
+    home: BTreeMap<u32, f64>,
+}
+
 pub struct TownSim {
     net: Network,
     routes: Vec<Route>,
@@ -853,6 +869,7 @@ pub struct TownSim {
     priority: Option<PriorityTrip>,
     story: Option<StoryRun>,
     demo: Option<DemoTrip>,
+    experiment: Option<Experiment>,
 }
 
 impl TownSim {
@@ -895,11 +912,121 @@ impl TownSim {
             priority: None,
             story: None,
             demo: None,
+            experiment: None,
         }
     }
 
     pub fn network(&self) -> &Network {
         &self.net
+    }
+
+    /// Same road topology at a three-times-longer rush-hour map scale. Speeds,
+    /// car sizes, gaps, crossing occupancy and integration remain in metres.
+    /// Legacy boards keep the original map and their exact trajectories.
+    pub fn with_schedule(seed: u64, schedule: &[ScheduledCar]) -> Result<Self, String> {
+        let mut sim = Self::new(seed);
+        for link in &mut sim.net.links {
+            for p in &mut link.pts {
+                p[0] *= 3.0;
+                p[1] *= 3.0;
+            }
+            for d in &mut link.cum {
+                *d *= 3.0;
+            }
+            link.len *= 3.0;
+        }
+        for node in &mut sim.net.nodes {
+            node.pos[0] *= 3.0;
+            node.pos[1] *= 3.0;
+            node.trim *= 3.0;
+        }
+        for route in &mut sim.routes {
+            for d in &mut route.start {
+                *d *= 3.0;
+            }
+            route.total *= 3.0;
+        }
+        let mut sorted = schedule.to_vec();
+        if sorted
+            .iter()
+            .any(|s| s.route >= sim.routes.len() || !s.depart_s.is_finite() || s.depart_s < 0.0)
+            || sorted.iter().map(|s| s.id).collect::<BTreeSet<_>>().len() != sorted.len()
+        {
+            return Err("invalid or duplicate scheduled trip".into());
+        }
+        sorted.sort_by(|a, b| a.depart_s.total_cmp(&b.depart_s).then(a.id.cmp(&b.id)));
+        let mut pending = vec![VecDeque::new(); sim.net.sources.len()];
+        for car in sorted {
+            let first = sim.routes[car.route].links[0];
+            let source = sim
+                .net
+                .sources
+                .iter()
+                .position(|s| s.link == first)
+                .ok_or("route has no source")?;
+            pending[source].push_back(car);
+        }
+        sim.experiment = Some(Experiment {
+            pending,
+            first_ready: BTreeMap::new(),
+            granted: BTreeSet::new(),
+            home: BTreeMap::new(),
+        });
+        Ok(sim)
+    }
+
+    pub fn set_precedence(&mut self, car: u32, granted: bool) {
+        if let Some(ex) = &mut self.experiment {
+            if granted {
+                ex.granted.insert(car);
+            } else {
+                ex.granted.remove(&car);
+            }
+        }
+    }
+
+    pub fn completed_trips(&self) -> BTreeMap<u32, f64> {
+        self.experiment
+            .as_ref()
+            .map(|e| e.home.clone())
+            .unwrap_or_default()
+    }
+
+    pub(crate) fn experiment_frame(&self) -> NetFrame {
+        self.frame(self.time.round() as u32)
+    }
+
+    pub(crate) fn experiment_recording(
+        &self,
+        frames: Vec<NetFrame>,
+        stats: NetStats,
+    ) -> NetworkRun {
+        NetworkRun {
+            links: self.net.links.clone(),
+            routes: self.routes.iter().map(|r| r.links.clone()).collect(),
+            frames,
+            stats,
+            dt: 1.0,
+            exchange: None,
+            exchanges: Vec::new(),
+            priority: None,
+            story: None,
+        }
+    }
+
+    fn local_precedence(&self, ci: usize) -> bool {
+        let Some(ex) = &self.experiment else {
+            return false;
+        };
+        let car = &self.cars[ci];
+        ex.granted.contains(&car.id)
+            || self.cars.iter().any(|urgent| {
+                ex.granted.contains(&urgent.id)
+                    && self.routes[urgent.route].links[urgent.idx]
+                        == self.routes[car.route].links[car.idx]
+                    && car.d >= urgent.d
+                    && car.d - urgent.d <= MEET_M
+            })
     }
 
     pub fn time(&self) -> f64 {
@@ -1043,7 +1170,9 @@ impl TownSim {
                     fronts.iter().map(|body| body.car).collect()
                 })
                 .collect();
-            self.consider_merge(node, &ins, &queues);
+            if self.experiment.is_none() {
+                self.consider_merge(node, &ins, &queues);
+            }
             let mut cursor = vec![0usize; ins.len()];
             let mut blocked = vec![false; ins.len()];
             loop {
@@ -1062,6 +1191,9 @@ impl TownSim {
                     let to_line = self.net.links[ins[a]].len
                         - (car.d - self.routes[car.route].start[car.idx]);
                     if to_line <= claim_reach(car.v) {
+                        if let Some(ex) = &mut self.experiment {
+                            ex.first_ready.entry((node, car.id)).or_insert(self.time);
+                        }
                         heads.push((a, ci, to_line / car.v.max(0.5)));
                     }
                 }
@@ -1081,6 +1213,15 @@ impl TownSim {
                     })
                 };
                 heads.sort_by(|x, y| {
+                    if let Some(ex) = &self.experiment {
+                        let a = self.cars[x.1].id;
+                        let b = self.cars[y.1].id;
+                        return self
+                            .local_precedence(y.1)
+                            .cmp(&self.local_precedence(x.1))
+                            .then(ex.first_ready[&(node, a)].total_cmp(&ex.first_ready[&(node, b)]))
+                            .then(a.cmp(&b));
+                    }
                     let px = self.net.priority(ins[x.0]);
                     let py = self.net.priority(ins[y.0]);
                     let fresh_x = last != Some(ins[x.0]);
@@ -1149,7 +1290,8 @@ impl TownSim {
                 && h.beneficiary.is_some()
                 && h.node == self.net.links[link].to
         });
-        let clearing_path = reservation.is_some_and(|h| h.stream == link);
+        let clearing_path =
+            reservation.is_some_and(|h| h.stream == link) || self.experiment.is_some();
         if let Some(h) = reservation {
             if !clearing_path {
                 let first = self
@@ -1343,6 +1485,14 @@ impl TownSim {
     }
 
     fn retire(&mut self) {
+        if let Some(ex) = &mut self.experiment {
+            for car in &self.cars {
+                if car.d >= self.routes[car.route].total {
+                    ex.home.insert(car.id, self.time + NET_DT_S);
+                    ex.granted.remove(&car.id);
+                }
+            }
+        }
         if let Some(p) = &mut self.priority {
             if let Some(car) = self.cars.iter().find(|c| c.id == p.request.car_id) {
                 if car.d >= self.routes[car.route].total {
@@ -1357,6 +1507,10 @@ impl TownSim {
     }
 
     fn spawn(&mut self) {
+        if self.experiment.is_some() {
+            self.spawn_scheduled();
+            return;
+        }
         let factor = rush(self.time);
         for s in 0..self.net.sources.len() {
             let rate = self.net.sources[s].rate * factor;
@@ -1369,28 +1523,8 @@ impl TownSim {
             if self.backlog[s] == 0 || self.trips[s].is_empty() {
                 continue;
             }
-            let link = self.net.sources[s].link;
-            let speed = self.net.links[link].speed;
-            let tail = self
-                .cars
-                .iter()
-                .filter(|car| {
-                    self.routes[car.route].links[0] == link
-                        && car.d - CAR_LENGTH_M < self.net.links[link].len
-                })
-                .map(|car| (car.d - CAR_LENGTH_M, car.v))
-                .min_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal));
-            let v = match tail {
-                None => speed,
-                Some((rear, lead_v)) => {
-                    let gap = rear - CAR_LENGTH_M;
-                    if gap < MIN_GAP_M + 1.0 {
-                        continue;
-                    }
-                    speed
-                        .min(lead_v + (gap - MIN_GAP_M) / (2.0 * HEADWAY_S))
-                        .min((gap - MIN_GAP_M) / HEADWAY_S)
-                }
+            let Some(v) = self.entry_speed(s) else {
+                continue;
             };
             let route = self.pick_trip(s);
             self.backlog[s] -= 1;
@@ -1404,6 +1538,60 @@ impl TownSim {
                 waiting: false,
             });
             self.next_id += 1;
+            self.spawned += 1;
+        }
+    }
+
+    fn entry_speed(&self, s: usize) -> Option<f64> {
+        let link = self.net.sources[s].link;
+        let speed = self.net.links[link].speed;
+        let tail = self
+            .cars
+            .iter()
+            .filter(|car| {
+                self.routes[car.route].links[0] == link
+                    && car.d - CAR_LENGTH_M < self.net.links[link].len
+            })
+            .map(|car| (car.d - CAR_LENGTH_M, car.v))
+            .min_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal));
+        let v = match tail {
+            None => speed,
+            Some((rear, lead_v)) => {
+                let gap = rear - CAR_LENGTH_M;
+                if gap < MIN_GAP_M + 1.0 {
+                    return None;
+                }
+                speed
+                    .min(lead_v + (gap - MIN_GAP_M) / (2.0 * HEADWAY_S))
+                    .min((gap - MIN_GAP_M) / HEADWAY_S)
+            }
+        };
+        Some(v)
+    }
+
+    fn spawn_scheduled(&mut self) {
+        for source in 0..self.net.sources.len() {
+            let due = self.experiment.as_ref().unwrap().pending[source]
+                .front()
+                .is_some_and(|s| s.depart_s <= self.time);
+            if !due {
+                continue;
+            }
+            let Some(v) = self.entry_speed(source) else {
+                continue;
+            };
+            let request = self.experiment.as_mut().unwrap().pending[source]
+                .pop_front()
+                .unwrap();
+            self.cars.push(Car {
+                id: request.id,
+                route: request.route,
+                idx: 0,
+                d: CAR_LENGTH_M,
+                v: v.max(0.0),
+                claim: None,
+                waiting: false,
+            });
             self.spawned += 1;
         }
     }

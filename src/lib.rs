@@ -22,6 +22,7 @@ pub mod prefs;
 pub mod reason;
 pub mod reason_server;
 pub mod replay;
+pub mod rush_hour;
 pub mod schema;
 pub mod story;
 pub mod world;
