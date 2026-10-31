@@ -82,3 +82,79 @@ fn distinct_roundabout_halves_are_not_mistaken_for_reverse_carriageways() {
     assert!(map.edges.iter().all(|e| e.one_way));
     assert!(!map.network().unwrap().routes().is_empty());
 }
+
+#[test]
+fn real_potrero_junction_keeps_positive_connectors_and_hospital_area() {
+    // Original irregular Potrero spans (100 m then 8 m) made the host spline
+    // curl past OSM node 65293538 and its rounded connector have zero length.
+    let map = osm::import(include_str!("fixtures/sf-zsfg-junction.osm")).unwrap();
+    let net = map.network().unwrap();
+    assert!(net.links.iter().all(|l| l.len.is_finite() && l.len > 0.0));
+    assert!(!net.routes().is_empty());
+    let hospital = &map.nodes[map.hospital_node.expect("hospital is a closed OSM way")];
+    assert!((hospital.location.lat - 37.7569).abs() < 0.003);
+    assert!((hospital.location.lon + 122.4056).abs() < 0.003);
+    assert_eq!(
+        serde_json::to_vec(&map).unwrap(),
+        serde_json::to_vec(&osm::import(include_str!("fixtures/sf-zsfg-junction.osm")).unwrap())
+            .unwrap()
+    );
+}
+
+#[test]
+fn hospital_closed_way_uses_area_centroid_independent_of_vertex_density() {
+    // Unequal sampling on the rectangle's east side must not pull its centroid
+    // toward the east. The actual nearest retained intersection is node 4.
+    let xml = XML.replace("<tag k=\"amenity\" v=\"hospital\"/>", "").replace("</osm>", r#"
+    <node id="101" lat="37.7539" lon="-122.4081"/>
+    <node id="102" lat="37.7539" lon="-122.4079"/>
+    <node id="103" lat="37.7540" lon="-122.4079"/>
+    <node id="104" lat="37.7541" lon="-122.4079"/>
+    <node id="105" lat="37.7541" lon="-122.4081"/>
+    <way id="101"><nd ref="101"/><nd ref="102"/><nd ref="103"/><nd ref="104"/><nd ref="105"/><nd ref="101"/>
+    <tag k="amenity" v="hospital"/><tag k="area" v="yes"/></way></osm>"#);
+    let map = osm::import(&xml).unwrap();
+    let p = &map.nodes[map.hospital_node.unwrap()].location;
+    assert_eq!((p.lat, p.lon), (37.754, -122.408));
+    assert!(osm::import(&xml.replace("ref=\"105\"", "ref=\"999\""))
+        .unwrap_err()
+        .contains("hospital references missing node"));
+}
+
+#[test]
+fn committed_sf_extract_imports_with_the_verified_hospital() {
+    let xml = std::fs::read_to_string("maps/sf-zsfg.osm").unwrap();
+    let map = osm::import(&xml).unwrap();
+    assert_eq!((map.nodes.len(), map.edges.len()), (238, 297));
+    assert_eq!(map.hospital_node, Some(4));
+    let p = &map.nodes[4].location;
+    assert_eq!((p.lat, p.lon), (37.7561683, -122.4067178));
+    assert!(map.attribution.as_ref().unwrap().contains("OpenStreetMap"));
+    let net = map.network().unwrap();
+    assert!(net.links.iter().all(|l| l.len > 0.0 && l.len.is_finite()));
+    assert!(!net.routes().is_empty());
+}
+
+#[test]
+fn sub_car_length_spans_are_removed_before_retaining_drivable_routes() {
+    let xml = XML
+        .replace(
+            "<nd ref=\"3\"/><nd ref=\"4\"/>",
+            "<nd ref=\"3\"/><nd ref=\"9\"/><nd ref=\"4\"/>",
+        )
+        .replace(
+            "</osm>",
+            r#"<node id="9" lat="37.75399" lon="-122.408"/>
+        <way id="11"><nd ref="9"/><nd ref="5"/><tag k="highway" v="service"/></way></osm>"#,
+        );
+    let map = osm::import(&xml).unwrap();
+    let need = muse::world::CAR_LENGTH_M + muse::world::MIN_GAP_M + 0.5 + 0.01;
+    assert!(map.edges.iter().all(|e| e.length_m > need));
+    let net = map.network().unwrap();
+    assert!(net
+        .links
+        .iter()
+        .filter(|l| !l.is_connector())
+        .all(|l| l.len > need));
+    assert!(!net.routes().is_empty());
+}
