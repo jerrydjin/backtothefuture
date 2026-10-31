@@ -45,7 +45,7 @@ fn dense_replay_preserves_measured_motion_and_causal_bulletins() {
 fn typed_rider_is_unknown_then_actual_completed_gym_trips_catch_third_claim() {
     let config = Some(BroadcastConfig::default());
     let result = rush_hour::run_experiment(1, &Mock, true, config).unwrap();
-    let mut session = rush_board::Session::new(1, "mock".into(), config, &result, None);
+    let mut session = rush_board::Session::new(1, "mock".into(), config, &result, None, false);
     let reason = ReasonText::new("My passenger has severe chest pain").unwrap();
     for claim in 1..=3 {
         let board = session.evaluate(&reason).unwrap();

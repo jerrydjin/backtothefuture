@@ -18,6 +18,17 @@ pub struct TypedOutcome {
     pub home_at_s: f64,
     pub request_at_session_s: f64,
     pub completed_at_session_s: f64,
+    /// Seconds saved against the same trip forced to wait. Zero outside the boxed payoff.
+    #[serde(default)]
+    pub sooner_s: f64,
+    /// Mean extra delay the grant imposed on everyone else, against that denial.
+    #[serde(default)]
+    pub others_s: f64,
+    /// Furthest make-way action ahead of this rider, metres.
+    #[serde(default)]
+    pub clear_ahead_m: f64,
+    #[serde(default)]
+    pub show_payoff: bool,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RushBoard {
@@ -91,6 +102,7 @@ pub struct Session {
     past: Vec<PastTrip>,
     session_s: f64,
     save: Option<PathBuf>,
+    boxed: bool,
 }
 impl Session {
     pub fn new(
@@ -99,6 +111,7 @@ impl Session {
         config: Option<BroadcastConfig>,
         run: &ScoredRun,
         save: Option<PathBuf>,
+        boxed: bool,
     ) -> Self {
         Self {
             seed,
@@ -113,22 +126,48 @@ impl Session {
             past: Vec::new(),
             session_s: 0.0,
             save,
+            boxed,
         }
     }
     pub fn evaluate(&mut self, reason: &ReasonText) -> Result<DinnerBoard, String> {
-        let mut trips = rush_hour::population(self.seed);
-        // A unique rider on an actual gym route: unknown on their first claim.
-        // The planned destination is NOT passed to the policy. Only a completed
-        // trip can become evidence for the next independently requested trip.
-        let index = trips
-            .iter()
-            .position(|t| t.truth == Truth::Ordinary && t.destination == "gym")
-            .ok_or("no gym rider")?;
+        let mut trips = if self.boxed {
+            rush_hour::boxed_population(self.seed)
+        } else {
+            rush_hour::population(self.seed)
+        };
+        // A unique rider. On the ordinary board this is an actual gym route:
+        // unknown on their first claim. The planned destination is NOT passed
+        // to the policy. Only a completed trip can become evidence later.
+        // The boxed payoff keeps that rider on the emergency corridor so a
+        // grant can move the queue. It does not relabel them as a gym liar.
+        let index = if self.boxed {
+            let origin = trips
+                .iter()
+                .find(|t| t.truth == Truth::Emergency)
+                .map(|t| t.route)
+                .ok_or("boxed corridor missing")?;
+            trips
+                .iter()
+                .enumerate()
+                .filter(|(_, t)| t.truth == Truth::Ordinary && t.route == origin)
+                .max_by(|a, b| {
+                    a.1.depart_s
+                        .total_cmp(&b.1.depart_s)
+                        .then(a.1.car.cmp(&b.1.car))
+                })
+                .map(|(i, _)| i)
+                .ok_or("no boxed-in rider")?
+        } else {
+            trips
+                .iter()
+                .position(|t| t.truth == Truth::Ordinary && t.destination == "gym")
+                .ok_or("no gym rider")?
+        };
         let trip = &mut trips[index];
         trip.rider = 1_000_000 + trip.car; // the new typed rider, distinct from the scripted commuter
         trip.reason = reason.as_str().to_string();
         trip.claim_number = self.past.len() + 1;
-        if crate::reason::plausible_medical_emergency(reason.as_str()) {
+        if !self.boxed && crate::reason::plausible_medical_emergency(reason.as_str()) {
             trip.truth = Truth::Liar;
         }
         let request = PolicyRequest {
@@ -145,7 +184,7 @@ impl Session {
         let mut fixed = self.decisions.clone();
         fixed.insert(target.car, decision.clone());
         let policy = rush_hour::RecordedPolicy { decisions: fixed };
-        let result = rush_hour::run_custom(self.seed, &policy, true, self.config, trips)?;
+        let result = rush_hour::run_custom(self.seed, &policy, true, self.config, trips.clone())?;
         if !result.score.passed {
             return Err("typed rush-hour simulation failed safety/completion checks".into());
         }
@@ -154,6 +193,60 @@ impl Session {
             .home
             .get(&target.car)
             .ok_or("typed rider did not complete")?;
+        let (sooner_s, others_s, clear_ahead_m, show_payoff) = if self.boxed {
+            let mut denied = decision.clone();
+            denied.granted = false;
+            denied.requester = "Fair, I'll wait my turn".into();
+            let mut deny_fixed = self.decisions.clone();
+            deny_fixed.insert(target.car, denied);
+            let denied_run = rush_hour::run_custom(
+                self.seed,
+                &rush_hour::RecordedPolicy {
+                    decisions: deny_fixed,
+                },
+                true,
+                self.config,
+                trips,
+            )?;
+            if !denied_run.score.passed {
+                return Err("denied twin failed safety/completion checks".into());
+            }
+            let denied_home = *denied_run
+                .run
+                .home
+                .get(&target.car)
+                .ok_or("denied rider did not complete")?;
+            let mut extras = Vec::new();
+            for (car, granted_home) in &result.run.home {
+                if *car == target.car {
+                    continue;
+                }
+                if let Some(other) = denied_run.run.home.get(car) {
+                    extras.push(granted_home - other);
+                }
+            }
+            let others = if extras.is_empty() {
+                0.0
+            } else {
+                extras.iter().sum::<f64>() / extras.len() as f64
+            };
+            let clear = result
+                .run
+                .messages
+                .iter()
+                .filter(|hop| {
+                    hop.beneficiary == target.car
+                        && matches!(
+                            hop.action.as_str(),
+                            "hold" | "clear" | "lane_change" | "reroute"
+                        )
+                })
+                .map(|hop| hop.ahead_m)
+                .fold(0.0_f64, f64::max);
+            (denied_home - home, others, clear, true)
+        } else {
+            (0.0, 0.0, 0.0, false)
+        };
         let typed = TypedOutcome {
             reason: target.reason.clone(),
             car: target.car,
@@ -164,6 +257,10 @@ impl Session {
             home_at_s: home,
             request_at_session_s: request.at_s,
             completed_at_session_s: self.session_s + home,
+            sooner_s,
+            others_s,
+            clear_ahead_m,
+            show_payoff,
         };
         let board = from_run(&result, Some(typed))?;
         if let Some(path) = &self.save {

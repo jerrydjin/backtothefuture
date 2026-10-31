@@ -15,6 +15,7 @@ pub mod demo;
 pub mod episode;
 pub mod error;
 mod judge;
+pub mod make_way;
 pub mod muse;
 pub mod negotiate;
 pub mod network;

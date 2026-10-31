@@ -456,6 +456,12 @@ fn trim_spoken_line(say: &str) -> String {
 
 /// Redact known environment credentials before truncating (never truncate a key
 /// into an unrecognizable prefix). Long credential-like tokens are hidden too.
+pub fn redact_model_reply(text: &str) -> String {
+    redacted_model_text(text)
+}
+
+/// Redact known environment credentials before truncating (never truncate a key
+/// into an unrecognizable prefix). Long credential-like tokens are hidden too.
 fn redacted_model_text(text: &str) -> String {
     let mut safe = text.to_string();
     for name in [
@@ -598,6 +604,12 @@ fn parse_model_exchange(text: &str, snap: &MergeSnap) -> Result<MergeChoice, Str
 
 /// The same speech contract applies to accepted model words and the fallback.
 pub fn human_line(say: &str) -> bool {
+    spoken_line(say, SAY_MAX_WORDS)
+}
+
+/// Spoken contract with an explicit word cap. Merge speech stays at eight words.
+/// A reason reply may run slightly longer and still be a human line.
+pub fn spoken_line(say: &str, max_words: usize) -> bool {
     let say = say.trim();
     let words = say.split_whitespace().count();
     let banned = [
@@ -657,7 +669,7 @@ pub fn human_line(say: &str) -> bool {
         "percent",
         "percentage",
     ];
-    (1..=SAY_MAX_WORDS).contains(&words)
+    (1..=max_words).contains(&words)
         && say.chars().count() <= 96
         && !say
             .chars()

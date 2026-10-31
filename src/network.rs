@@ -10,6 +10,7 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, VecDeque};
 
+use crate::make_way::{self, RelayHop};
 use crate::story::{StoryKind, StoryRun};
 use serde::Serialize;
 
@@ -849,6 +850,15 @@ pub struct BroadcastConfig {
     pub speed_multiple: f64,
     pub hop_delay_s: f64,
     pub lookahead_s: f64,
+    pub lane_changes: bool,
+    pub reroutes: bool,
+    /// Fraction of cars that receive make-way messages. 1.0 is every car and
+    /// does not hash, so existing full-fleet runs stay on the same recipient set.
+    #[serde(default = "default_connected_share")]
+    pub connected_share: f64,
+}
+fn default_connected_share() -> f64 {
+    1.0
 }
 impl Default for BroadcastConfig {
     fn default() -> Self {
@@ -856,6 +866,9 @@ impl Default for BroadcastConfig {
             speed_multiple: 10.0,
             hop_delay_s: 0.1,
             lookahead_s: 240.0,
+            lane_changes: true,
+            reroutes: true,
+            connected_share: default_connected_share(),
         }
     }
 }
@@ -883,6 +896,7 @@ struct Bulletin {
 }
 
 struct Experiment {
+    seed: u64,
     pending: Vec<VecDeque<ScheduledCar>>,
     first_ready: BTreeMap<(usize, u32), f64>,
     granted: BTreeSet<u32>,
@@ -895,6 +909,22 @@ struct Experiment {
     held: BTreeSet<u32>,
     yielding_for: BTreeMap<u32, (u32, String)>,
     notified: BTreeSet<(u32, u32, usize, String)>,
+    acted: BTreeSet<u32>,
+    parallel: BTreeMap<usize, usize>,
+    hold_seconds: BTreeMap<u32, f64>,
+    /// Cars that changed lanes to yield. They brake on the parallel and rejoin
+    /// the original link once the beneficiary is ahead, or after the pull-over
+    /// budget, so the shared connector cannot trap them for the rest of the queue.
+    pull_over: BTreeMap<u32, PullOver>,
+}
+
+#[derive(Clone, Debug)]
+struct PullOver {
+    original: usize,
+    parallel: usize,
+    beneficiary: u32,
+    since_s: f64,
+    released: bool,
 }
 
 pub struct TownSim {
@@ -1015,6 +1045,7 @@ impl TownSim {
             pending[source].push_back(car);
         }
         sim.experiment = Some(Experiment {
+            seed,
             pending,
             first_ready: BTreeMap::new(),
             granted: BTreeSet::new(),
@@ -1027,6 +1058,10 @@ impl TownSim {
             held: BTreeSet::new(),
             yielding_for: BTreeMap::new(),
             notified: BTreeSet::new(),
+            acted: BTreeSet::new(),
+            parallel: BTreeMap::new(),
+            hold_seconds: BTreeMap::new(),
+            pull_over: BTreeMap::new(),
         });
         Ok(sim)
     }
@@ -1051,13 +1086,44 @@ impl TownSim {
             || config.hop_delay_s < 0.0
             || !config.lookahead_s.is_finite()
             || config.lookahead_s <= 0.0
+            || !config.connected_share.is_finite()
+            || !(0.0..=1.0).contains(&config.connected_share)
         {
             return Err("invalid message propagation configuration".into());
         }
         self.experiment
-            .as_mut()
-            .ok_or("broadcast requires scheduled experiment")?
-            .broadcast = Some(config);
+            .as_ref()
+            .ok_or("broadcast requires scheduled experiment")?;
+        if config.lane_changes {
+            let original = self.net.links.len();
+            for link in 0..original {
+                if !matches!(
+                    self.net.links[link].class,
+                    RoadClass::Arterial | RoadClass::Motorway
+                ) {
+                    continue;
+                }
+                let mut lane = self.net.links[link].clone();
+                lane.id = self.net.links.len();
+                lane.pts = offset(&lane.pts, LANE_WIDTH_M);
+                lane.cum = measures(&lane.pts);
+                // Lane stations share the road's longitudinal metres.
+                let factor = lane.len / lane.cum.last().copied().unwrap_or(lane.len);
+                for d in &mut lane.cum {
+                    *d *= factor;
+                }
+                self.net.moves.push(self.net.moves[link].clone());
+                self.net.conflicts.push(Vec::new());
+                self.net.approaches[lane.to].push(lane.id);
+                self.experiment
+                    .as_mut()
+                    .unwrap()
+                    .parallel
+                    .insert(link, lane.id);
+                self.net.links.push(lane);
+            }
+        }
+        self.experiment.as_mut().unwrap().broadcast = Some(config);
         Ok(())
     }
 
@@ -1088,6 +1154,8 @@ impl TownSim {
             .find(|c| c.id == id)
             .map(|c| c.d)
             .unwrap_or(0.0);
+        let share = config.connected_share;
+        let seed = ex.seed;
         let mut relays: Vec<(f64, String, Option<u32>, Option<usize>, usize)> = Vec::new();
         for (k, &link) in route.links.iter().enumerate() {
             if self.net.links[link].is_connector() && route.start[k] > origin {
@@ -1101,7 +1169,7 @@ impl TownSim {
             }
         }
         for car in &self.cars {
-            if car.id == id {
+            if car.id == id || !make_way::car_connected(seed, car.id, share) {
                 continue;
             }
             let link = self.routes[car.route].links[car.idx];
@@ -1113,31 +1181,41 @@ impl TownSim {
             }
         }
         relays.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)));
-        let mut last_pos = origin;
-        let mut at = self.time;
-        let mut sender = format!("car:{id}");
+        let timed = make_way::time_relays(
+            origin,
+            self.time,
+            &format!("car:{id}"),
+            &relays
+                .iter()
+                .map(|(pos, recipient, recipient_car, connector, _)| RelayHop {
+                    distance_m: *pos,
+                    recipient: recipient.clone(),
+                    recipient_car: *recipient_car,
+                    connector: *connector,
+                })
+                .collect::<Vec<_>>(),
+            V_MAX_MPS * config.speed_multiple,
+            config.hop_delay_s,
+        );
         let mut messages = Vec::new();
         let mut junctions = Vec::new();
-        for (pos, recipient, recipient_car, connector, k) in relays {
-            at += (pos - last_pos) / (V_MAX_MPS * config.speed_multiple) + config.hop_delay_s;
-            if connector.is_some() {
-                junctions.push((k, at));
+        for ((_, _, _, _, k), hop) in relays.iter().zip(timed) {
+            if hop.connector.is_some() {
+                junctions.push((*k, hop.at_s));
             }
             messages.push(MessageHop {
                 beneficiary: id,
                 route: route_id,
-                at_s: at,
-                route_m: pos,
-                ahead_m: pos - origin,
+                at_s: hop.at_s,
+                route_m: hop.route_m,
+                ahead_m: hop.ahead_m,
                 lead_s: 0.0,
-                sender: sender.clone(),
-                recipient: recipient.clone(),
-                recipient_car,
-                connector,
+                sender: hop.sender,
+                recipient: hop.recipient,
+                recipient_car: hop.recipient_car,
+                connector: hop.connector,
                 action: "relay".into(),
             });
-            sender = recipient;
-            last_pos = pos;
         }
         let ex = self.experiment.as_mut().unwrap();
         ex.messages.extend(messages);
@@ -1162,6 +1240,351 @@ impl TownSim {
         seconds
     }
 
+    /// Both gaps include one integration step and a full braking-distance margin.
+    pub fn accepted_lane_gap(front: f64, speed: f64, other_front: f64, other_speed: f64) -> bool {
+        make_way::accepted_lane_gap(front, speed, other_front, other_speed)
+    }
+
+    fn apply_route_actions(&mut self) {
+        let Some(ex) = &self.experiment else {
+            return;
+        };
+        let Some(config) = ex.broadcast else {
+            return;
+        };
+        if !config.lane_changes && !config.reroutes {
+            return;
+        }
+        let share = config.connected_share;
+        let seed = ex.seed;
+        let mut candidates = Vec::new();
+        for (ci, car) in self.cars.iter().enumerate() {
+            if ex.acted.contains(&car.id) || ex.granted.contains(&car.id) || car.claim.is_some() {
+                continue;
+            }
+            if !make_way::car_connected(seed, car.id, share) {
+                continue;
+            }
+            let own = &self.routes[car.route];
+            if self.net.links[own.links[car.idx]].is_connector()
+                || car.d - own.start[car.idx] < CAR_LENGTH_M + MIN_GAP_M
+            {
+                continue;
+            }
+            for b in &ex.bulletins {
+                let Some(urgent) = self.cars.iter().find(|c| c.id == b.car) else {
+                    continue;
+                };
+                let path = &self.routes[b.route];
+                let Some((k, received)) = b.junctions.iter().find(|(k, t)| {
+                    *t <= self.time
+                        && path.start[*k] > urgent.d
+                        && own.links[car.idx..]
+                            .iter()
+                            .any(|l| *l == path.links[*k - 1])
+                }) else {
+                    continue;
+                };
+                let ahead_m = path
+                    .links
+                    .iter()
+                    .position(|l| *l == own.links[car.idx])
+                    .and_then(|step| {
+                        let ahead = path.start[step] + car.d - own.start[car.idx] - urgent.d;
+                        (ahead > 0.0 && ahead <= make_way::LOCAL_YIELD_M).then_some(ahead)
+                    });
+                if ahead_m.is_none() {
+                    continue;
+                }
+                let eta = self.route_eta(path, urgent.d, path.start[*k]);
+                if eta > config.lookahead_s {
+                    continue;
+                }
+                candidates.push((ci, b.car, b.route, path.start[*k], eta, *received));
+                break;
+            }
+        }
+        // Apply serially so the second lane change sees the first one's body.
+        for (ci, beneficiary, route, route_m, eta, _) in candidates {
+            let car = &self.cars[ci];
+            let old = &self.routes[car.route];
+            let link = old.links[car.idx];
+            let front = car.d - old.start[car.idx];
+            let lane = self
+                .experiment
+                .as_ref()
+                .unwrap()
+                .parallel
+                .get(&link)
+                .copied();
+            let mut chosen = None;
+            let gap_ok = lane.is_some_and(|lane| {
+                self.cars
+                    .iter()
+                    .enumerate()
+                    .filter(|(oi, _)| *oi != ci)
+                    .all(|(_, other)| {
+                        let r = &self.routes[other.route];
+                        (self.rear_index(other)..=other.idx).all(|i| {
+                            r.links[i] != lane
+                                || Self::accepted_lane_gap(
+                                    front,
+                                    car.v,
+                                    other.d - r.start[i],
+                                    other.v,
+                                )
+                        })
+                    })
+            });
+            let room = self.net.links[link].len - front
+                > car.v * car.v / (2.0 * IDM_B) + CAR_LENGTH_M + MIN_GAP_M;
+            let lane_action = make_way::route_choice(&make_way::RouteTerms {
+                connected: true,
+                reached: true,
+                on_path_ahead: true,
+                lane_changes: config.lane_changes,
+                reroutes: false,
+                parallel: lane,
+                gap_ok,
+                room_before_exit: room,
+                old_free_s: 0.0,
+                new_free_s: f64::INFINITY,
+                old_remaining_m: 1.0,
+                new_remaining_m: f64::INFINITY,
+                new_block_s: 0.0,
+                same_links: true,
+            });
+            if let make_way::DrivingAction::LaneChange { to_link } = lane_action {
+                let mut links = old.links.clone();
+                links[car.idx] = to_link;
+                chosen = Some((links, "lane_change"));
+            }
+            // A parallel lane that is not yet safe stays put and tries again.
+            // Reroute is only for a link that has no second lane.
+            if chosen.is_none() && lane.is_none() && config.reroutes {
+                let urgent_path = &self.routes[route].links;
+                let sink = *old.links.last().unwrap();
+                let mut best = vec![f64::INFINITY; self.net.links.len()];
+                let mut prev = vec![None; self.net.links.len()];
+                let mut heap = BinaryHeap::new();
+                best[link] = 0.0;
+                heap.push(Visit(0.0, link));
+                while let Some(Visit(cost, at)) = heap.pop() {
+                    if cost > best[at] {
+                        continue;
+                    }
+                    for next in successors(&self.net, at) {
+                        // Leave the emergency corridor; reconnect only at the destination.
+                        if next != sink && urgent_path.contains(&next) {
+                            continue;
+                        }
+                        let occupied = self
+                            .cars
+                            .iter()
+                            .filter(|other| {
+                                let r = &self.routes[other.route];
+                                r.links[other.idx..].contains(&next)
+                            })
+                            .count() as f64;
+                        let dist = cost
+                            + self.net.links[next].len / self.net.links[next].speed
+                            + occupied * 2.5;
+                        if dist < best[next] {
+                            best[next] = dist;
+                            prev[next] = Some(at);
+                            heap.push(Visit(dist, next));
+                        }
+                    }
+                }
+                if let Some(suffix) = walk_back(&prev, link, sink) {
+                    let mut links = old.links[..car.idx].to_vec();
+                    links.extend(suffix);
+                    let candidate = Route::new(links.clone(), &self.net);
+                    let free = |r: &Route| {
+                        r.links[car.idx + 1..]
+                            .iter()
+                            .map(|l| self.net.links[*l].len / self.net.links[*l].speed)
+                            .sum::<f64>()
+                    };
+                    let new_block = candidate.links[car.idx + 1..]
+                        .iter()
+                        .map(|l| {
+                            2.5 * self
+                                .cars
+                                .iter()
+                                .filter(|other| {
+                                    if other.id == car.id {
+                                        return false;
+                                    }
+                                    let route = &self.routes[other.route];
+                                    let on_link = route.links[other.idx..].contains(l);
+                                    on_link
+                                        && self.route_eta(
+                                            route,
+                                            other.d,
+                                            route.start[other.idx] + self.net.links[*l].len,
+                                        ) <= config.lookahead_s
+                                })
+                                .count() as f64
+                        })
+                        .sum::<f64>();
+                    let intent = make_way::route_choice(&make_way::RouteTerms {
+                        connected: true,
+                        reached: true,
+                        on_path_ahead: true,
+                        lane_changes: false,
+                        reroutes: true,
+                        parallel: None,
+                        gap_ok: false,
+                        room_before_exit: false,
+                        old_free_s: free(old),
+                        new_free_s: free(&candidate),
+                        old_remaining_m: (old.total - car.d).max(0.0),
+                        new_remaining_m: candidate.total - car.d,
+                        new_block_s: new_block,
+                        same_links: candidate.links == old.links,
+                    });
+                    if matches!(intent, make_way::DrivingAction::Reroute(_)) {
+                        chosen = Some((links, "reroute"));
+                    }
+                }
+            }
+            if let Some((links, action)) = chosen {
+                let car_id = car.id;
+                let next = Route::new(links, &self.net);
+                let route_id = self.routes.len();
+                self.routes.push(next);
+                self.cars[ci].route = route_id;
+                self.cars[ci].claim = None;
+                let ex = self.experiment.as_mut().unwrap();
+                ex.acted.insert(car_id);
+                if action == "lane_change" {
+                    if let Some(to_link) = lane {
+                        ex.pull_over.insert(
+                            car_id,
+                            PullOver {
+                                original: link,
+                                parallel: to_link,
+                                beneficiary,
+                                since_s: self.time,
+                                released: false,
+                            },
+                        );
+                    }
+                }
+                ex.messages.push(MessageHop {
+                    beneficiary,
+                    route,
+                    at_s: self.time,
+                    route_m,
+                    ahead_m: route_m
+                        - self
+                            .cars
+                            .iter()
+                            .find(|c| c.id == beneficiary)
+                            .map(|c| c.d)
+                            .unwrap_or(0.0),
+                    lead_s: eta,
+                    sender: format!("route:{route}"),
+                    recipient: format!("car:{car_id}"),
+                    recipient_car: Some(car_id),
+                    connector: None,
+                    action: action.into(),
+                });
+            }
+        }
+    }
+
+    /// Finish a pull-over. The car returns to the lane it left once that lane
+    /// has a safe gap and the beneficiary is ahead, and never waits at the
+    /// connector for the rest of the main-lane queue.
+    fn rejoin_pullovers(&mut self) {
+        let Some(ex) = self.experiment.as_ref() else {
+            return;
+        };
+        let pending: Vec<(u32, PullOver)> = ex
+            .pull_over
+            .iter()
+            .map(|(id, pull)| (*id, pull.clone()))
+            .collect();
+        let mut returned = Vec::new();
+        let mut released = Vec::new();
+        let mut finished = Vec::new();
+        for (id, pull) in pending {
+            let Some(ci) = self.cars.iter().position(|car| car.id == id) else {
+                finished.push(id);
+                continue;
+            };
+            if self.routes[self.cars[ci].route].links[self.cars[ci].idx] != pull.parallel {
+                finished.push(id);
+                continue;
+            }
+            if pull.released {
+                continue;
+            }
+            let ahead = self.beneficiary_ahead(ci, pull.beneficiary, pull.original);
+            let gap_ok = self.gap_on_link(ci, pull.original);
+            match make_way::rejoin(self.time - pull.since_s, ahead, gap_ok, pull.original) {
+                make_way::Rejoin::Return { to_link } => {
+                    self.retarget_current_link(ci, to_link);
+                    returned.push(id);
+                }
+                make_way::Rejoin::Release => released.push(id),
+                make_way::Rejoin::Wait => {}
+            }
+        }
+        let ex = self.experiment.as_mut().unwrap();
+        for id in returned.into_iter().chain(finished) {
+            ex.pull_over.remove(&id);
+        }
+        for id in released {
+            if let Some(pull) = ex.pull_over.get_mut(&id) {
+                pull.released = true;
+            }
+        }
+    }
+
+    fn beneficiary_ahead(&self, ci: usize, beneficiary: u32, original: usize) -> bool {
+        let Some(urgent) = self.cars.iter().find(|car| car.id == beneficiary) else {
+            return true;
+        };
+        let car = &self.cars[ci];
+        let own = &self.routes[car.route];
+        let path = &self.routes[urgent.route];
+        let Some(step) = path.links.iter().position(|link| *link == original) else {
+            return true;
+        };
+        let station = path.start[step] + car.d - own.start[car.idx];
+        urgent.d > station + CAR_LENGTH_M
+    }
+
+    fn gap_on_link(&self, ci: usize, link: usize) -> bool {
+        let car = &self.cars[ci];
+        let own = &self.routes[car.route];
+        let front = car.d - own.start[car.idx];
+        self.cars
+            .iter()
+            .enumerate()
+            .filter(|(oi, _)| *oi != ci)
+            .all(|(_, other)| {
+                let route = &self.routes[other.route];
+                (self.rear_index(other)..=other.idx).all(|i| {
+                    route.links[i] != link
+                        || Self::accepted_lane_gap(front, car.v, other.d - route.start[i], other.v)
+                })
+            })
+    }
+
+    fn retarget_current_link(&mut self, ci: usize, to_link: usize) {
+        let mut links = self.routes[self.cars[ci].route].links.clone();
+        links[self.cars[ci].idx] = to_link;
+        let next = Route::new(links, &self.net);
+        let route_id = self.routes.len();
+        self.routes.push(next);
+        self.cars[ci].route = route_id;
+        self.cars[ci].claim = None;
+    }
+
     fn update_make_way(&mut self) {
         let Some(ex) = self.experiment.as_ref() else {
             return;
@@ -1173,6 +1596,8 @@ impl TownSim {
         let mut held = BTreeSet::new();
         let mut yielding_for = BTreeMap::new();
         let mut notifications = Vec::new();
+        let share = config.connected_share;
+        let seed = ex.seed;
         let live: Vec<_> = ex
             .bulletins
             .iter()
@@ -1180,6 +1605,9 @@ impl TownSim {
             .filter_map(|b| self.cars.iter().find(|c| c.id == b.car).map(|c| (b, c)))
             .collect();
         for car in &self.cars {
+            if ex.acted.contains(&car.id) || !make_way::car_connected(seed, car.id, share) {
+                continue;
+            }
             let Some(want_k) = self.next_connector(car) else {
                 continue;
             };
@@ -1223,7 +1651,8 @@ impl TownSim {
                         boosted.insert(car.id);
                         yielding_for.insert(car.id, (bulletin.car, "clear".to_string()));
                         "clear"
-                    } else if incoming != path.links[k - 1]
+                    } else if ex.hold_seconds.get(&car.id).copied().unwrap_or(0.0) < 3.0
+                        && incoming != path.links[k - 1]
                         && !ex.granted.contains(&car.id)
                         && (self.net.conflicts_of(want).contains(&path.links[k])
                             || want == path.links[k])
@@ -1273,6 +1702,9 @@ impl TownSim {
             }
         }
         let ex = self.experiment.as_mut().unwrap();
+        for id in &held {
+            *ex.hold_seconds.entry(*id).or_default() += NET_DT_S;
+        }
         ex.boosted = boosted;
         ex.held = held;
         ex.yielding_for = yielding_for;
@@ -1401,6 +1833,8 @@ impl TownSim {
             }
         }
         self.release_claims();
+        self.apply_route_actions();
+        self.rejoin_pullovers();
         self.update_make_way();
         let index = self.index();
         self.revoke_stale_claims(&index);
@@ -1596,6 +2030,22 @@ impl TownSim {
             return false;
         };
         let want = route.links[k];
+        if let Some(ex) = &self.experiment {
+            if ex.pull_over.get(&car.id).is_some_and(|pull| !pull.released) {
+                return false;
+            }
+            let parallel = |l: usize| ex.parallel.values().any(|p| *p == l);
+            // A released pull-over may drive again, but it still may not share
+            // the connector with the car that stayed in the original lane.
+            if (parallel(link)
+                || held[want]
+                    .iter()
+                    .any(|i| parallel(self.routes[self.cars[*i].route].links[self.cars[*i].idx])))
+                && (held[want].iter().any(|i| *i != ci) || index[want].iter().any(|b| b.car != ci))
+            {
+                return false;
+            }
+        }
         // Nobody on, or cleared for, a crossing path.
         for &other in self.net.conflicts_of(want) {
             if held[other].iter().any(|&c| c != ci) || index[other].iter().any(|b| b.car != ci) {
@@ -1713,6 +2163,17 @@ impl TownSim {
     }
 
     fn drive(&mut self, index: &[Vec<Body>]) {
+        let braking: BTreeSet<u32> = self
+            .experiment
+            .as_ref()
+            .map(|ex| {
+                ex.pull_over
+                    .iter()
+                    .filter(|(_, pull)| !pull.released)
+                    .map(|(id, _)| *id)
+                    .collect()
+            })
+            .unwrap_or_default();
         let pinned = self.hold.as_ref().and_then(|hold| {
             if hold.cleared_at.is_none() {
                 Some(if hold.deferred.is_some() {
@@ -1777,6 +2238,9 @@ impl TownSim {
             }
             let acc = acc.clamp(-2.0 * B_MAX_MPS2, A_MAX_MPS2.min(IDM_A));
             let mut v_next = (v + acc * NET_DT_S).max(0.0);
+            if braking.contains(&car.id) {
+                v_next = v_next.min((v - IDM_B * NET_DT_S).max(0.0));
+            }
             if pinned == Some(car.id) {
                 if let Some(k) = self.next_connector(car) {
                     let to_line = (self.routes[car.route].start[k] - car.d).max(0.0);

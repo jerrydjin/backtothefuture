@@ -1213,6 +1213,10 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     var gain=rush.score.emergency_gain_vs_local;
     var subtitle = Math.abs(gain).toFixed(1)+(gain>=0?"s saved vs local · ":"s later vs local · ")+caught+" liars caught · collisions "+rush.score.collisions;
     ctx.appendChild(svgNode("text",{x:14,y:24,fill:"#666","font-family":"system-ui, sans-serif","font-size":12,"data-role":"rush-score"},subtitle));
+    if(typed&&typed.show_payoff){
+      var payoff="cleared "+Math.round(typed.clear_ahead_m)+"m ahead · home "+Math.round(typed.sooner_s)+"s sooner · others +"+Number(typed.others_s).toFixed(1)+"s";
+      ctx.appendChild(svgNode("text",{x:14,y:42,fill:"#3d4a3a","font-family":"system-ui, sans-serif","font-size":13,"data-role":"make-way-payoff"},payoff));
+    }
     rush.decisions.filter(function(d){return d.granted && d.at_s<=t && cars[d.car];}).forEach(function(d){
       var car=cars[d.car],at=rushPoint(view,car[1],car[2]-2.2);
       ctx.appendChild(svgNode("circle",{cx:at.x,cy:at.y,r:5,fill:"none",stroke:"#6a93ae","stroke-width":1,"data-role":"rush-granted","data-car":d.car}));
