@@ -1,0 +1,159 @@
+{
+  "preregistration": "9200880",
+  "no_post_score_policy_changes": true,
+  "arms": {
+    "local": {
+      "gain_mean_s": 0.0,
+      "gain_min_s": 0.0,
+      "gain_max_s": 0.0,
+      "others_p95_s": 0.0,
+      "others_max_s": 0.0,
+      "driver_seconds": 0.0,
+      "gain_per_driver_second": null,
+      "queue_yield_deliveries": 0,
+      "pass_per_seed": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      }
+    },
+    "broadcast": {
+      "gain_mean_s": 13.18,
+      "gain_min_s": 1.25,
+      "gain_max_s": 23.75,
+      "others_p95_s": 84.0,
+      "others_max_s": 575.75,
+      "driver_seconds": 51270.0,
+      "gain_per_driver_second": 0.02570704115467135,
+      "queue_yield_deliveries": 0,
+      "pass_per_seed": {
+        "1": false,
+        "2": false,
+        "3": false,
+        "4": false,
+        "5": false,
+        "6": false,
+        "7": false,
+        "8": false,
+        "9": false,
+        "10": false
+      }
+    },
+    "moving_slot": {
+      "gain_mean_s": 0.0,
+      "gain_min_s": 0.0,
+      "gain_max_s": 0.0,
+      "others_p95_s": 0.0,
+      "others_max_s": 0.0,
+      "driver_seconds": 0.0,
+      "gain_per_driver_second": null,
+      "queue_yield_deliveries": 0,
+      "pass_per_seed": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      }
+    },
+    "moving_slot_v2": {
+      "gain_mean_s": 0.0,
+      "gain_min_s": 0.0,
+      "gain_max_s": 0.0,
+      "others_p95_s": 0.0,
+      "others_max_s": 0.0,
+      "driver_seconds": 0.0,
+      "gain_per_driver_second": null,
+      "queue_yield_deliveries": 0,
+      "pass_per_seed": {
+        "1": true,
+        "2": true,
+        "3": true,
+        "4": true,
+        "5": true,
+        "6": true,
+        "7": true,
+        "8": true,
+        "9": true,
+        "10": true
+      }
+    },
+    "v2_nz_2s_9_5m": {
+      "gain_mean_s": 2.1275,
+      "gain_min_s": -1.0,
+      "gain_max_s": 4.25,
+      "others_p95_s": 0.5,
+      "others_max_s": 531.0,
+      "driver_seconds": 4787.0,
+      "gain_per_driver_second": 0.044443283893879255,
+      "queue_yield_deliveries": 9,
+      "pass_per_seed": {
+        "1": true,
+        "2": false,
+        "3": false,
+        "4": false,
+        "5": false,
+        "6": false,
+        "7": false,
+        "8": false,
+        "9": false,
+        "10": false
+      },
+      "operative_case": {
+        "at_s": 346.0,
+        "ca_12m_room_eligible": false,
+        "car": 1212,
+        "edge": 13,
+        "link": 25,
+        "nz_9_5m_room_eligible": false,
+        "remaining_m": 8.9897005717513,
+        "speed_mps": 0.0
+      }
+    },
+    "v2_ca_3s_12m": {
+      "gain_mean_s": 2.1275,
+      "gain_min_s": -1.0,
+      "gain_max_s": 4.25,
+      "others_p95_s": 0.5,
+      "others_max_s": 531.0,
+      "driver_seconds": 4787.0,
+      "gain_per_driver_second": 0.044443283893879255,
+      "queue_yield_deliveries": 9,
+      "pass_per_seed": {
+        "1": true,
+        "2": false,
+        "3": false,
+        "4": false,
+        "5": false,
+        "6": false,
+        "7": false,
+        "8": false,
+        "9": false,
+        "10": false
+      },
+      "operative_case": {
+        "at_s": 346.0,
+        "ca_12m_room_eligible": false,
+        "car": 1212,
+        "edge": 13,
+        "link": 25,
+        "nz_9_5m_room_eligible": false,
+        "remaining_m": 8.9897005717513,
+        "speed_mps": 0.0
+      }
+    }
+  },
+  "claim_limit": "The seed-1 operative extraction is excluded. Other cited-policy extractions gain time but fail the maximum-loss bar; exclusion of all gainful moves is not proved."
+}
