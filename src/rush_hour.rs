@@ -914,6 +914,8 @@ pub struct Run {
     pub messages: Vec<MessageHop>,
     pub message_log: crate::make_way::MessageLog,
     pub history_enabled: bool,
+    /// Planner decisions for a moving-slot run. Empty on broadcast and local-only.
+    pub slot_log: Vec<crate::network::SlotAskRecord>,
 }
 pub struct ScoredRun {
     pub run: Run,
@@ -1043,6 +1045,7 @@ pub fn simulate_trips_on(
                 return Err("policy returned mismatched request identities".into());
             }
             for d in batch {
+                sim.note_wording(d.car, &d.other);
                 sim.set_precedence(d.car, d.granted);
                 decisions.push(d);
             }
@@ -1078,6 +1081,7 @@ pub fn simulate_trips_on(
         messages,
         message_log,
         history_enabled,
+        slot_log: sim.slot_log(),
     })
 }
 

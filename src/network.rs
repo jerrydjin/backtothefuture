@@ -1109,6 +1109,17 @@ pub struct ScheduledCar {
     pub depart_s: f64,
 }
 
+/// Which make-way planner a broadcast configuration runs. Broadcast is the
+/// existing warn-ahead path. MovingSlot asks only cars predicted inside the
+/// ambulance's moving slot.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, serde::Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum MakeWayMode {
+    #[default]
+    Broadcast,
+    MovingSlot,
+}
+
 #[derive(Clone, Copy, Debug, Serialize, serde::Deserialize)]
 pub struct BroadcastConfig {
     pub speed_multiple: f64,
@@ -1120,6 +1131,9 @@ pub struct BroadcastConfig {
     /// does not hash, so existing full-fleet runs stay on the same recipient set.
     #[serde(default = "default_connected_share")]
     pub connected_share: f64,
+    /// Absent on older configs, which stay on the broadcast path.
+    #[serde(default)]
+    pub mode: MakeWayMode,
 }
 fn default_connected_share() -> f64 {
     1.0
@@ -1133,8 +1147,65 @@ impl Default for BroadcastConfig {
             lane_changes: true,
             reroutes: true,
             connected_share: default_connected_share(),
+            mode: MakeWayMode::Broadcast,
         }
     }
+}
+
+/// One planner decision, including ignores that were not sent as messages.
+#[derive(Clone, Debug, Serialize, serde::Deserialize, PartialEq)]
+pub struct SlotAskRecord {
+    pub beneficiary: u32,
+    pub car: u32,
+    pub kind: String,
+    pub sent: bool,
+    pub at_s: f64,
+    pub hold_s: f64,
+}
+
+#[derive(Clone, Debug)]
+struct PendingAsk {
+    beneficiary: u32,
+    ask: crate::slot::Ask,
+}
+
+/// A gap shift is applied only once the ambulance will reach the hole inside
+/// this window. The lane change itself is instant; the window is the pass.
+const PASS_WINDOW_S: f64 = 6.0;
+
+#[derive(Clone, Debug)]
+struct SlotShift {
+    original: usize,
+    parallel: usize,
+    beneficiary: u32,
+    /// Offset on the link where the car moved over. It waits here, beside the
+    /// hole it left, and merges back when the ambulance has gone past.
+    offset_m: f64,
+    since_s: f64,
+}
+
+enum SlotSend {
+    Sent,
+    Drop,
+    Later,
+}
+
+fn slot_kind_name(kind: crate::slot::MoveKind) -> &'static str {
+    match kind {
+        crate::slot::MoveKind::Ignore => "ignore",
+        crate::slot::MoveKind::GapShift => "gap_shift",
+        crate::slot::MoveKind::DontEnter => "dont_enter",
+        crate::slot::MoveKind::EaseOff => "ease_off",
+    }
+}
+
+#[derive(Clone, Debug)]
+struct SlotHold {
+    beneficiary: u32,
+    clear_link: usize,
+    clear_offset_m: f64,
+    duration_s: f64,
+    started_s: f64,
 }
 
 /// Host-generated message/action evidence. It contains no model controls.
@@ -1181,6 +1252,17 @@ struct Experiment {
     /// the original link once the beneficiary is ahead, or after the pull-over
     /// budget, so the shared connector cannot trap them for the rest of the queue.
     pull_over: BTreeMap<u32, PullOver>,
+    /// Moving-slot state. Broadcast runs never read or write it.
+    wording: BTreeMap<u32, String>,
+    slot_log: Vec<SlotAskRecord>,
+    slot_seen: BTreeSet<(u32, u32, String)>,
+    slot_pending: Vec<PendingAsk>,
+    slot_shift: BTreeMap<u32, SlotShift>,
+    slot_hold: BTreeMap<u32, SlotHold>,
+    slot_sent: BTreeSet<(u32, u32)>,
+    slot_diversion: BTreeMap<u32, Vec<crate::slot::Diversion>>,
+    last_slot_plan: BTreeMap<u32, f64>,
+    slot_wait: BTreeSet<u32>,
 }
 
 #[derive(Clone, Debug)]
@@ -1343,8 +1425,48 @@ impl TownSim {
             parallel: BTreeMap::new(),
             hold_seconds: BTreeMap::new(),
             pull_over: BTreeMap::new(),
+            wording: BTreeMap::new(),
+            slot_log: Vec::new(),
+            slot_seen: BTreeSet::new(),
+            slot_pending: Vec::new(),
+            slot_shift: BTreeMap::new(),
+            slot_hold: BTreeMap::new(),
+            slot_sent: BTreeSet::new(),
+            slot_diversion: BTreeMap::new(),
+            last_slot_plan: BTreeMap::new(),
+            slot_wait: BTreeSet::new(),
         });
         Ok(sim)
+    }
+
+    /// Wording the model chose for a request. Stored only in moving-slot mode,
+    /// and only so the request text matches the decision. Broadcast keeps its
+    /// fixed reason and does not call this.
+    pub fn note_wording(&mut self, car: u32, wording: &str) {
+        let Some(ex) = self.experiment.as_mut() else {
+            return;
+        };
+        if ex
+            .broadcast
+            .is_some_and(|c| c.mode == MakeWayMode::MovingSlot)
+            && !wording.is_empty()
+        {
+            ex.wording.insert(car, wording.to_string());
+        }
+    }
+
+    pub fn slot_log(&self) -> Vec<SlotAskRecord> {
+        self.experiment
+            .as_ref()
+            .map(|e| e.slot_log.clone())
+            .unwrap_or_default()
+    }
+
+    fn moving_slot(&self) -> bool {
+        self.experiment.as_ref().is_some_and(|e| {
+            e.broadcast
+                .is_some_and(|c| c.mode == MakeWayMode::MovingSlot)
+        })
     }
 
     pub fn set_precedence(&mut self, car: u32, granted: bool) {
@@ -1450,6 +1572,10 @@ impl TownSim {
         let Some(config) = ex.broadcast else {
             return;
         };
+        if config.mode == MakeWayMode::MovingSlot {
+            self.publish_slot_request(id);
+            return;
+        }
         if ex.bulletins.iter().any(|b| b.car == id) {
             return;
         }
@@ -1951,6 +2077,124 @@ impl TownSim {
         urgent.d > station + CAR_LENGTH_M
     }
 
+    /// Seconds until `beneficiary` reaches `ci` along the beneficiary's original
+    /// route. Zero when the ambulance is already beside or ahead.
+    fn approach_s(&self, beneficiary: u32, ci: usize) -> f64 {
+        let Some(bi) = self.cars.iter().position(|car| car.id == beneficiary) else {
+            return 0.0;
+        };
+        let Some(amb_link) = self.logical_link(bi) else {
+            return 0.0;
+        };
+        let Some(car_link) = self.logical_link(ci) else {
+            return 0.0;
+        };
+        let speed = self.cars[bi].v.max(0.4);
+        let route_id = self
+            .experiment
+            .as_ref()
+            .and_then(|ex| ex.route_by_car.get(&beneficiary).copied());
+        if let Some(route_id) = route_id {
+            let links = &self.routes[route_id].links;
+            if let (Some(ai), Some(cj)) = (
+                links.iter().position(|link| *link == amb_link),
+                links.iter().position(|link| *link == car_link),
+            ) {
+                if cj < ai {
+                    return 0.0;
+                }
+                let mut dist = -self.link_offset(bi);
+                for k in ai..cj {
+                    dist += self.net.links[links[k]].len;
+                }
+                dist += self.link_offset(ci);
+                return dist.max(0.0) / speed;
+            }
+        }
+        (self.cars[ci].d - self.cars[bi].d).max(0.0) / speed
+    }
+
+    fn lane_is_busy(&self, ci: usize, beneficiary: u32) -> bool {
+        let route = &self.routes[self.cars[ci].route];
+        let link = route.links[self.cars[ci].idx];
+        let prev = self.cars[ci].idx.checked_sub(1).map(|i| route.links[i]);
+        self.cars.iter().enumerate().any(|(oi, other)| {
+            if oi == ci || other.id == beneficiary {
+                return false;
+            }
+            let other_route = &self.routes[other.route];
+            let physical = other_route.links[other.idx];
+            let logical = self.original_of(physical).unwrap_or(physical);
+            logical == link
+                || physical == link
+                || prev.is_some_and(|p| {
+                    physical == p || logical == p || self.original_of(p) == Some(logical)
+                })
+        })
+    }
+
+    fn follower_closes_hole(&self, ci: usize, beneficiary: u32, horizon_s: f64) -> bool {
+        let link = self.routes[self.cars[ci].route].links[self.cars[ci].idx];
+        let front = self.link_offset(ci);
+        self.cars.iter().enumerate().any(|(oi, other)| {
+            if oi == ci || other.id == beneficiary {
+                return false;
+            }
+            let Some(gap) = self.distance_behind(oi, link, front) else {
+                return false;
+            };
+            let rate = other.v.max(2.5);
+            gap / rate < horizon_s
+        })
+    }
+
+    /// How far `oi` is behind a hole at `front` on `link`, walking its route
+    /// through the upstream links. None when this car will not reach that hole.
+    fn distance_behind(&self, oi: usize, link: usize, front: f64) -> Option<f64> {
+        let other = &self.cars[oi];
+        let route = &self.routes[other.route];
+        let mut dist = 0.0;
+        for k in other.idx..route.links.len() {
+            let at = route.links[k];
+            if at == link {
+                if k == other.idx {
+                    let off = other.d - route.start[k];
+                    if off > front - 0.5 {
+                        return None;
+                    }
+                    return Some(front - off);
+                }
+                return Some(dist + front);
+            }
+            let len = self.net.links[at].len;
+            let start = if k == other.idx {
+                other.d - route.start[k]
+            } else {
+                0.0
+            };
+            dist += (len - start).max(0.0);
+            if dist > 150.0 {
+                return None;
+            }
+        }
+        None
+    }
+
+    fn lane_clear_ahead(&self, ci: usize, link: usize, until_m: f64) -> bool {
+        let offset = self.link_offset(ci);
+        self.cars.iter().enumerate().all(|(oi, other)| {
+            if oi == ci {
+                return true;
+            }
+            let route = &self.routes[other.route];
+            if route.links[other.idx] != link {
+                return true;
+            }
+            let other_off = other.d - route.start[other.idx];
+            other_off < offset - 1.0 || other_off > until_m + CAR_LENGTH_M
+        })
+    }
+
     fn gap_on_link(&self, ci: usize, link: usize) -> bool {
         let car = &self.cars[ci];
         let own = &self.routes[car.route];
@@ -2323,6 +2567,707 @@ impl TownSim {
         self.incident_clearance = keep;
     }
 
+    fn publish_slot_request(&mut self, id: u32) {
+        let Some(ex) = self.experiment.as_ref() else {
+            return;
+        };
+        if ex.bulletins.iter().any(|b| b.car == id) {
+            return;
+        }
+        let Some(&route_id) = ex.route_by_car.get(&id) else {
+            return;
+        };
+        let route = self.routes[route_id].links.clone();
+        let reason = ex
+            .wording
+            .get(&id)
+            .cloned()
+            .filter(|text| !text.is_empty())
+            .unwrap_or_else(|| "Host granted emergency precedence".into());
+        let ex = self.experiment.as_mut().unwrap();
+        ex.bulletins.push(Bulletin {
+            car: id,
+            route: route_id,
+            issued_at: self.time,
+            junctions: Vec::new(),
+            request: make_way::MakeWayRequest {
+                id: format!("car:{id}@{}", self.time),
+                issuer: id,
+                route,
+                urgency: 1.0,
+                reason,
+                issued_at: self.time,
+                expires_at: self.time + 10_000.0,
+                signature: None,
+            },
+        });
+    }
+
+    fn tick_moving_slot(&mut self) {
+        self.release_slot_holds();
+        let shift_wait = self.return_slot_shifts();
+        // Send anything that has come due before a new plan can postpone it.
+        self.dispatch_slot_asks();
+        self.replan_slots();
+        self.dispatch_slot_asks();
+        let lane_wait = self.follow_slot_lanes();
+        if let Some(ex) = self.experiment.as_mut() {
+            ex.slot_wait = shift_wait;
+            ex.slot_wait.extend(lane_wait);
+        }
+        self.apply_slot_holds();
+    }
+
+    fn release_slot_holds(&mut self) {
+        let due: Vec<u32> = {
+            let Some(ex) = self.experiment.as_ref() else {
+                return;
+            };
+            ex.slot_hold
+                .iter()
+                .filter(|(id, hold)| {
+                    self.time - hold.started_s + 1e-9 >= hold.duration_s
+                        || self.progress_past(
+                            hold.beneficiary,
+                            hold.clear_link,
+                            hold.clear_offset_m,
+                        )
+                        || !self.cars.iter().any(|car| car.id == **id)
+                })
+                .map(|(id, _)| *id)
+                .collect()
+        };
+        let Some(ex) = self.experiment.as_mut() else {
+            return;
+        };
+        for id in due {
+            ex.slot_hold.remove(&id);
+            ex.held.remove(&id);
+        }
+    }
+
+    fn return_slot_shifts(&mut self) -> BTreeSet<u32> {
+        let pending: Vec<(u32, SlotShift)> = self
+            .experiment
+            .as_ref()
+            .map(|ex| {
+                ex.slot_shift
+                    .iter()
+                    .map(|(id, shift)| (*id, shift.clone()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let mut wait = BTreeSet::new();
+        let mut done = Vec::new();
+        for (id, shift) in pending {
+            let Some(ci) = self.cars.iter().position(|car| car.id == id) else {
+                done.push(id);
+                continue;
+            };
+            let physical = self.routes[self.cars[ci].route].links[self.cars[ci].idx];
+            if physical != shift.parallel {
+                done.push(id);
+                continue;
+            }
+            let offset = self.link_offset(ci);
+            let passed = self.progress_past(shift.beneficiary, shift.original, offset);
+            let must_return = self.near_stop(ci);
+            // The pass didn't happen. Put the car back in the hole it is still
+            // beside, and let the ambulance slow instead of holding the lane.
+            let stale = self.time > shift.since_s + PASS_WINDOW_S;
+            if (passed || must_return || stale) && self.gap_on_link(ci, shift.original) {
+                self.retarget_current_link(ci, shift.original);
+                done.push(id);
+            } else if must_return {
+                // Stay off the connector. The parallel cannot cross it while the
+                // original lane is using it, so wait here and merge instead.
+                wait.insert(id);
+            }
+        }
+        if let Some(ex) = self.experiment.as_mut() {
+            for id in done {
+                ex.slot_shift.remove(&id);
+            }
+        }
+        wait
+    }
+
+    fn replan_slots(&mut self) {
+        let due: Vec<u32> = {
+            let Some(ex) = self.experiment.as_ref() else {
+                return;
+            };
+            ex.bulletins
+                .iter()
+                .filter(|b| ex.granted.contains(&b.car) && b.request.active_at(self.time))
+                .filter(|b| {
+                    ex.last_slot_plan
+                        .get(&b.car)
+                        .is_none_or(|at| self.time - *at >= 1.0 - 1e-9)
+                })
+                .map(|b| b.car)
+                .filter(|id| self.cars.iter().any(|car| car.id == *id))
+                .collect()
+        };
+        for id in due {
+            let Some(planned) = self.plan_slot(id) else {
+                continue;
+            };
+            let previous: Vec<PendingAsk> = self
+                .experiment
+                .as_ref()
+                .unwrap()
+                .slot_pending
+                .iter()
+                .filter(|item| item.beneficiary == id)
+                .cloned()
+                .collect();
+            let mut pending: Vec<PendingAsk> = planned
+                .asks
+                .iter()
+                .filter(|ask| ask.sent)
+                .filter(|ask| {
+                    !self
+                        .experiment
+                        .as_ref()
+                        .unwrap()
+                        .slot_sent
+                        .contains(&(id, ask.car))
+                })
+                .cloned()
+                .map(|ask| {
+                    let earlier = previous.iter().find(|item| {
+                        item.ask.car == ask.car
+                            && item.ask.kind == ask.kind
+                            && item.ask.send_at < ask.send_at
+                    });
+                    PendingAsk {
+                        beneficiary: id,
+                        ask: earlier.map(|item| item.ask.clone()).unwrap_or(ask),
+                    }
+                })
+                .collect();
+            let ignores: Vec<SlotAskRecord> = planned
+                .asks
+                .iter()
+                .filter(|ask| ask.kind == crate::slot::MoveKind::Ignore)
+                .map(|ask| SlotAskRecord {
+                    beneficiary: id,
+                    car: ask.car,
+                    kind: "ignore".into(),
+                    sent: false,
+                    at_s: self.time,
+                    hold_s: 0.0,
+                })
+                .collect();
+            let ex = self.experiment.as_mut().unwrap();
+            ex.slot_pending.retain(|item| item.beneficiary != id);
+            ex.slot_pending.append(&mut pending);
+            ex.slot_diversion.insert(id, planned.diversions);
+            ex.last_slot_plan.insert(id, self.time);
+            for record in ignores {
+                let key = (record.beneficiary, record.car, record.kind.clone());
+                if ex.slot_seen.insert(key) {
+                    ex.slot_log.push(record);
+                }
+            }
+        }
+    }
+
+    fn plan_slot(&self, id: u32) -> Option<crate::slot::Plan> {
+        let ambulance = self.ambulance_actor(id)?;
+        // The slot is the ambulance. Forecasting it as a hard leader would hide
+        // cars that drive into it if nobody yields. Other cars still stop for
+        // each other and for blockages.
+        let cars: Vec<crate::slot::Actor> = self
+            .cars
+            .iter()
+            .filter(|car| car.id != id)
+            .map(|car| self.actor_from_car(car))
+            .collect();
+        let blocks = self.slot_blocks();
+        let graph = self.slot_graph();
+        Some(crate::slot::plan(
+            self.time, &ambulance, &cars, &graph, &blocks,
+        ))
+    }
+
+    fn dispatch_slot_asks(&mut self) {
+        let pending: Vec<PendingAsk> = self
+            .experiment
+            .as_ref()
+            .map(|ex| ex.slot_pending.clone())
+            .unwrap_or_default();
+        let mut keep = Vec::new();
+        for item in pending {
+            if item.ask.send_at > self.time + 1e-9 {
+                keep.push(item);
+                continue;
+            }
+            let sent = self
+                .experiment
+                .as_ref()
+                .is_some_and(|ex| ex.slot_sent.contains(&(item.beneficiary, item.ask.car)));
+            if sent {
+                continue;
+            }
+            match self.apply_slot_ask(&item) {
+                SlotSend::Sent | SlotSend::Drop => {}
+                SlotSend::Later => {
+                    if self.time <= item.ask.send_at + 1.0 {
+                        keep.push(item);
+                    }
+                }
+            }
+        }
+        if let Some(ex) = self.experiment.as_mut() {
+            ex.slot_pending = keep;
+        }
+    }
+
+    fn apply_slot_ask(&mut self, item: &PendingAsk) -> SlotSend {
+        let Some(ex) = self.experiment.as_ref() else {
+            return SlotSend::Drop;
+        };
+        let Some(config) = ex.broadcast else {
+            return SlotSend::Drop;
+        };
+        let Some(request) = ex
+            .bulletins
+            .iter()
+            .find(|b| b.car == item.beneficiary && b.request.active_at(self.time))
+            .map(|b| b.request.clone())
+        else {
+            return SlotSend::Drop;
+        };
+        let share = config.connected_share;
+        let seed = ex.seed;
+        let Some(ci) = self.cars.iter().position(|car| car.id == item.ask.car) else {
+            return SlotSend::Drop;
+        };
+        if !make_way::car_connected(seed, item.ask.car, share) || item.ask.car == item.beneficiary {
+            return SlotSend::Drop;
+        }
+        let hold_used = ex.hold_seconds.get(&item.ask.car).copied().unwrap_or(0.0);
+        let Some(action) = item.ask.action.clone() else {
+            return SlotSend::Drop;
+        };
+        let kind = slot_kind_name(item.ask.kind).to_string();
+        match action {
+            make_way::DrivingAction::LaneChange { to_link } => {
+                let remaining =
+                    self.net.links[self.routes[self.cars[ci].route].links[self.cars[ci].idx]].len
+                        - self.link_offset(ci);
+                if remaining < 40.0 || !self.gap_on_link(ci, to_link) {
+                    return if remaining < 40.0 {
+                        SlotSend::Drop
+                    } else {
+                        SlotSend::Later
+                    };
+                }
+                let offset = self.link_offset(ci);
+                let slot_uses_it = self.experiment.as_ref().is_some_and(|ex| {
+                    ex.slot_diversion
+                        .get(&item.beneficiary)
+                        .is_some_and(|lanes| {
+                            lanes
+                                .iter()
+                                .any(|d| d.lane == to_link && d.to_m + CAR_LENGTH_M >= offset)
+                        })
+                });
+                if slot_uses_it {
+                    return SlotSend::Drop;
+                }
+                // The parallel rejoins only by merging back into the hole this
+                // car left. A follower who reaches that hole first strands them
+                // at the connector, so the ambulance waits instead.
+                let amb_gap = self
+                    .cars
+                    .iter()
+                    .find(|car| car.id == item.beneficiary)
+                    .map(|amb| (self.cars[ci].d - amb.d).max(0.0) / amb.v.max(1.0) + 4.0)
+                    .unwrap_or(8.0);
+                if self.follower_closes_hole(ci, item.beneficiary, amb_gap) {
+                    return SlotSend::Drop;
+                }
+                // The lane change is instant. Wait to use it until the ambulance
+                // is close enough that the car only stands aside for the pass.
+                if self.approach_s(item.beneficiary, ci) > PASS_WINDOW_S {
+                    return SlotSend::Later;
+                }
+                // A moving stream refills the hole before a return onto a
+                // parallel that ends at the same connector. Leave the car in
+                // the lane and let the ambulance slow.
+                if self.lane_is_busy(ci, item.beneficiary) {
+                    return SlotSend::Drop;
+                }
+                let accepted = make_way::receive_one(
+                    &request,
+                    self.time,
+                    item.ask.car,
+                    make_way::DrivingAction::LaneChange { to_link },
+                    hold_used,
+                    true,
+                );
+                let make_way::DrivingAction::LaneChange { to_link } = accepted else {
+                    return SlotSend::Drop;
+                };
+                let original = self.routes[self.cars[ci].route].links[self.cars[ci].idx];
+                let shifted_at = self.link_offset(ci);
+                self.retarget_current_link(ci, to_link);
+                self.note_slot_message(item, &kind, "lane_change", item.ask.hold_s);
+                if let Some(ex) = self.experiment.as_mut() {
+                    ex.slot_shift.insert(
+                        item.ask.car,
+                        SlotShift {
+                            original,
+                            parallel: to_link,
+                            beneficiary: item.beneficiary,
+                            offset_m: shifted_at,
+                            since_s: self.time,
+                        },
+                    );
+                    ex.slot_sent.insert((item.beneficiary, item.ask.car));
+                }
+                SlotSend::Sent
+            }
+            make_way::DrivingAction::Reroute(links) => {
+                if !self.reroute_fits(ci, &links) {
+                    return SlotSend::Drop;
+                }
+                let accepted = make_way::receive_one(
+                    &request,
+                    self.time,
+                    item.ask.car,
+                    make_way::DrivingAction::Reroute(links.clone()),
+                    hold_used,
+                    true,
+                );
+                if !matches!(accepted, make_way::DrivingAction::Reroute(_)) {
+                    return SlotSend::Drop;
+                }
+                self.install_reroute(ci, &links);
+                self.note_slot_message(item, &kind, "reroute", 0.0);
+                if let Some(ex) = self.experiment.as_mut() {
+                    ex.slot_sent.insert((item.beneficiary, item.ask.car));
+                }
+                SlotSend::Sent
+            }
+            make_way::DrivingAction::Hold { duration_s } => {
+                // The forecast duration is the minimum that clears. The car is
+                // released when the ambulance passes, and never held past the
+                // existing hold budget.
+                let until_pass = (make_way::HOLD_BUDGET_S - hold_used).max(duration_s);
+                let accepted = make_way::receive_one(
+                    &request,
+                    self.time,
+                    item.ask.car,
+                    make_way::DrivingAction::Hold {
+                        duration_s: until_pass,
+                    },
+                    hold_used,
+                    true,
+                );
+                let make_way::DrivingAction::Hold { duration_s } = accepted else {
+                    return SlotSend::Drop;
+                };
+                self.note_slot_message(item, &kind, "hold", duration_s);
+                if let Some(ex) = self.experiment.as_mut() {
+                    ex.slot_hold.insert(
+                        item.ask.car,
+                        SlotHold {
+                            beneficiary: item.beneficiary,
+                            clear_link: item.ask.clear_link,
+                            clear_offset_m: item.ask.clear_offset_m,
+                            duration_s,
+                            started_s: self.time,
+                        },
+                    );
+                    ex.slot_sent.insert((item.beneficiary, item.ask.car));
+                }
+                SlotSend::Sent
+            }
+            make_way::DrivingAction::Ignore => SlotSend::Drop,
+        }
+    }
+
+    fn note_slot_message(&mut self, item: &PendingAsk, kind: &str, action: &str, hold_s: f64) {
+        let Some(urgent) = self.cars.iter().find(|car| car.id == item.beneficiary) else {
+            return;
+        };
+        let route = self
+            .experiment
+            .as_ref()
+            .and_then(|ex| {
+                ex.bulletins
+                    .iter()
+                    .find(|b| b.car == item.beneficiary)
+                    .map(|b| b.route)
+            })
+            .unwrap_or(urgent.route);
+        let ahead = self
+            .cars
+            .iter()
+            .find(|car| car.id == item.ask.car)
+            .map(|car| (car.d - urgent.d).abs())
+            .unwrap_or(0.0);
+        let record = SlotAskRecord {
+            beneficiary: item.beneficiary,
+            car: item.ask.car,
+            kind: kind.into(),
+            sent: true,
+            at_s: self.time,
+            hold_s,
+        };
+        let hop = MessageHop {
+            beneficiary: item.beneficiary,
+            route,
+            at_s: self.time,
+            route_m: urgent.d,
+            ahead_m: ahead,
+            lead_s: (item.ask.send_at - self.time).max(0.0),
+            sender: format!("slot:{}", item.beneficiary),
+            recipient: format!("car:{}", item.ask.car),
+            recipient_car: Some(item.ask.car),
+            connector: None,
+            action: action.into(),
+        };
+        let ex = self.experiment.as_mut().unwrap();
+        let key = (item.beneficiary, item.ask.car, kind.to_string());
+        if ex.slot_seen.insert(key) {
+            ex.slot_log.push(record);
+        }
+        ex.messages.push(hop);
+    }
+
+    fn follow_slot_lanes(&mut self) -> BTreeSet<u32> {
+        let diversions: Vec<(u32, Vec<crate::slot::Diversion>)> = self
+            .experiment
+            .as_ref()
+            .map(|ex| {
+                ex.slot_diversion
+                    .iter()
+                    .map(|(id, lanes)| (*id, lanes.clone()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let mut wait = BTreeSet::new();
+        let mut moves = Vec::new();
+        for (id, lanes) in &diversions {
+            let Some(ci) = self.cars.iter().position(|car| car.id == *id) else {
+                continue;
+            };
+            let Some(logical) = self.logical_link(ci) else {
+                continue;
+            };
+            let offset = self.link_offset(ci);
+            let physical = self.routes[self.cars[ci].route].links[self.cars[ci].idx];
+            let want = lanes.iter().find_map(|d| {
+                (d.route_link == logical && offset + 1e-6 >= d.from_m && offset < d.to_m)
+                    .then_some(d.lane)
+            });
+            if let Some(lane) = want {
+                let until = lanes
+                    .iter()
+                    .filter(|d| d.route_link == logical && d.lane == lane)
+                    .map(|d| d.to_m)
+                    .fold(offset, f64::max);
+                // Enter the open lane only while it is empty ahead. Cars already
+                // shifted onto it would become the obstacle the slot is made of.
+                if physical != lane
+                    && self.gap_on_link(ci, lane)
+                    && self.lane_clear_ahead(ci, lane, until)
+                    && !self.near_stop(ci)
+                {
+                    moves.push((ci, lane));
+                } else if physical != logical && self.near_stop(ci) {
+                    if self.gap_on_link(ci, logical) {
+                        moves.push((ci, logical));
+                    } else {
+                        wait.insert(*id);
+                    }
+                }
+            } else if let Some(original) = self.original_of(physical) {
+                if self.gap_on_link(ci, original) {
+                    moves.push((ci, original));
+                } else {
+                    wait.insert(*id);
+                }
+            }
+        }
+        for (ci, to_link) in moves {
+            self.retarget_current_link(ci, to_link);
+        }
+        wait
+    }
+
+    fn apply_slot_holds(&mut self) {
+        let held: BTreeSet<u32> = self
+            .experiment
+            .as_ref()
+            .map(|ex| ex.slot_hold.keys().copied().collect())
+            .unwrap_or_default();
+        for car in &mut self.cars {
+            if held.contains(&car.id) && car.claim.is_some() {
+                car.claim = None;
+                car.waiting = true;
+            }
+        }
+        let Some(ex) = self.experiment.as_mut() else {
+            return;
+        };
+        for id in &held {
+            *ex.hold_seconds.entry(*id).or_default() += NET_DT_S;
+        }
+        ex.held = held;
+        ex.boosted.clear();
+        ex.yielding_for.clear();
+    }
+
+    fn slot_graph(&self) -> crate::slot::Graph {
+        let n = self.net.links.len();
+        let mut parallel = vec![None; n];
+        if let Some(ex) = self.experiment.as_ref() {
+            for (from, to) in &ex.parallel {
+                if *from < n {
+                    parallel[*from] = Some(*to);
+                }
+                if *to < n {
+                    parallel[*to] = Some(*from);
+                }
+            }
+        }
+        crate::slot::Graph {
+            length: self.net.links.iter().map(|link| link.len).collect(),
+            speed: self.net.links.iter().map(|link| link.speed).collect(),
+            parallel,
+            connector: self
+                .net
+                .links
+                .iter()
+                .map(|link| link.is_connector())
+                .collect(),
+            successors: (0..n).map(|link| successors(&self.net, link)).collect(),
+        }
+    }
+
+    fn slot_blocks(&self) -> Vec<crate::slot::Block> {
+        self.net
+            .incidents
+            .iter()
+            .map(|incident| crate::slot::Block {
+                link: incident.link,
+                rear_m: incident.definition.position_m,
+                length_m: incident.definition.length_m,
+                start_s: incident.definition.start_s,
+                end_s: incident.definition.start_s + incident.definition.duration_s,
+            })
+            .collect()
+    }
+
+    fn actor_from_car(&self, car: &Car) -> crate::slot::Actor {
+        let route = &self.routes[car.route];
+        let hold = self
+            .experiment
+            .as_ref()
+            .and_then(|ex| ex.hold_seconds.get(&car.id).copied())
+            .unwrap_or(0.0);
+        crate::slot::Actor {
+            id: car.id,
+            links: route.links[car.idx..].to_vec(),
+            offset_m: car.d - route.start[car.idx],
+            speed_mps: car.v,
+            hold_used_s: hold,
+        }
+    }
+
+    fn ambulance_actor(&self, id: u32) -> Option<crate::slot::Actor> {
+        let ci = self.cars.iter().position(|car| car.id == id)?;
+        let route_id = *self.experiment.as_ref()?.route_by_car.get(&id)?;
+        let original = &self.routes[route_id].links;
+        let logical = self.logical_link(ci)?;
+        let idx = original.iter().position(|link| *link == logical)?;
+        let mut actor = self.actor_from_car(&self.cars[ci]);
+        actor.links = original[idx..].to_vec();
+        Some(actor)
+    }
+
+    fn logical_link(&self, ci: usize) -> Option<usize> {
+        let physical = self.routes[self.cars[ci].route].links[self.cars[ci].idx];
+        Some(self.original_of(physical).unwrap_or(physical))
+    }
+
+    fn original_of(&self, link: usize) -> Option<usize> {
+        self.experiment
+            .as_ref()?
+            .parallel
+            .iter()
+            .find(|(_, parallel)| **parallel == link)
+            .map(|(original, _)| *original)
+    }
+
+    fn link_offset(&self, ci: usize) -> f64 {
+        let car = &self.cars[ci];
+        car.d - self.routes[car.route].start[car.idx]
+    }
+
+    fn progress_past(&self, beneficiary: u32, link: usize, offset: f64) -> bool {
+        let Some(ci) = self.cars.iter().position(|car| car.id == beneficiary) else {
+            return true;
+        };
+        let Some(route_id) = self
+            .experiment
+            .as_ref()
+            .and_then(|ex| ex.route_by_car.get(&beneficiary).copied())
+        else {
+            return true;
+        };
+        let links = &self.routes[route_id].links;
+        let Some(logical) = self.logical_link(ci) else {
+            return false;
+        };
+        let Some(clear_at) = links.iter().position(|item| *item == link) else {
+            return true;
+        };
+        let Some(now_at) = links.iter().position(|item| *item == logical) else {
+            return false;
+        };
+        now_at > clear_at || (now_at == clear_at && self.link_offset(ci) > offset + CAR_LENGTH_M)
+    }
+
+    fn near_stop(&self, ci: usize) -> bool {
+        let Some(k) = self.next_connector(&self.cars[ci]) else {
+            return false;
+        };
+        let car = &self.cars[ci];
+        let to_line = self.routes[car.route].start[k] - car.d;
+        to_line <= car.v * car.v / (2.0 * IDM_B) + CAR_LENGTH_M + MIN_GAP_M
+    }
+
+    fn reroute_fits(&self, ci: usize, links: &[usize]) -> bool {
+        let car = &self.cars[ci];
+        let current = &self.routes[car.route];
+        if links.first().copied() != Some(current.links[car.idx]) || links.len() < 2 {
+            return false;
+        }
+        if links.last() != current.links.last() {
+            return false;
+        }
+        links.windows(2).all(|pair| {
+            pair[1] < self.net.links.len() && successors(&self.net, pair[0]).contains(&pair[1])
+        })
+    }
+
+    fn install_reroute(&mut self, ci: usize, links: &[usize]) {
+        let mut full = self.routes[self.cars[ci].route].links[..self.cars[ci].idx].to_vec();
+        full.extend(links.iter().copied());
+        let next = Route::new(full, &self.net);
+        let route_id = self.routes.len();
+        self.routes.push(next);
+        self.cars[ci].route = route_id;
+        self.cars[ci].claim = None;
+    }
+
     pub fn step(&mut self) {
         self.sync_incident_occupants();
         self.advance_demo();
@@ -2336,9 +3281,13 @@ impl TownSim {
             }
         }
         self.release_claims();
-        self.apply_route_actions();
-        self.rejoin_pullovers();
-        self.update_make_way();
+        if self.moving_slot() {
+            self.tick_moving_slot();
+        } else {
+            self.apply_route_actions();
+            self.rejoin_pullovers();
+            self.update_make_way();
+        }
         let index = self.index();
         self.revoke_stale_claims(&index);
         self.arbitrate(&index);
@@ -2680,6 +3629,16 @@ impl TownSim {
                     .collect()
             })
             .unwrap_or_default();
+        let slot_wait: BTreeSet<u32> = self
+            .experiment
+            .as_ref()
+            .map(|ex| ex.slot_wait.clone())
+            .unwrap_or_default();
+        let slot_shift: BTreeMap<u32, SlotShift> = self
+            .experiment
+            .as_ref()
+            .map(|ex| ex.slot_shift.clone())
+            .unwrap_or_default();
         let pinned = self.hold.as_ref().and_then(|hold| {
             if hold.cleared_at.is_none() {
                 Some(if hold.deferred.is_some() {
@@ -2752,6 +3711,21 @@ impl TownSim {
             let mut v_next = (v + acc * NET_DT_S).max(0.0);
             if braking.contains(&car.id) {
                 v_next = v_next.min((v - IDM_B * NET_DT_S).max(0.0));
+            }
+            if let Some(shift) = slot_shift.get(&car.id) {
+                if route.links[car.idx] == shift.parallel {
+                    let off = car.d - route.start[car.idx];
+                    let room = (shift.offset_m + 8.0 - off).max(0.0);
+                    let v_cap = (2.0 * IDM_B * room).sqrt();
+                    v_next = v_next.min(v_cap);
+                }
+            }
+            if !slot_wait.is_empty() && slot_wait.contains(&car.id) {
+                if let Some(k) = self.next_connector(car) {
+                    let to_line = (self.routes[car.route].start[k] - car.d).max(0.0);
+                    let v_cap = (2.0 * IDM_B * to_line).sqrt();
+                    v_next = v_next.min(v_cap);
+                }
             }
             if pinned == Some(car.id) {
                 if let Some(k) = self.next_connector(car) {
@@ -3743,6 +4717,156 @@ mod tests {
         assert!(net.junction_count() >= 14, "{}", net.junction_count());
         assert!(net.sources.len() >= 7);
         assert!(net.routes().len() > 40);
+    }
+
+    fn two_lane() -> Network {
+        let map: crate::road_map::RoadMap = serde_json::from_str(
+            r#"{"version":1,"origin":[0,0],"nodes":[
+              {"id":0,"lat":0,"lon":0,"demand_per_s":0.05},
+              {"id":1,"lat":0,"lon":0.003,"sink_weight":1}],
+             "edges":[
+              {"id":0,"from":0,"to":1,"lanes":2,"speed_limit_mps":10,"length_m":200,"one_way":true,"class":"arterial"}]}"#,
+        )
+        .unwrap();
+        map.network().unwrap()
+    }
+
+    #[test]
+    fn gap_shift_moves_the_car_without_the_pullover_brake() {
+        let net = two_lane();
+        let demand = [
+            ScheduledCar {
+                id: 1,
+                route: 0,
+                depart_s: 0.0,
+            },
+            ScheduledCar {
+                id: 2,
+                route: 0,
+                depart_s: 0.0,
+            },
+        ];
+        let mut sim = TownSim::with_schedule_on(1, &demand, net).unwrap();
+        sim.enable_broadcast(BroadcastConfig {
+            mode: MakeWayMode::MovingSlot,
+            ..Default::default()
+        })
+        .unwrap();
+        sim.step();
+        if sim.cars.iter().all(|car| car.id != 2) {
+            let route = sim.cars.iter().find(|car| car.id == 1).unwrap().route;
+            sim.cars.push(Car {
+                id: 2,
+                route,
+                idx: 0,
+                d: 24.0,
+                v: 0.0,
+                claim: None,
+                waiting: false,
+            });
+        }
+        if let Some(ex) = sim.experiment.as_mut() {
+            for queue in &mut ex.pending {
+                queue.clear();
+            }
+        }
+        sim.set_precedence(1, true);
+        for car in &mut sim.cars {
+            if car.id == 1 {
+                car.d = 12.0;
+                car.v = 10.0;
+                car.idx = 0;
+            }
+            if car.id == 2 {
+                car.d = 24.0;
+                car.v = 0.0;
+                car.idx = 0;
+            }
+        }
+        let plan = sim.plan_slot(1).unwrap();
+        let ask = plan
+            .asks
+            .iter()
+            .find(|ask| ask.car == 2 && ask.sent)
+            .expect("the stopped lead car is in the slot");
+        assert_eq!(ask.kind, crate::slot::MoveKind::GapShift);
+        assert!(plan
+            .asks
+            .iter()
+            .filter(|a| a.car == 2)
+            .all(|a| a.kind != crate::slot::MoveKind::EaseOff || !a.sent));
+        let speed_before = sim.cars.iter().find(|c| c.id == 2).unwrap().v;
+        let pending = PendingAsk {
+            beneficiary: 1,
+            ask: ask.clone(),
+        };
+        sim.time = ask.send_at;
+        assert!(matches!(sim.apply_slot_ask(&pending), SlotSend::Sent));
+        let car = sim.cars.iter().find(|c| c.id == 2).unwrap();
+        let link = sim.routes[car.route].links[car.idx];
+        assert!(
+            link >= 1,
+            "gap shift should leave the original lane, link {link}"
+        );
+        assert_eq!(car.v, speed_before);
+        assert!(sim.experiment.as_ref().unwrap().pull_over.is_empty());
+    }
+
+    #[test]
+    fn ease_off_releases_when_the_ambulance_passes_the_conflict() {
+        let net = two_lane();
+        let demand = [ScheduledCar {
+            id: 1,
+            route: 0,
+            depart_s: 0.0,
+        }];
+        let mut sim = TownSim::with_schedule_on(1, &demand, net).unwrap();
+        sim.enable_broadcast(BroadcastConfig {
+            mode: MakeWayMode::MovingSlot,
+            ..Default::default()
+        })
+        .unwrap();
+        sim.step();
+        sim.set_precedence(1, true);
+        let route = sim.cars[0].route;
+        sim.cars[0].d = 30.0;
+        sim.cars[0].v = 10.0;
+        sim.cars.push(Car {
+            id: 2,
+            route,
+            idx: 0,
+            d: 20.0,
+            v: 0.0,
+            claim: None,
+            waiting: false,
+        });
+        let started = sim.time;
+        sim.experiment.as_mut().unwrap().slot_hold.insert(
+            2,
+            SlotHold {
+                beneficiary: 1,
+                clear_link: sim.routes[sim.cars[0].route].links[sim.cars[0].idx],
+                clear_offset_m: 30.0,
+                duration_s: 3.0,
+                started_s: started,
+            },
+        );
+        sim.experiment.as_mut().unwrap().held.insert(2);
+        let mut released_at = None;
+        for _ in 0..40 {
+            sim.step();
+            if sim.experiment.as_ref().unwrap().slot_hold.get(&2).is_none() {
+                released_at = Some(sim.time);
+                break;
+            }
+        }
+        let released_at = released_at.expect("hold never released");
+        assert!(
+            released_at - started < 3.0,
+            "released at {released_at}, started {started}"
+        );
+        assert!(sim.progress_past(1, sim.routes[0].links[0], 30.0));
+        assert!(!sim.experiment.as_ref().unwrap().held.contains(&2));
     }
 }
 

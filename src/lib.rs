@@ -31,6 +31,7 @@ pub mod rush_board;
 pub mod rush_hour;
 pub mod rush_server;
 pub mod schema;
+pub mod slot;
 pub mod story;
 pub mod world;
 
