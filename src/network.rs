@@ -1018,6 +1018,7 @@ struct Bulletin {
     route: usize,
     issued_at: f64,
     junctions: Vec<(usize, f64)>,
+    request: make_way::MakeWayRequest,
 }
 
 struct Experiment {
@@ -1212,6 +1213,23 @@ impl TownSim {
                 ex.granted.insert(car);
             } else {
                 ex.granted.remove(&car);
+                for b in ex.bulletins.iter_mut().filter(|b| b.car == car) {
+                    b.request.expires_at = b.request.expires_at.min(self.time);
+                }
+                let released: Vec<_> = ex
+                    .yielding_for
+                    .iter()
+                    .filter(|(_, (issuer, _))| *issuer == car)
+                    .map(|(id, _)| *id)
+                    .collect();
+                for id in released {
+                    ex.held.remove(&id);
+                    ex.boosted.remove(&id);
+                    ex.yielding_for.remove(&id);
+                }
+                for pull in ex.pull_over.values_mut().filter(|p| p.beneficiary == car) {
+                    pull.released = true;
+                }
             }
         }
     }
@@ -1268,6 +1286,18 @@ impl TownSim {
             .as_ref()
             .map(|e| e.messages.clone())
             .unwrap_or_default()
+    }
+
+    pub fn message_log(&self) -> make_way::MessageLog {
+        make_way::MessageLog {
+            version: 1,
+            requests: self
+                .experiment
+                .as_ref()
+                .map(|e| e.bulletins.iter().map(|b| b.request.clone()).collect())
+                .unwrap_or_default(),
+            events: self.messages(),
+        }
     }
 
     fn publish_bulletin(&mut self, id: u32) {
@@ -1360,6 +1390,16 @@ impl TownSim {
             route: route_id,
             issued_at: self.time,
             junctions,
+            request: make_way::MakeWayRequest {
+                id: format!("car:{id}@{}", self.time),
+                issuer: id,
+                route: route.links.clone(),
+                urgency: 1.0,
+                reason: "Host granted emergency precedence".into(),
+                issued_at: self.time,
+                expires_at: self.time + 10_000.0,
+                signature: None,
+            },
         });
     }
 
@@ -1408,6 +1448,9 @@ impl TownSim {
                 continue;
             }
             for b in &ex.bulletins {
+                if !b.request.active_at(self.time) || !ex.granted.contains(&b.car) {
+                    continue;
+                }
                 let Some(urgent) = self.cars.iter().find(|c| c.id == b.car) else {
                     continue;
                 };
@@ -1466,6 +1509,15 @@ impl TownSim {
         // Apply serially so the second lane change sees the first one's body.
         for (ci, beneficiary, route, route_m, eta, _, pull_over) in candidates {
             let car = &self.cars[ci];
+            let request = &self
+                .experiment
+                .as_ref()
+                .unwrap()
+                .bulletins
+                .iter()
+                .find(|b| b.car == beneficiary)
+                .unwrap()
+                .request;
             let old = &self.routes[car.route];
             let link = old.links[car.idx];
             let front = car.d - old.start[car.idx];
@@ -1512,6 +1564,8 @@ impl TownSim {
                 new_block_s: 0.0,
                 same_links: true,
             });
+            let lane_action =
+                make_way::receive_one(request, self.time, car.id, lane_action, 0.0, gap_ok && room);
             if let make_way::DrivingAction::LaneChange { to_link } = lane_action {
                 let mut links = old.links.clone();
                 links[car.idx] = to_link;
@@ -1602,6 +1656,15 @@ impl TownSim {
                         new_block_s: new_block,
                         same_links: candidate.links == old.links,
                     });
+                    let intent = make_way::receive_one(
+                        request,
+                        self.time,
+                        car.id,
+                        intent,
+                        0.0,
+                        candidate.links.get(car.idx) == old.links.get(car.idx)
+                            && candidate.links.last() == old.links.last(),
+                    );
                     if matches!(intent, make_way::DrivingAction::Reroute(_)) {
                         chosen = Some((links, "reroute"));
                     }
@@ -1660,6 +1723,26 @@ impl TownSim {
         let Some(ex) = self.experiment.as_ref() else {
             return;
         };
+        let expired: Vec<u32> = ex
+            .pull_over
+            .iter()
+            .filter(|(_, p)| {
+                ex.bulletins
+                    .iter()
+                    .any(|b| b.car == p.beneficiary && !b.request.active_at(self.time))
+            })
+            .map(|(id, _)| *id)
+            .collect();
+        for id in expired {
+            self.experiment
+                .as_mut()
+                .unwrap()
+                .pull_over
+                .get_mut(&id)
+                .unwrap()
+                .released = true;
+        }
+        let ex = self.experiment.as_ref().unwrap();
         let pending: Vec<(u32, PullOver)> = ex
             .pull_over
             .iter()
@@ -1759,7 +1842,7 @@ impl TownSim {
         let live: Vec<_> = ex
             .bulletins
             .iter()
-            .filter(|b| ex.granted.contains(&b.car))
+            .filter(|b| ex.granted.contains(&b.car) && b.request.active_at(self.time))
             .filter_map(|b| self.cars.iter().find(|c| c.id == b.car).map(|c| (b, c)))
             .collect();
         for car in &self.cars {
@@ -1820,6 +1903,19 @@ impl TownSim {
                                     / self.net.links[want].speed
                                 + 1.0
                     {
+                        let action = make_way::receive_one(
+                            &bulletin.request,
+                            self.time,
+                            car.id,
+                            make_way::DrivingAction::Hold {
+                                duration_s: NET_DT_S,
+                            },
+                            ex.hold_seconds.get(&car.id).copied().unwrap_or(0.0),
+                            true,
+                        );
+                        if !matches!(action, make_way::DrivingAction::Hold { .. }) {
+                            continue;
+                        }
                         held.insert(car.id);
                         yielding_for.insert(car.id, (bulletin.car, "hold".to_string()));
                         "hold"
@@ -3361,5 +3457,40 @@ mod tests {
         assert!(net.junction_count() >= 14, "{}", net.junction_count());
         assert!(net.sources.len() >= 7);
         assert!(net.routes().len() > 40);
+    }
+}
+
+#[cfg(test)]
+mod fleet_release_tests {
+    use super::*;
+    #[test]
+    fn denial_or_revocation_releases_every_held_vehicle_within_one_tick() {
+        let net = Network::town();
+        let mut sim = TownSim::with_schedule_on(1, &[], net).unwrap();
+        let ex = sim.experiment.as_mut().unwrap();
+        ex.granted.insert(1);
+        for id in [2, 3] {
+            ex.held.insert(id);
+            ex.boosted.insert(id);
+            ex.yielding_for.insert(id, (1, "hold".into()));
+            ex.pull_over.insert(
+                id,
+                PullOver {
+                    original: 0,
+                    parallel: 1,
+                    beneficiary: 1,
+                    since_s: 0.0,
+                    released: false,
+                },
+            );
+        }
+        sim.set_precedence(1, false);
+        let ex = sim.experiment.as_ref().unwrap();
+        assert!(ex.held.is_empty());
+        assert!(ex.boosted.is_empty());
+        assert!(ex.yielding_for.is_empty());
+        assert!(ex.pull_over.values().all(|p| p.released));
+        sim.step();
+        assert!(sim.experiment.as_ref().unwrap().held.is_empty());
     }
 }

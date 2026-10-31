@@ -804,6 +804,7 @@ pub struct Run {
     pub town: NetworkRun,
     pub history: BTreeMap<u32, Vec<PastTrip>>,
     pub messages: Vec<MessageHop>,
+    pub message_log: crate::make_way::MessageLog,
     pub history_enabled: bool,
 }
 pub struct ScoredRun {
@@ -957,6 +958,7 @@ pub(crate) fn simulate_trips_on(
     }
     let home = sim.completed_trips();
     let messages = sim.messages();
+    let message_log = sim.message_log();
     let town = sim.experiment_recording(frames, stats);
     Ok(Run {
         trips,
@@ -965,6 +967,7 @@ pub(crate) fn simulate_trips_on(
         town,
         history,
         messages,
+        message_log,
         history_enabled,
     })
 }

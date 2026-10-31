@@ -8,6 +8,166 @@
 //! the physics (car-following, junction reservations, integration).
 
 use crate::world::{CAR_LENGTH_M, MIN_GAP_M, V_MAX_MPS};
+use serde::{Deserialize, Serialize};
+
+/// Version-1 wire request. Route entries are host graph edge/link ids, never
+/// steering instructions. Signatures are reserved for fleet authentication.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MakeWayRequest {
+    pub id: String,
+    pub issuer: u32,
+    pub route: Vec<usize>,
+    pub urgency: f64,
+    pub reason: String,
+    pub issued_at: f64,
+    pub expires_at: f64,
+    pub signature: Option<String>,
+}
+impl MakeWayRequest {
+    pub fn active_at(&self, now: f64) -> bool {
+        now.is_finite()
+            && self.issued_at.is_finite()
+            && self.expires_at.is_finite()
+            && self.urgency.is_finite()
+            && !self.id.is_empty()
+            && !self.route.is_empty()
+            && self.issued_at <= now
+            && now < self.expires_at
+    }
+}
+
+/// A host-local proposal. The physics adapter supplies its acceptance check;
+/// a receiver can always decline, but cannot override that check.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct VehicleProposal {
+    pub vehicle: u32,
+    pub action: DrivingAction,
+    pub hold_used_s: f64,
+}
+
+/// Fleet boundary: exactly one action per supplied vehicle, in input order.
+/// Implementations may always return Ignore. The simulator uses SafetyFleet,
+/// which wraps proposals with lifetime, hold-budget and physics checks.
+pub trait FleetReceiver {
+    fn receive(
+        &self,
+        request: &MakeWayRequest,
+        now: f64,
+        vehicles: &[VehicleProposal],
+    ) -> Vec<(u32, DrivingAction)>;
+}
+
+pub struct SafetyFleet<F>(pub F);
+impl<F: Fn(u32, &DrivingAction) -> bool> FleetReceiver for SafetyFleet<F> {
+    fn receive(
+        &self,
+        request: &MakeWayRequest,
+        now: f64,
+        vehicles: &[VehicleProposal],
+    ) -> Vec<(u32, DrivingAction)> {
+        vehicles
+            .iter()
+            .map(|v| {
+                let mut action = v.action.clone();
+                if !request.active_at(now) || v.vehicle == request.issuer {
+                    action = DrivingAction::Ignore;
+                }
+                if let DrivingAction::Hold { duration_s } = &mut action {
+                    if !duration_s.is_finite()
+                        || !v.hold_used_s.is_finite()
+                        || v.hold_used_s < 0.0
+                        || *duration_s <= 0.0
+                    {
+                        action = DrivingAction::Ignore;
+                    } else {
+                        *duration_s = duration_s.min((HOLD_BUDGET_S - v.hold_used_s).max(0.0));
+                        if *duration_s <= 0.0 {
+                            action = DrivingAction::Ignore;
+                        }
+                    }
+                }
+                if action != DrivingAction::Ignore && !(self.0)(v.vehicle, &action) {
+                    action = DrivingAction::Ignore;
+                }
+                (v.vehicle, action)
+            })
+            .collect()
+    }
+}
+
+/// Apply the boundary to one host proposal. This helper retains the same
+/// contract as a fleet batch and is used for serial gap-sensitive actions.
+pub fn receive_one(
+    request: &MakeWayRequest,
+    now: f64,
+    vehicle: u32,
+    action: DrivingAction,
+    hold_used_s: f64,
+    physics_accepts: bool,
+) -> DrivingAction {
+    SafetyFleet(|_, _: &DrivingAction| physics_accepts)
+        .receive(
+            request,
+            now,
+            &[VehicleProposal {
+                vehicle,
+                action,
+                hold_used_s,
+            }],
+        )
+        .remove(0)
+        .1
+}
+
+/// Replayable request and delivery evidence. Motion replay remains separate:
+/// replaying messages never bypasses the simulator's current physics checks.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MessageLog {
+    pub version: u32,
+    pub requests: Vec<MakeWayRequest>,
+    pub events: Vec<crate::network::MessageHop>,
+}
+impl MessageLog {
+    pub fn replay(&self) -> Result<Vec<crate::network::MessageHop>, String> {
+        if self.version != 1 {
+            return Err("unsupported message log version".into());
+        }
+        let mut ids = std::collections::BTreeSet::new();
+        if self.requests.iter().any(|r| {
+            !ids.insert(&r.id)
+                || !r.issued_at.is_finite()
+                || !r.expires_at.is_finite()
+                || r.expires_at < r.issued_at
+                || r.route.is_empty()
+                || r.id.is_empty()
+        }) {
+            return Err("invalid request log".into());
+        }
+        if self.events.iter().any(|e| {
+            !e.at_s.is_finite()
+                || !self
+                    .requests
+                    .iter()
+                    .any(|r| r.issuer == e.beneficiary && r.issued_at <= e.at_s)
+        }) {
+            return Err("message without a live request".into());
+        }
+        // Relays may already be scheduled when a request is revoked. They
+        // remain evidence in the log but are not delivered during replay.
+        Ok(self
+            .events
+            .iter()
+            .filter(|e| {
+                self.requests
+                    .iter()
+                    .any(|r| r.issuer == e.beneficiary && r.active_at(e.at_s))
+            })
+            .cloned()
+            .collect())
+    }
+}
 
 /// Comfortable braking used only for gap acceptance. Matches the simulator's
 /// IDM comfortable deceleration so a lane change the layer accepts is one the
@@ -139,7 +299,8 @@ pub struct CarLocal {
     pub acted: bool,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "action", content = "parameters", rename_all = "snake_case")]
 pub enum DrivingAction {
     LaneChange { to_link: usize },
     Reroute(Vec<usize>),

@@ -236,6 +236,7 @@ fn main() -> ExitCode {
 
 struct Args {
     decision_log: Option<std::path::PathBuf>,
+    save_messages: Option<std::path::PathBuf>,
     rush_hour: bool,
     map: Option<std::path::PathBuf>,
     export_map: Option<std::path::PathBuf>,
@@ -275,6 +276,7 @@ impl Args {
     fn from_env() -> Result<Self, String> {
         let mut parsed = Args {
             decision_log: None,
+            save_messages: None,
             rush_hour: false,
             map: None,
             export_map: None,
@@ -312,6 +314,10 @@ impl Args {
         let mut args = env::args().skip(1);
         while let Some(arg) = args.next() {
             match arg.as_str() {
+                "--save-messages" => {
+                    parsed.save_messages =
+                        Some(args.next().ok_or("--save-messages needs a path")?.into())
+                }
                 "--decision-log" => {
                     parsed.decision_log =
                         Some(args.next().ok_or("--decision-log needs a path")?.into())
@@ -532,6 +538,7 @@ Knobs:
   --policy NAME           fcfs, keyword, mock, or live
   --seed N                fixed rush-hour demand seed
   --score FILE            write the paired rush-hour score JSON
+  --save-messages FILE    write replayable make-way requests and deliveries
   --decision-log FILE     write every rush-hour decision and source
   --no-history            compare rush hour without completed rider history
   --local-only            use neighbouring-car precedence without propagation
@@ -809,6 +816,13 @@ fn run_rush_hour(args: &Args) -> Result<(), String> {
     )?;
     if args.require_live && result.score.model_decisions != result.run.decisions.len() {
         result.score.passed = false;
+    }
+    if let Some(path) = &args.save_messages {
+        std::fs::write(
+            path,
+            serde_json::to_string_pretty(&result.run.message_log).map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
     }
     if let Some(path) = &args.decision_log {
         std::fs::write(
