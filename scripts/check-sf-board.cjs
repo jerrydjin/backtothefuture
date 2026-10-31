@@ -24,6 +24,25 @@ const { chromium } = require('playwright');
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     const errors = []; page.on('pageerror', e => errors.push(String(e)));
     const samples = [];
+    let blockedLaneSamplesChecked=0;
+    for(const record of incidentRecords){
+      const i=record.definition;
+      for(const frame of town.frames.filter(f=>f.t>=Math.max(startS,i.start_s+1)&&f.t<i.start_s+i.duration_s)){
+        for(const car of frame.cars){
+          let start=0;
+          for(const link of town.routes[car[1]]){
+            if(link===record.link){
+              const rear=car[2]-board.car_length_m-start,front=car[2]-start;
+              if(front>=0&&rear<=town.links[link].len){
+                blockedLaneSamplesChecked++;
+                assert.ok(!(rear<i.position_m+i.length_m-.05 && front>i.position_m+.05),'body overlaps the active blocked footprint');
+              }
+            }
+            start+=town.links[link].len;
+          }
+        }
+      }
+    }
     // Every first reaction must have a delivery by that frame, including
     // ordinary holds and pulls close to the emergency, not just far cues.
     let checkedStates = 0;
@@ -88,7 +107,7 @@ const { chromium } = require('playwright');
     }
     assert.ok(screenshot, 'no real SF message front ahead of red car');
     assert.equal(errors.length, 0);
-    const report = { drivingManeuvers: messages.events.filter(h => h.action !== 'relay').length, receiptCuesChecked: samples.reduce((n,s)=>n+s.received.length,0), source: 'maps/sf-zsfg.osm', score: rush.score, checkedStates, screenshot, samples, errors };
+    const report = { blockedLaneSamplesChecked, drivingManeuvers: messages.events.filter(h => h.action !== 'relay').length, receiptCuesChecked: samples.reduce((n,s)=>n+s.received.length,0), source: 'maps/sf-zsfg.osm', score: rush.score, checkedStates, screenshot, samples, errors };
     fs.writeFileSync(reportPath, JSON.stringify(report, null, 2) + '\n');
     console.log(JSON.stringify({ checkedStates, screenshotTime: screenshot.time, fronts: screenshot.fronts, errors }));
   } finally { await browser.close(); server.close(); }

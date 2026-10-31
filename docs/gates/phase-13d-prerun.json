@@ -1,0 +1,10 @@
+{
+  "incident_preregistration_commit": "a6d710ddd54eb8b937f6f8d4ffd198583f6f29d7",
+  "implementation_commit": "bf2cf70689c9fa491dc586e33c429735a9967bee",
+  "started_utc": "2026-10-31T15:33:47.237104+00:00",
+  "incident_sha256": "29bfb3bf9cbf2dd3629c10e79099a81eaa6316b5093c43e87ab3e9d51ce16e00",
+  "map_sha256": "062aadb0acb90cee8d65cb87c5c8c1702e1d7f25dcbcee569eab5831755849d0",
+  "demand_sha256": "185cfcbbde33a9c66521c65788a7e115ab39e7f5f4de7239cba5622693291e8a",
+  "incident_before_any_scores": true,
+  "command": "target/release/examples/sf_corridor_gate maps/sf-zsfg.json docs/gates/phase-13d scenarios/sf-potrero-incident.json"
+}

@@ -1270,19 +1270,22 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     });
     // A receipt is an acknowledgment, not a driving maneuver. In a free-flow
     // run the host can deliver a bulletin and correctly choose to keep driving.
-    var receiptSeen={};
+    var receiptSeen={},receiptLabelShown=false;
     (rush.message_log ? rush.message_log.events : rush.messages).slice().sort(function(a,b){return b.at_s-a.at_s;}).forEach(function(h){
       if(h.action!=="relay" || h.recipient_car==null || h.at_s>t || t>=h.at_s+1 || receiptSeen[h.recipient_car])return;
       var at=carSpot(view,t,h.recipient_car);if(!at)return;
       receiptSeen[h.recipient_car]=true;
       ctx.appendChild(svgNode("circle",{cx:at.x,cy:at.y,r:5,fill:"none",stroke:"#6a93ae","stroke-width":1,"data-role":"rush-received","data-car":h.recipient_car,"data-beneficiary":h.beneficiary,"data-delivered-at":h.at_s}));
-      ctx.appendChild(svgNode("text",{x:at.x+8,y:at.y-8,fill:"#567287",stroke:"white","stroke-width":3,"paint-order":"stroke","font-family":"system-ui, sans-serif","font-size":10,"data-role":"rush-received-label"},"received · continuing"));
+      if(!receiptLabelShown){
+        ctx.appendChild(svgNode("text",{x:at.x+8,y:at.y-8,fill:"#567287",stroke:"white","stroke-width":3,"paint-order":"stroke","font-family":"system-ui, sans-serif","font-size":10,"data-role":"rush-received-label"},"received · continuing"));
+        receiptLabelShown=true;
+      }
     });
     var farthestCue=null;
     (frame.make_way||[]).forEach(function(state){
       var c=cars[state[0]],urgent=cars[state[1]];
       if(!c||!urgent||(state[2]==="hold"&&c[3]>.5))return;
-      var h=rush.messages.find(function(h){return h.recipient_car===c[0]&&h.beneficiary===urgent[0]&&h.action===state[2]&&h.at_s<=t&&h.route_m>urgent[2];});
+      var h=rush.messages.find(function(h){return h.recipient_car===c[0]&&h.beneficiary===urgent[0]&&h.action===(state[2]==="pull_over"?"lane_change":state[2])&&h.at_s<=t&&h.route_m>urgent[2];});
       if(!h)return;
       var at=rushPoint(view,c[1],c[2]-2.2);
       ctx.appendChild(svgNode("circle",{cx:at.x,cy:at.y,r:6,fill:"none",stroke:"#b49c6d","stroke-width":1,"data-role":"rush-make-way","data-action":state[2],"data-car":c[0],"data-beneficiary":h.beneficiary,"data-ahead-m":(h.route_m-urgent[2]).toFixed(1)}));

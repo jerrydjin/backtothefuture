@@ -1,0 +1,148 @@
+{
+  "preregistration": {
+    "incident_preregistration_commit": "a6d710ddd54eb8b937f6f8d4ffd198583f6f29d7",
+    "implementation_commit": "bf2cf70689c9fa491dc586e33c429735a9967bee",
+    "started_utc": "2026-10-31T15:33:47.237104+00:00",
+    "incident_sha256": "29bfb3bf9cbf2dd3629c10e79099a81eaa6316b5093c43e87ab3e9d51ce16e00",
+    "map_sha256": "062aadb0acb90cee8d65cb87c5c8c1702e1d7f25dcbcee569eab5831755849d0",
+    "demand_sha256": "185cfcbbde33a9c66521c65788a7e115ab39e7f5f4de7239cba5622693291e8a",
+    "incident_before_any_scores": true,
+    "command": "target/release/examples/sf_corridor_gate maps/sf-zsfg.json docs/gates/phase-13d scenarios/sf-potrero-incident.json"
+  },
+  "incident": {
+    "version": 1,
+    "id": "potrero-stalled-truck",
+    "kind": "blocked_lane",
+    "map": "maps/sf-zsfg.json",
+    "edge": 15,
+    "from_node": 55,
+    "to_node": 45,
+    "lane": 0,
+    "position_m": 80.0,
+    "length_m": 8.0,
+    "start_s": 240.0,
+    "duration_s": 300.0,
+    "rationale": "An eight-metre stalled delivery truck blocks the southbound through lane mid-block between 20th and 21st Streets for five minutes on the hospital approach."
+  },
+  "incident_unchanged_after_scores": true,
+  "demand_unchanged_from_13c": true,
+  "map_unchanged_from_13c": true,
+  "total_trips": 3125,
+  "all_completed": true,
+  "collisions": 0,
+  "preservation": [
+    {
+      "name": "no-incident SF",
+      "byte_identical": true,
+      "sha256": "8e645e1d327c5f1670f84dd73cccb0b5642c9e6c2375d99f028da635d02569f8"
+    },
+    {
+      "name": "town boxed",
+      "byte_identical": true,
+      "sha256": "47ea42e9d43d3b8eedfb07b2b2ddab02e842d3756b19f91a3fa0660d7bc1db3a"
+    },
+    {
+      "name": "town typical",
+      "byte_identical": true,
+      "sha256": "9cec7a3b104fe36fb1d944bf66eba2c3112605e3078cdf8cd426df3ee3b8cf89"
+    }
+  ],
+  "replay": {
+    "cli_matches_reporter_bytes": true,
+    "archive_roundtrip_byte_identical": true,
+    "model_calls": 0,
+    "cli_score_matches_report": true
+  },
+  "median_seed_fcfs_total_delay_s": 265.375,
+  "median_seed_fcfs_on_map_delay_s": 31.0,
+  "median_seed_gain_vs_fcfs_s": 13.3125,
+  "tests": {
+    "passed": 173,
+    "failed": 0,
+    "ignored": 3
+  },
+  "browser": {
+    "blockedLaneSamplesChecked": 2880,
+    "checkedStates": 9431,
+    "receiptCuesChecked": 88,
+    "drivingManeuvers": 164,
+    "screenshot": {
+      "time": 348,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [
+        {
+          "car": 1177,
+          "state": "clear"
+        },
+        {
+          "car": 1212,
+          "state": "pull_over"
+        }
+      ],
+      "received": [
+        {
+          "car": 1229,
+          "beneficiary": 1164,
+          "at": 347.9886869656752
+        },
+        {
+          "car": 1119,
+          "beneficiary": 1164,
+          "at": 347.84538697760814
+        },
+        {
+          "car": 1196,
+          "beneficiary": 1164,
+          "at": 347.70208663647156
+        },
+        {
+          "car": 1122,
+          "beneficiary": 1164,
+          "at": 347.55878643945096
+        },
+        {
+          "car": 1200,
+          "beneficiary": 1164,
+          "at": 347.415485972961
+        },
+        {
+          "car": 1281,
+          "beneficiary": 1164,
+          "at": 347.27218570804695
+        },
+        {
+          "car": 1307,
+          "beneficiary": 1164,
+          "at": 347.12888555143854
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1164,
+          "head": 264.9813964908947,
+          "car": 149.5,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "incidents": [
+        {
+          "id": "potrero-stalled-truck",
+          "link": 27,
+          "position": 80,
+          "length": 8,
+          "start": 240,
+          "end": 540
+        }
+      ],
+      "svgs": 1
+    },
+    "errors": []
+  },
+  "final_board_tests": {
+    "passed": 12,
+    "failed": 0
+  }
+}
