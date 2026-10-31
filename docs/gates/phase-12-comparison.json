@@ -1,0 +1,32 @@
+{
+  "default-boxed": {
+    "exact_scores": 10,
+    "bytes_identical": true,
+    "sha256": "f4d6b1affbf1d872eb2bbb8e171d895dec188879f956a6e71f82750636e8e121"
+  },
+  "default-typical": {
+    "exact_scores": 10,
+    "bytes_identical": true,
+    "sha256": "f62c2954d965065fff78520b885ae4fcf8f972fe8ab187a73d7edf13742c9ea3"
+  },
+  "hold-boxed": {
+    "exact_scores": 10,
+    "bytes_identical": true,
+    "sha256": "ca117bbbd9945ff1bd0bbbc5c9ccf4733f125d4e0d3378064f30315cbf30d34c"
+  },
+  "hold-typical": {
+    "exact_scores": 10,
+    "bytes_identical": true,
+    "sha256": "8cd0ce9cddd67c1dc68a6e39c1a6ea46cc1781c04a230369131f36c5180d3c06"
+  },
+  "lane-boxed": {
+    "exact_scores": 10,
+    "bytes_identical": true,
+    "sha256": "f4d6b1affbf1d872eb2bbb8e171d895dec188879f956a6e71f82750636e8e121"
+  },
+  "lane-typical": {
+    "exact_scores": 10,
+    "bytes_identical": true,
+    "sha256": "f62c2954d965065fff78520b885ae4fcf8f972fe8ab187a73d7edf13742c9ea3"
+  }
+}
