@@ -34,7 +34,13 @@ pub struct TypedOutcome {
 pub struct RushBoard {
     pub score: Score,
     pub decisions: Vec<Decision>,
+    /// Requested trips can still be waiting off-map in an incomplete run.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub scheduled_cars: Vec<u32>,
     pub messages: Vec<MessageHop>,
+    /// The same lifetime and delivery evidence written by --save-messages.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message_log: Option<crate::make_way::MessageLog>,
     pub liars_caught: usize,
     #[serde(default)]
     pub caught_at: Vec<(u32, f64)>,
@@ -83,7 +89,9 @@ pub fn from_run(result: &ScoredRun, typed: Option<TypedOutcome>) -> Result<Dinne
     board.rush = Some(RushBoard {
         score: result.score.clone(),
         decisions: result.run.decisions.clone(),
+        scheduled_cars: result.run.trips.iter().map(|t| t.car).collect(),
         messages: result.run.messages.clone(),
+        message_log: Some(result.run.message_log.clone()),
         liars_caught: caught.len(),
         caught_at: first_caught.into_iter().collect(),
         typed,

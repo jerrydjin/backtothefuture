@@ -10,7 +10,24 @@ use muse::{
 };
 
 fn main() -> ExitCode {
-    let args = match Args::from_env() {
+    if std::env::args().nth(1).as_deref() == Some("import-osm") {
+        let args: Vec<_> = std::env::args().skip(2).collect();
+        let result = (|| -> Result<(), String> {
+            if args.len() != 3 || args[1] != "--out" {
+                return Err("usage: muse import-osm FILE.osm --out maps/X.json".into());
+            }
+            let text = std::fs::read_to_string(&args[0]).map_err(|e| e.to_string())?;
+            muse::osm::import(&text)?.write(&args[2])
+        })();
+        return match result {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(e) => {
+                eprintln!("import-osm: {e}");
+                ExitCode::from(1)
+            }
+        };
+    }
+    let mut args = match Args::from_env() {
         Ok(args) => args,
         Err(message) => {
             eprintln!("{message}");
@@ -22,6 +39,16 @@ fn main() -> ExitCode {
     if args.help {
         println!("{}", usage());
         return ExitCode::SUCCESS;
+    }
+    if args.demo && args.map.is_some() {
+        args.rush_hour = true;
+        args.boxed_in = true;
+        if args.policy == "fcfs" {
+            args.policy = "mock".into();
+        }
+        if !args.headless {
+            args.board = true;
+        }
     }
     if args.reason.is_some() {
         return match run_typed_reason(&args) {
@@ -116,6 +143,9 @@ fn main() -> ExitCode {
                 eprintln!("{error}");
                 return ExitCode::from(1);
             }
+        }
+        if args.headless {
+            return ExitCode::SUCCESS;
         }
         return match muse::board_server::serve_replay(&archive.board, !args.no_open) {
             Ok(()) => ExitCode::SUCCESS,
@@ -236,6 +266,7 @@ fn main() -> ExitCode {
 
 struct Args {
     decision_log: Option<std::path::PathBuf>,
+    save_messages: Option<std::path::PathBuf>,
     rush_hour: bool,
     map: Option<std::path::PathBuf>,
     export_map: Option<std::path::PathBuf>,
@@ -275,6 +306,7 @@ impl Args {
     fn from_env() -> Result<Self, String> {
         let mut parsed = Args {
             decision_log: None,
+            save_messages: None,
             rush_hour: false,
             map: None,
             export_map: None,
@@ -312,6 +344,10 @@ impl Args {
         let mut args = env::args().skip(1);
         while let Some(arg) = args.next() {
             match arg.as_str() {
+                "--save-messages" => {
+                    parsed.save_messages =
+                        Some(args.next().ok_or("--save-messages needs a path")?.into())
+                }
                 "--decision-log" => {
                     parsed.decision_log =
                         Some(args.next().ok_or("--decision-log needs a path")?.into())
@@ -446,7 +482,9 @@ impl Args {
         if parsed.demo && parsed.save_replay.is_some() && !parsed.headless {
             return Err("record a demo with --demo --headless --save-replay FILE".into());
         }
-        if (parsed.headless || parsed.require_live || parsed.gate_log.is_some())
+        if ((parsed.headless && parsed.replay.is_none())
+            || parsed.require_live
+            || parsed.gate_log.is_some())
             && !parsed.demo
             && parsed.reason.is_none()
             && !parsed.rush_hour
@@ -507,7 +545,7 @@ Usage:
 
 Knobs:
   --demo                   play the finite normal/merge/priority/competing story
-  --headless               drive the same demo over HTTP without a browser
+  --headless               run without a browser; --replay uses saved data
   --require-live           fail the headless gate unless every reply is Baseten
   --include-weak           also gate the weak-request grant and repeated refusals
   --gate-log FILE          append the headless run report as JSONL
@@ -532,6 +570,7 @@ Knobs:
   --policy NAME           fcfs, keyword, mock, or live
   --seed N                fixed rush-hour demand seed
   --score FILE            write the paired rush-hour score JSON
+  --save-messages FILE    write replayable make-way requests and deliveries
   --decision-log FILE     write every rush-hour decision and source
   --no-history            compare rush hour without completed rider history
   --local-only            use neighbouring-car precedence without propagation
@@ -581,6 +620,9 @@ fn run_typed_reason(args: &Args) -> Result<(), String> {
     };
     let mut session =
         muse::rush_board::Session::boxed(args.seed, policy_name, config, args.save_replay.clone())?;
+    if args.map.is_some() {
+        session.use_map(selected_map(args)?);
+    }
     if args.require_live {
         let decision = session.assess(reason)?;
         if decision.source != "model" || decision.provider != "baseten" {
@@ -809,6 +851,13 @@ fn run_rush_hour(args: &Args) -> Result<(), String> {
     )?;
     if args.require_live && result.score.model_decisions != result.run.decisions.len() {
         result.score.passed = false;
+    }
+    if let Some(path) = &args.save_messages {
+        std::fs::write(
+            path,
+            serde_json::to_string_pretty(&result.run.message_log).map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
     }
     if let Some(path) = &args.decision_log {
         std::fs::write(

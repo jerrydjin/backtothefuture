@@ -1,0 +1,25 @@
+{
+  "sf_extracts": 0,
+  "sf_scored_runs": 0,
+  "status": "BLOCKED",
+  "reason": "proxy CONNECT api.openstreetmap.org HTTP 403",
+  "cargo_tests": {
+    "passed": 159,
+    "failed": 0,
+    "ignored": 3,
+    "note": "158 release suite + one new roundabout regression; all 4 importer tests passed"
+  },
+  "held_out_seeds": [
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20
+  ],
+  "held_out_tuning": false
+}

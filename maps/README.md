@@ -45,3 +45,5 @@ Invalid IDs/references, unsupported lane counts, nonpositive speeds/lengths,
 zero-length geometry, invalid coordinates and unsupported versions fail before
 simulation. Unknown JSON fields are rejected. No migration or OSM importer is
 included.
+
+For deterministic local OSM XML import and documented defaults, see [OSM.md](OSM.md).

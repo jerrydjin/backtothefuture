@@ -1,0 +1,1507 @@
+{
+  "source": "maps/sf-zsfg.osm",
+  "score": {
+    "actions": {
+      "1000": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1001": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1002": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1003": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1004": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1005": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1006": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1007": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1008": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1009": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1010": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1011": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1012": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1013": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1014": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1015": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1016": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1017": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1018": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1019": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1020": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1021": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1022": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1023": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1024": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1025": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1026": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1027": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1028": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1029": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1030": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1031": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1032": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1033": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1034": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1035": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1036": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1037": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1038": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1039": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1040": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1041": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1042": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1043": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1044": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1045": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1046": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1047": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1048": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1049": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1050": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1051": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1052": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1053": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1054": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1055": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1056": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1057": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1058": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1059": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1060": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1061": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1062": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1063": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1064": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1065": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1066": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1067": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1068": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1069": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1070": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1071": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1072": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1073": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1074": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1075": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1076": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1077": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1078": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1079": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1080": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1081": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1082": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1083": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1084": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1085": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1086": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1087": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1088": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1089": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1090": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1091": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1092": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1093": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1094": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1095": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1096": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1097": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1098": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1099": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1100": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1101": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1102": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1103": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1104": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1105": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1106": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1107": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1108": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1109": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1110": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1111": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1112": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1113": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1114": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1115": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1116": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1117": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1118": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1119": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1120": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1121": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1122": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1123": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1124": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1125": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1126": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1127": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1128": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1129": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1130": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1131": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1132": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1133": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1134": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1135": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1136": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1137": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1138": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1139": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1140": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1141": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1142": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1143": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1144": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1145": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1146": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1147": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1148": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1149": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1150": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1151": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1152": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1153": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1154": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1155": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1156": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1157": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1158": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1159": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1160": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1161": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1162": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1163": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1164": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1165": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1166": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1167": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1168": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1169": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1170": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1171": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1172": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1173": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1174": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1175": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1176": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1177": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1178": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1179": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1180": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1181": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1182": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1183": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1184": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1185": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1186": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1187": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1188": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1189": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1190": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1191": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1192": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1193": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1194": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1195": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1196": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1197": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1198": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1199": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1200": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1201": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1202": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1203": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1204": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1205": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1206": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1207": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1208": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1209": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1210": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1211": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1212": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1213": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1214": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1215": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1216": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1217": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1218": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1219": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1220": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1221": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1222": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1223": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1224": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1225": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1226": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1227": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1228": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1229": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1230": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1231": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1232": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1233": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1234": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1235": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1236": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1237": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1238": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      },
+      "1239": {
+        "lane_changes": 0,
+        "reroutes": 0,
+        "holds": 0
+      }
+    },
+    "seed": 1,
+    "policy": "mock",
+    "trips": 240,
+    "completed": 240,
+    "peak_cars": 53,
+    "emergency_gain": 0,
+    "others_cost": {
+      "mean_s": 0,
+      "p95_s": 0
+    },
+    "liar_win_rate": 0.3333333333333333,
+    "third_claim_liar_win_rate": 0,
+    "history_enabled": true,
+    "spread_enabled": true,
+    "emergency_gain_vs_local": 0,
+    "clear_ahead_m": 775.2087339346991,
+    "clear_ahead_s": 139,
+    "lead_distance_m": 1412.9624018848676,
+    "lead_time_s": 225.1802506541009,
+    "collateral": 0,
+    "model_decisions": 0,
+    "fallback_decisions": 0,
+    "collisions": 0,
+    "baseline_collisions": 0,
+    "passed": true
+  },
+  "checkedStates": 61,
+  "screenshot": {
+    "time": 124,
+    "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+    "emergency": 2,
+    "reacting": [
+      {
+        "car": 1047,
+        "state": "clear"
+      }
+    ],
+    "fronts": [
+      {
+        "beneficiary": 1012,
+        "head": 1497.749352699142,
+        "car": 12.9,
+        "width": 1,
+        "evidence": "save-messages"
+      },
+      {
+        "beneficiary": 1019,
+        "head": 1497.749352699142,
+        "car": 4.8,
+        "width": 1,
+        "evidence": "save-messages"
+      }
+    ],
+    "maxRoadWidth": 2.3956825063878138,
+    "svgs": 1
+  },
+  "samples": [
+    {
+      "time": 119.24,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 0,
+      "reacting": [],
+      "fronts": [],
+      "maxRoadWidth": 2.3956825063878138,
+      "svgs": 1
+    },
+    {
+      "time": 119.25,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 0,
+      "reacting": [],
+      "fronts": [],
+      "maxRoadWidth": 2.3956825063878138,
+      "svgs": 1
+    },
+    {
+      "time": 120,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [
+        {
+          "car": 1045,
+          "state": "clear"
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1012,
+          "head": 1497.749352699142,
+          "car": 5.3,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "svgs": 1
+    },
+    {
+      "time": 120.74,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [
+        {
+          "car": 1045,
+          "state": "clear"
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1012,
+          "head": 1497.749352699142,
+          "car": 6.409999999999992,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "svgs": 1
+    },
+    {
+      "time": 120.75,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [
+        {
+          "car": 1045,
+          "state": "clear"
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1012,
+          "head": 1497.749352699142,
+          "car": 6.425,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "svgs": 1
+    },
+    {
+      "time": 121,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [
+        {
+          "car": 1035,
+          "state": "clear"
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1012,
+          "head": 1497.749352699142,
+          "car": 6.8,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "svgs": 1
+    },
+    {
+      "time": 123.49,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [],
+      "fronts": [
+        {
+          "beneficiary": 1012,
+          "head": 1497.749352699142,
+          "car": 11.82899999999999,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "svgs": 1
+    },
+    {
+      "time": 123.5,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [],
+      "fronts": [
+        {
+          "beneficiary": 1012,
+          "head": 1497.749352699142,
+          "car": 11.850000000000001,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "svgs": 1
+    },
+    {
+      "time": 124,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 2,
+      "reacting": [
+        {
+          "car": 1047,
+          "state": "clear"
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1012,
+          "head": 1497.749352699142,
+          "car": 12.9,
+          "width": 1,
+          "evidence": "save-messages"
+        },
+        {
+          "beneficiary": 1019,
+          "head": 1497.749352699142,
+          "car": 4.8,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "svgs": 1
+    },
+    {
+      "time": 120,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [
+        {
+          "car": 1045,
+          "state": "clear"
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1012,
+          "head": 1497.749352699142,
+          "car": 5.3,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "svgs": 1
+    },
+    {
+      "time": 121,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 1,
+      "reacting": [
+        {
+          "car": 1035,
+          "state": "clear"
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1012,
+          "head": 1497.749352699142,
+          "car": 6.8,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "svgs": 1
+    },
+    {
+      "time": 124,
+      "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+      "emergency": 2,
+      "reacting": [
+        {
+          "car": 1047,
+          "state": "clear"
+        }
+      ],
+      "fronts": [
+        {
+          "beneficiary": 1012,
+          "head": 1497.749352699142,
+          "car": 12.9,
+          "width": 1,
+          "evidence": "save-messages"
+        },
+        {
+          "beneficiary": 1019,
+          "head": 1497.749352699142,
+          "car": 4.8,
+          "width": 1,
+          "evidence": "save-messages"
+        }
+      ],
+      "maxRoadWidth": 2.3956825063878138,
+      "svgs": 1
+    }
+  ],
+  "errors": []
+}
