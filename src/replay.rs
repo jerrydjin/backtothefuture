@@ -214,7 +214,10 @@ impl ReplayArchive {
                         .decisions
                         .iter()
                         .any(|d| d.car == h.beneficiary && d.granted && d.at_s <= h.at_s)
-                    || !matches!(h.action.as_str(), "relay" | "clear" | "hold")
+                    || !matches!(
+                        h.action.as_str(),
+                        "relay" | "clear" | "hold" | "lane_change" | "reroute"
+                    )
                 {
                     return Err("replay has invalid route bulletin evidence".into());
                 }

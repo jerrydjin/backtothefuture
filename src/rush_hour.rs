@@ -590,8 +590,17 @@ pub struct OthersCost {
     pub mean_s: f64,
     pub p95_s: f64,
 }
+#[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
+pub struct ActionCounts {
+    pub lane_changes: usize,
+    pub reroutes: usize,
+    pub holds: usize,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Score {
+    #[serde(default)]
+    pub actions: BTreeMap<u32, ActionCounts>,
     pub seed: u64,
     pub policy: String,
     pub trips: usize,
@@ -808,7 +817,23 @@ pub fn score(seed: u64, policy: &str, run: &Run, baseline: &Run) -> Result<Score
     }
     let collisions = run.town.stats.overlaps + run.town.stats.crossing_conflicts;
     let baseline_collisions = baseline.town.stats.overlaps + baseline.town.stats.crossing_conflicts;
+    let mut actions = BTreeMap::<u32, ActionCounts>::new();
+    for t in &run.trips {
+        actions.entry(t.car).or_default();
+    }
+    for hop in &run.messages {
+        if let Some(id) = hop.recipient_car {
+            let count = actions.entry(id).or_default();
+            match hop.action.as_str() {
+                "lane_change" => count.lane_changes += 1,
+                "reroute" => count.reroutes += 1,
+                "hold" => count.holds += 1,
+                _ => {}
+            }
+        }
+    }
     Ok(Score {
+        actions,
         seed,
         policy: policy.into(),
         trips: run.trips.len(),
