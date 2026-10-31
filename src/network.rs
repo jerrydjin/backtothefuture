@@ -7,6 +7,10 @@
 //! equal streams meet. Queues form where demand beats a merge and clear when the
 //! rush eases. No lights, no pedestrians.
 
+#[path = "junction.rs"]
+mod junction;
+pub use junction::{JunctionConfig, JunctionEvent, JunctionSnapshot};
+
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, VecDeque};
 
@@ -198,6 +202,7 @@ impl Route {
 
 #[derive(Clone, Debug)]
 pub struct Network {
+    experiment_routes: Vec<Vec<usize>>,
     incidents: Vec<crate::incident::RecordedIncident>,
     pub demand_profile: Option<crate::demand::CorridorDemand>,
     pub attribution: Option<String>,
@@ -475,6 +480,21 @@ impl Network {
             }
         }
 
+        for links in &self.experiment_routes {
+            let source = self
+                .sources
+                .iter()
+                .position(|s| Some(&s.link) == links.first())
+                .unwrap();
+            let sink = self
+                .sinks
+                .iter()
+                .position(|s| Some(&s.link) == links.last())
+                .unwrap();
+            if !out.iter().any(|(_, _, r)| r.links == *links) {
+                out.push((source, sink, Route::new(links.clone(), self)));
+            }
+        }
         out
     }
 }
@@ -814,6 +834,7 @@ fn build((nodes, edges): (Vec<Node>, Vec<EdgeDef>)) -> Network {
     }
 
     Network {
+        experiment_routes: Vec::new(),
         incidents: Vec::new(),
         demand_profile: None,
         attribution: None,
@@ -1297,6 +1318,7 @@ struct PullOver {
 }
 
 pub struct TownSim {
+    junction: Option<junction::JunctionState>,
     incident_started: BTreeSet<usize>,
     incident_clearance: BTreeSet<(usize, u32)>,
     net: Network,
@@ -1346,6 +1368,7 @@ impl TownSim {
         let sources = net.sources.len();
         let nodes = net.nodes.len();
         TownSim {
+            junction: None,
             incident_started: BTreeSet::new(),
             incident_clearance: BTreeSet::new(),
             net,
@@ -1468,7 +1491,9 @@ impl TownSim {
         let Some(ex) = self.experiment.as_mut() else {
             return;
         };
-        if ex.broadcast.is_some_and(|c| c.mode.is_slot()) && !wording.is_empty() {
+        if (ex.broadcast.is_some_and(|c| c.mode.is_slot()) || self.junction.is_some())
+            && !wording.is_empty()
+        {
             ex.wording.insert(car, wording.to_string());
         }
     }
@@ -1852,8 +1877,16 @@ impl TownSim {
                 new_block_s: 0.0,
                 same_links: true,
             });
-            let lane_action =
-                make_way::receive_one(request, self.time, car.id, lane_action, 0.0, gap_ok && room);
+            let lane_action = make_way::receive_one(
+                request,
+                self.time,
+                car.id,
+                lane_action,
+                0.0,
+                gap_ok
+                    && room
+                    && lane.is_none_or(|target| self.product_allows(ci, target, beneficiary)),
+            );
             if let make_way::DrivingAction::LaneChange { to_link } = lane_action {
                 let mut links = old.links.clone();
                 links[car.idx] = to_link;
@@ -1958,7 +1991,12 @@ impl TownSim {
                         intent,
                         0.0,
                         candidate.links.get(car.idx) == old.links.get(car.idx)
-                            && candidate.links.last() == old.links.last(),
+                            && candidate.links.last() == old.links.last()
+                            && self.product_allows(
+                                ci,
+                                candidate.links.get(car.idx + 1).copied().unwrap_or(link),
+                                beneficiary,
+                            ),
                     );
                     if matches!(intent, make_way::DrivingAction::Reroute(_)) {
                         chosen = Some((links, "reroute"));
@@ -2957,6 +2995,7 @@ impl TownSim {
                             })
                     });
                 if remaining < margin
+                    || !self.product_allows(ci, to_link, item.beneficiary)
                     || !cited_gap
                     || !self.gap_on_link(ci, to_link)
                     || (queue_yield && !make_way::pullover_room(remaining, self.cars[ci].v))
@@ -3034,7 +3073,13 @@ impl TownSim {
                 SlotSend::Sent
             }
             make_way::DrivingAction::Reroute(links) => {
-                if !self.reroute_fits(ci, &links) {
+                if !self.reroute_fits(ci, &links)
+                    || !self.product_allows(
+                        ci,
+                        links.get(1).copied().unwrap_or(links[0]),
+                        item.beneficiary,
+                    )
+                {
                     return SlotSend::Drop;
                 }
                 let accepted = make_way::receive_one(
@@ -3177,6 +3222,7 @@ impl TownSim {
                 // Enter the open lane only while it is empty ahead. Cars already
                 // shifted onto it would become the obstacle the slot is made of.
                 if physical != lane
+                    && self.product_allows(ci, lane, *id)
                     && self.gap_on_link(ci, lane)
                     && self.lane_clear_ahead(ci, lane, until)
                     && !self.near_stop(ci)
@@ -3390,6 +3436,7 @@ impl TownSim {
             self.rejoin_pullovers();
             self.update_make_way();
         }
+        self.tick_junction_layer();
         let index = self.index();
         self.revoke_stale_claims(&index);
         self.arbitrate(&index);

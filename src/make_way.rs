@@ -66,34 +66,51 @@ impl<F: Fn(u32, &DrivingAction) -> bool> FleetReceiver for SafetyFleet<F> {
         now: f64,
         vehicles: &[VehicleProposal],
     ) -> Vec<(u32, DrivingAction)> {
-        vehicles
+        receive_with_budget(request, now, vehicles, HOLD_BUDGET_S, &self.0)
+    }
+}
+
+/// Opt-in budget policy; all lifetime, self, numeric and physics checks are shared.
+pub fn receive_with_budget(
+    request: &MakeWayRequest,
+    now: f64,
+    vehicles: &[VehicleProposal],
+    hold_budget_s: f64,
+    physics_accepts: &impl Fn(u32, &DrivingAction) -> bool,
+) -> Vec<(u32, DrivingAction)> {
+    if !hold_budget_s.is_finite() || hold_budget_s < 0.0 {
+        return vehicles
             .iter()
-            .map(|v| {
-                let mut action = v.action.clone();
-                if !request.active_at(now) || v.vehicle == request.issuer {
+            .map(|v| (v.vehicle, DrivingAction::Ignore))
+            .collect();
+    }
+    vehicles
+        .iter()
+        .map(|v| {
+            let mut action = v.action.clone();
+            if !request.active_at(now) || v.vehicle == request.issuer {
+                action = DrivingAction::Ignore;
+            }
+            if let DrivingAction::Hold { duration_s } = &mut action {
+                if !duration_s.is_finite()
+                    || !v.hold_used_s.is_finite()
+                    || v.hold_used_s < 0.0
+                    || *duration_s <= 0.0
+                {
                     action = DrivingAction::Ignore;
-                }
-                if let DrivingAction::Hold { duration_s } = &mut action {
-                    if !duration_s.is_finite()
-                        || !v.hold_used_s.is_finite()
-                        || v.hold_used_s < 0.0
-                        || *duration_s <= 0.0
-                    {
+                } else {
+                    *duration_s = duration_s.min((hold_budget_s - v.hold_used_s).max(0.0));
+                    if *duration_s <= 0.0 {
                         action = DrivingAction::Ignore;
-                    } else {
-                        *duration_s = duration_s.min((HOLD_BUDGET_S - v.hold_used_s).max(0.0));
-                        if *duration_s <= 0.0 {
-                            action = DrivingAction::Ignore;
-                        }
                     }
                 }
-                if action != DrivingAction::Ignore && !(self.0)(v.vehicle, &action) {
-                    action = DrivingAction::Ignore;
-                }
-                (v.vehicle, action)
-            })
-            .collect()
-    }
+            }
+            if action != DrivingAction::Ignore && !physics_accepts(v.vehicle, &action) {
+                action = DrivingAction::Ignore;
+            }
+            (v.vehicle, action)
+        })
+        .collect()
 }
 
 /// Apply the boundary to one host proposal. This helper retains the same

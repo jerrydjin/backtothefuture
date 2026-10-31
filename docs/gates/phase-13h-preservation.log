@@ -1,0 +1,129 @@
+    Blocking waiting for file lock on build directory
+   Compiling malleable v0.1.0 (/workspace/backtothefuture)
+    Finished `release` profile [optimized] target(s) in 1m 09s
+     Running `target/release/examples/driving_gate typical seed=1 end=10`
+    Finished `release` profile [optimized] target(s) in 0.01s
+     Running `target/release/examples/driving_gate boxed-in seed=1 end=10`
+   Compiling malleable v0.1.0 (/workspace/backtothefuture)
+    Finished `release` profile [optimized] target(s) in 11.48s
+     Running `target/release/examples/sf_corridor_gate maps/sf-zsfg.json /tmp/phase13h-preserve/sf-artifacts scenarios/sf-potrero-incident.json`
+seed 1: 313/313 complete, collisions 0, gain vs FCFS 13.5 s, local 13.5 s
+seed 2: 312/312 complete, collisions 0, gain vs FCFS 15.75 s, local 15.75 s
+seed 3: 312/312 complete, collisions 0, gain vs FCFS 13.75 s, local 13.75 s
+seed 4: 313/313 complete, collisions 0, gain vs FCFS 11.125 s, local 11.125 s
+seed 5: 313/313 complete, collisions 0, gain vs FCFS 14.375 s, local 14.375 s
+seed 6: 312/312 complete, collisions 0, gain vs FCFS 13.125 s, local 13.125 s
+seed 7: 312/312 complete, collisions 0, gain vs FCFS 16 s, local 16 s
+seed 8: 313/313 complete, collisions 0, gain vs FCFS 10.875 s, local 10.875 s
+seed 9: 313/313 complete, collisions 0, gain vs FCFS 9.375 s, local 9.375 s
+seed 10: 312/312 complete, collisions 0, gain vs FCFS 13 s, local 13 s
+   Compiling malleable v0.1.0 (/workspace/backtothefuture)
+    Finished `release` profile [optimized] target(s) in 6.78s
+     Running `target/release/examples/phase13e_gate seed=1 end=10`
+seed 1 slot gain 0.0 others p95 0.0 max 0.0 asked 2
+seed 2 slot gain 0.0 others p95 0.0 max 0.0 asked 2
+seed 3 slot gain 0.0 others p95 0.0 max 0.0 asked 2
+seed 4 slot gain 0.0 others p95 0.0 max 0.0 asked 2
+seed 5 slot gain 0.0 others p95 0.0 max 0.0 asked 1
+seed 6 slot gain 0.0 others p95 0.0 max 0.0 asked 2
+seed 7 slot gain 0.0 others p95 0.0 max 0.0 asked 2
+seed 8 slot gain 0.0 others p95 0.0 max 0.0 asked 2
+seed 9 slot gain 0.0 others p95 0.0 max 0.0 asked 1
+seed 10 slot gain 0.0 others p95 0.0 max 0.0 asked 2
+50046c2dcb22219dff7db31ccda66d6c6ca38aada08cbb58eeef2b5ed114da70 typical
+a704e49f9bd5e17e05744fe0ecd8e8263ce18510c6ce97901299edd544fad12e boxed
+ac9e832702c74904159c724380edd524224a762632837a595429bff5cbcbf2eb sf
+9acb4a8e7e338e45b786fd81be47c71703de0ff88d470291d25964438d0ccf2f slot
+   Compiling malleable v0.1.0 (/workspace/backtothefuture)
+    Finished `release` profile [optimized] target(s) in 9.82s
+     Running `target/release/examples/phase13f_gate seed=1 end=10 out=/tmp/phase13h-preserve/13f-potrero-runs`
+potrero seed 1: gain 0.0 p95 0.0 max 0.0 pass true
+potrero seed 2: gain 0.0 p95 0.0 max 0.0 pass true
+potrero seed 3: gain 0.0 p95 0.0 max 0.0 pass true
+potrero seed 4: gain 0.0 p95 0.0 max 0.0 pass true
+potrero seed 5: gain 0.0 p95 0.0 max 0.0 pass true
+potrero seed 6: gain 0.0 p95 0.0 max 0.0 pass true
+potrero seed 7: gain 0.0 p95 0.0 max 0.0 pass true
+potrero seed 8: gain 0.0 p95 0.0 max 0.0 pass true
+potrero seed 9: gain 0.0 p95 0.0 max 0.0 pass true
+potrero seed 10: gain 0.0 p95 0.0 max 0.0 pass true
+    Finished `release` profile [optimized] target(s) in 0.05s
+     Running `target/release/examples/phase13f_gate seed=1 end=10 site=potrero_bypass incident=scenarios/sf-potrero-bypass-incident.json out=/tmp/phase13h-preserve/13f-bypass-runs`
+potrero_bypass seed 1: gain 0.0 p95 0.0 max 0.0 pass true
+potrero_bypass seed 2: gain 0.0 p95 0.0 max 0.0 pass true
+potrero_bypass seed 3: gain 0.0 p95 0.0 max 0.0 pass true
+potrero_bypass seed 4: gain 0.0 p95 0.0 max 0.0 pass true
+potrero_bypass seed 5: gain 0.0 p95 0.0 max 0.0 pass true
+potrero_bypass seed 6: gain 0.0 p95 0.0 max 0.0 pass true
+potrero_bypass seed 7: gain 0.0 p95 0.0 max 0.0 pass true
+potrero_bypass seed 8: gain 0.0 p95 0.0 max 0.0 pass true
+potrero_bypass seed 9: gain 0.0 p95 0.0 max 0.0 pass true
+potrero_bypass seed 10: gain 0.0 p95 0.0 max 0.0 pass true
+   Compiling malleable v0.1.0 (/workspace/backtothefuture)
+warning: unused import: `NET_DT_S`
+ --> examples/phase13g_gate.rs:4:77
+  |
+4 |     network::{BroadcastConfig, MakeWayMode, Network, ScheduledCar, TownSim, NET_DT_S},
+  |                                                                             ^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `malleable` (example "phase13g_gate") generated 1 warning (run `cargo fix --example "phase13g_gate" -p malleable` to apply 1 suggestion)
+    Finished `release` profile [optimized] target(s) in 5.92s
+     Running `target/release/examples/phase13g_gate part=a seed=1 end=10 out=/tmp/phase13h-preserve/13g-a-runs`
+part a seed 1 valid=true dispatch=Some((1181, 241.0))
+part a seed 2 valid=true dispatch=Some((1071, 241.75))
+part a seed 3 valid=true dispatch=Some((1136, 242.5))
+part a seed 4 valid=true dispatch=Some((1121, 240.25))
+part a seed 5 valid=true dispatch=Some((1244, 241.25))
+part a seed 6 valid=true dispatch=Some((1280, 242.0))
+part a seed 7 valid=true dispatch=Some((1222, 242.75))
+part a seed 8 valid=true dispatch=Some((1059, 240.5))
+part a seed 9 valid=true dispatch=Some((1035, 241.25))
+part a seed 10 valid=true dispatch=Some((1307, 242.25))
+warning: unused import: `NET_DT_S`
+ --> examples/phase13g_gate.rs:4:77
+  |
+4 |     network::{BroadcastConfig, MakeWayMode, Network, ScheduledCar, TownSim, NET_DT_S},
+  |                                                                             ^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `malleable` (example "phase13g_gate") generated 1 warning (run `cargo fix --example "phase13g_gate" -p malleable` to apply 1 suggestion)
+    Finished `release` profile [optimized] target(s) in 0.02s
+     Running `target/release/examples/phase13g_gate part=b seed=1 end=10 out=/tmp/phase13h-preserve/13g-b-runs`
+part b seed 1 valid=true dispatch=None
+part b seed 2 valid=true dispatch=None
+part b seed 3 valid=true dispatch=None
+part b seed 4 valid=true dispatch=None
+part b seed 5 valid=true dispatch=None
+part b seed 6 valid=true dispatch=None
+part b seed 7 valid=true dispatch=None
+part b seed 8 valid=true dispatch=None
+part b seed 9 valid=true dispatch=None
+part b seed 10 valid=true dispatch=None
+40c91baab07b2d9adfa4f84db8b5580737486bc01b7460ab3428129600ba9d5a  /tmp/phase13h-preserve/13f-bypass.jsonl
+23bd5979a309a06819b73af1a2b329147202787a71ccf1cb37e2d346afabd5a8  /tmp/phase13h-preserve/13f-potrero.jsonl
+99a253e93b137473c4f6d1760e12c3f59a9cc36d983f46afcf5e182be6233176  /tmp/phase13h-preserve/13g-a.jsonl
+12ec18addb32737e2030db4cf39871311c44913bb77667efaad03e80eae31320  /tmp/phase13h-preserve/13g-b.jsonl
+a704e49f9bd5e17e05744fe0ecd8e8263ce18510c6ce97901299edd544fad12e  /tmp/phase13h-preserve/boxed.jsonl
+ac9e832702c74904159c724380edd524224a762632837a595429bff5cbcbf2eb  /tmp/phase13h-preserve/sf.jsonl
+9acb4a8e7e338e45b786fd81be47c71703de0ff88d470291d25964438d0ccf2f  /tmp/phase13h-preserve/slot.jsonl
+50046c2dcb22219dff7db31ccda66d6c6ca38aada08cbb58eeef2b5ed114da70  /tmp/phase13h-preserve/typical.jsonl
+{
+  "base": "bbdfc6b",
+  "protected_sha256": {
+    "docs/gates/phase-13e-scores.jsonl": "9acb4a8e7e338e45b786fd81be47c71703de0ff88d470291d25964438d0ccf2f",
+    "docs/gates/phase-13f-broadcast-trace.jsonl": "fb315e696960acb115ed45150c416e866059d9eafa7648eadb79305bdab5bd57",
+    "docs/gates/phase-13f-bypass-scores.jsonl": "40c91baab07b2d9adfa4f84db8b5580737486bc01b7460ab3428129600ba9d5a",
+    "docs/gates/phase-13f-potrero-scores.jsonl": "23bd5979a309a06819b73af1a2b329147202787a71ccf1cb37e2d346afabd5a8",
+    "docs/gates/phase-13g-bypass-scores.jsonl": "99a253e93b137473c4f6d1760e12c3f59a9cc36d983f46afcf5e182be6233176",
+    "docs/gates/phase-13g-potrero-margins.jsonl": "12ec18addb32737e2030db4cf39871311c44913bb77667efaad03e80eae31320",
+    "docs/phase-13e-preregistration.md": "04caddbc2c2936b8d7829407d78a123d05f644d2ffcb448ad4c5609565930efd",
+    "docs/phase-13f-bypass-preregistration.md": "edcf84afd0eb233dabdb9651cf9bc723d3a89fd2c3af545c48dc830484c3d26f",
+    "docs/phase-13f-preregistration.md": "91146a178237dac869b66ac54fe82f76155e3c8a1e140278ff9fbd1f13758c73",
+    "docs/phase-13g-preregistration.md": "8e51038f6332f70af19b16a22dde14c43267bdf28b76cc6e19dd1e5dfe555d9c",
+    "src/judge.rs": "53553e2ca0b7ecdf84895d64f3d6c02f2388df3905bb803fa7681d752f4dcee0",
+    "src/schema.rs": "54e80f03470d57251ffdb8729f86e0eb543a62a7bd419600a2fee3835db0002a"
+  }
+}
