@@ -1,4 +1,4 @@
-use muse::{
+use malleable::{
     incident::LaneIncident,
     network::BroadcastConfig,
     road_map::RoadMap,
@@ -191,7 +191,7 @@ fn a_grant_cannot_bypass_the_block_and_all_lane_changes_remain_physical() {
                 if *link == 0 {
                     assert!(
                         car.2 <= start + 140.0
-                            || car.2 - muse::world::CAR_LENGTH_M >= start + 148.0,
+                            || car.2 - malleable::world::CAR_LENGTH_M >= start + 148.0,
                         "car {} occupied the blocked original lane at t={}",
                         car.0,
                         frame.t
@@ -218,10 +218,10 @@ fn incident_metadata_roundtrips_and_bad_replay_references_fail() {
         run,
     };
     let archive =
-        muse::replay::ReplayArchive::new(muse::rush_board::from_run(&scored, None).unwrap());
-    let path = std::env::temp_dir().join(format!("muse-incident-{}.json", std::process::id()));
+        malleable::replay::ReplayArchive::new(malleable::rush_board::from_run(&scored, None).unwrap());
+    let path = std::env::temp_dir().join(format!("malleable-incident-{}.json", std::process::id()));
     archive.write(&path).unwrap();
-    let again = muse::replay::ReplayArchive::read(&path).unwrap();
+    let again = malleable::replay::ReplayArchive::read(&path).unwrap();
     assert_eq!(
         serde_json::to_vec(&archive).unwrap(),
         serde_json::to_vec(&again).unwrap()
@@ -233,7 +233,7 @@ fn incident_metadata_roundtrips_and_bad_replay_references_fail() {
         .unwrap_err()
         .contains("invalid physical incident"));
     std::fs::remove_file(path).unwrap();
-    let invalid_cli = std::process::Command::new(env!("CARGO_BIN_EXE_muse"))
+    let invalid_cli = std::process::Command::new(env!("CARGO_BIN_EXE_malleable"))
         .args([
             "--rush-hour",
             "--incident",

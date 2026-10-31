@@ -1,4 +1,4 @@
-use muse::{
+use malleable::{
     road_map::RoadMap,
     rush_hour::{self, Truth},
 };
@@ -7,7 +7,7 @@ use muse::{
 fn cited_sf_profile_uses_the_fixed_potrero_route_and_counted_arrival_rate() {
     let map = RoadMap::read("maps/sf-zsfg.json").unwrap();
     let profile = map.demand_profile.as_ref().unwrap();
-    let frozen: muse::demand::CorridorDemand =
+    let frozen: malleable::demand::CorridorDemand =
         serde_json::from_str(include_str!("../maps/sf-zsfg-demand.json")).unwrap();
     assert_eq!(
         serde_json::to_value(profile).unwrap(),

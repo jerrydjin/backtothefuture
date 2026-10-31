@@ -199,9 +199,9 @@ Live, with `BASETEN_API_KEY` set in the reviewer's environment and never
 printed:
 
 ```
-target/debug/muse --demo --headless --require-live --gate-log FILE
-target/debug/muse --reason 'my passenger is having a seizure' --headless --require-live --gate-log FILE
-target/debug/muse --demo --reason 'my passenger is having a seizure' --headless --require-live --gate-log FILE
+target/debug/malleable --demo --headless --require-live --gate-log FILE
+target/debug/malleable --reason 'my passenger is having a seizure' --headless --require-live --gate-log FILE
+target/debug/malleable --demo --reason 'my passenger is having a seizure' --headless --require-live --gate-log FILE
 ```
 
 Ten demo runs, expect at least 9/10. Five seizure runs, expect at least

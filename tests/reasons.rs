@@ -1,5 +1,5 @@
-use muse::negotiate::{human_line, Completer};
-use muse::reason::{self, ReasonAgent, ReasonText};
+use malleable::negotiate::{human_line, Completer};
+use malleable::reason::{self, ReasonAgent, ReasonText};
 use serde_json::{json, Value};
 use std::io::{Read, Write};
 use std::net::TcpStream;
@@ -121,7 +121,7 @@ fn reasons_are_bounded_data_and_obvious_injections_never_reach_a_model() {
 #[test]
 fn cli_requires_a_live_source_and_rejects_reason_mode_conflicts() {
     let run = |args: &[&str]| {
-        std::process::Command::new(env!("CARGO_BIN_EXE_muse"))
+        std::process::Command::new(env!("CARGO_BIN_EXE_malleable"))
             .args(args)
             .env_remove("BASETEN_API_KEY")
             .env_remove("MODEL_API_KEY")
@@ -379,7 +379,7 @@ fn real_http_input_reaches_the_policy_and_safe_trip_and_rejects_cross_origin_inj
     let calls = Arc::new(AtomicUsize::new(0));
     let agent = ReasonAgent::new(Some(Box::new(Table(Arc::clone(&calls)))), "mock");
     let board = reason::board(reason::baseline(), None).unwrap();
-    let server = muse::reason_server::ReasonServer::start(board, agent).unwrap();
+    let server = malleable::reason_server::ReasonServer::start(board, agent).unwrap();
     let (code, page) = http(server.address, "GET", "", None);
     assert_eq!(code, 200);
     assert_eq!(page.matches("<input ").count(), 1);
@@ -435,7 +435,7 @@ fn exchange(granted: bool, explanation: &str, mine: &str, theirs: &str) -> Strin
     .to_string()
 }
 
-fn assess(reason: &str, reply: String) -> muse::reason::ReasonDecision {
+fn assess(reason: &str, reply: String) -> malleable::reason::ReasonDecision {
     ReasonAgent::new(Some(Box::new(Fixed(reply))), "mock")
         .assess(&ReasonText::new(reason).unwrap(), 200)
 }
@@ -546,7 +546,7 @@ fn realistic_replies_parse_and_generic_lines_do_not() {
 #[test]
 fn reason_debug_redacts_long_tokens_and_never_prints_a_key() {
     let token = "sk-abcdefghijklmnopqrstuvwxyz012345";
-    let redacted = muse::negotiate::redact_model_reply(&format!("reply {token} tail"));
+    let redacted = malleable::negotiate::redact_model_reply(&format!("reply {token} tail"));
     assert!(!redacted.contains(token));
     assert!(redacted.contains("[REDACTED]"));
     assert!(!redacted.contains("BASETEN_API_KEY"));

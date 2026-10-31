@@ -1,13 +1,13 @@
 # Road map format, version 1
 
-`town.json` is the native town exported by `muse --export-map maps/town.json`.
+`town.json` is the native town exported by `malleable --export-map maps/town.json`.
 No remote service or OpenStreetMap import is used.
 
 ```sh
-./target/debug/muse --export-map /tmp/town.json
-./target/debug/muse --map /tmp/town.json --rush-hour --headless --policy mock --seed 3 --score /tmp/map-score.json
-./target/debug/muse --map /tmp/town.json --scenario boxed-in --headless --policy mock --seed 11 --score /tmp/boxed-map-score.json
-./target/debug/muse --map /tmp/town.json --rush-hour --board --policy mock --seed 3
+./target/debug/malleable --export-map /tmp/town.json
+./target/debug/malleable --map /tmp/town.json --rush-hour --headless --policy mock --seed 3 --score /tmp/map-score.json
+./target/debug/malleable --map /tmp/town.json --scenario boxed-in --headless --policy mock --seed 11 --score /tmp/boxed-map-score.json
+./target/debug/malleable --map /tmp/town.json --rush-hour --board --policy mock --seed 3
 ```
 
 Top-level fields:
@@ -63,7 +63,7 @@ Potrero peak experiment. Source, pre-score commits and measured results:
 A physical lane incident is a separate scenario input, not part of demand:
 
 ```sh
-muse --map maps/sf-zsfg.json --scenario boxed-in --incident scenarios/sf-potrero-incident.json --headless --policy mock --seed 1
+malleable --map maps/sf-zsfg.json --scenario boxed-in --incident scenarios/sf-potrero-incident.json --headless --policy mock --seed 1
 ```
 
 `--incident` takes a version-1 blocked-lane JSON file. `edge`, `from_node` and

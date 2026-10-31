@@ -56,7 +56,7 @@ cargo test
 cargo build
 cargo fmt --check
 cargo run -- --board --no-open
-./target/debug/muse --reason "My passenger has severe chest pain" \
+./target/debug/malleable --reason "My passenger has severe chest pain" \
   --headless --require-live --gate-log /tmp/phase2-live.jsonl
 # Repeat the command above with each of the ten exact reasons in the table.
 # Optional browser check: Playwright and Chromium must already be installed.

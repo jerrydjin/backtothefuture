@@ -1,4 +1,4 @@
-use muse::{
+use malleable::{
     network::BroadcastConfig,
     rush_hour::{self, Mock},
 };
@@ -27,8 +27,8 @@ fn main() {
     let net = args
         .iter()
         .find_map(|a| a.strip_prefix("map="))
-        .map(|p| muse::road_map::RoadMap::read(p).unwrap().network().unwrap())
-        .unwrap_or_else(muse::network::Network::town);
+        .map(|p| malleable::road_map::RoadMap::read(p).unwrap().network().unwrap())
+        .unwrap_or_else(malleable::network::Network::town);
     let typical = args.iter().any(|a| a == "typical");
     let start = args
         .iter()

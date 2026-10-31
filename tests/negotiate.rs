@@ -1,6 +1,6 @@
-use muse::negotiate::{exchange, negotiated_claim, DecideCtx, Decision, NegotiateAgent};
-use muse::schema::VisibleNeighbor;
-use muse::{
+use malleable::negotiate::{exchange, negotiated_claim, DecideCtx, Decision, NegotiateAgent};
+use malleable::schema::VisibleNeighbor;
+use malleable::{
     default_horizon, judge, rollout, Approach, Executor, JamType, LocalNegotiate, Scenario,
     TalkPhase, Verdict, World, YieldRole, YieldTalk, FAIRNESS_MAX,
 };

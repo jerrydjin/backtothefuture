@@ -1,5 +1,5 @@
-use muse::negotiate::{choice_from_reply, MergeTalk, ScriptedTalk};
-use muse::network::{run_priority_town, PriorityRequest};
+use malleable::negotiate::{choice_from_reply, MergeTalk, ScriptedTalk};
+use malleable::network::{run_priority_town, PriorityRequest};
 
 const REQUEST: PriorityRequest = PriorityRequest {
     car_id: 177,
@@ -8,15 +8,15 @@ const REQUEST: PriorityRequest = PriorityRequest {
 
 #[test]
 fn priority_board_keeps_the_sticky_scores_and_reports_the_paired_baseline() {
-    let scenario = muse::Scenario::new(
+    let scenario = malleable::Scenario::new(
         6,
-        muse::JamType::Symmetric,
+        malleable::JamType::Symmetric,
         "Zipper fairly so both approaches get home.",
     );
     let dinner =
-        muse::run_dinner(&scenario, &muse::FakeEcho, &muse::EpisodeOpts::default()).unwrap();
+        malleable::run_dinner(&scenario, &malleable::FakeEcho, &malleable::EpisodeOpts::default()).unwrap();
     for enabled in [false, true] {
-        let board = muse::board::priority_board_from_run(&dinner, "scripted", enabled);
+        let board = malleable::board::priority_board_from_run(&dinner, "scripted", enabled);
         assert_eq!(
             board
                 .strips

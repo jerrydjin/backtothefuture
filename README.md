@@ -1,4 +1,6 @@
-# Muse
+# Malleable
+
+The project was formerly called backtothefuture / muse.
 
 ```bash
 cargo run -- --demo
@@ -17,8 +19,8 @@ Play the saved live rush hour, first grant, caught liar and denial without crede
 
 ```sh
 cargo run -- --board --rush-hour --policy live --seed 1 --save-replay /tmp/rush-session.json
-./target/debug/muse --rush-hour --headless --policy mock --seed 1 --score /tmp/score.json
-./target/debug/muse --rush-hour --headless --policy live --seed 1 --require-live --score /tmp/live.json --decision-log /tmp/decisions.json
+./target/debug/malleable --rush-hour --headless --policy mock --seed 1 --score /tmp/score.json
+./target/debug/malleable --rush-hour --headless --policy live --seed 1 --require-live --score /tmp/live.json --decision-log /tmp/decisions.json
 python3 scripts/play-recording.py
 ```
 
@@ -38,7 +40,7 @@ reply use the conservative scripted fallback.
 
 ```bash
 cargo run -- --reason "My passenger has severe chest pain" --board
-./target/debug/muse --reason "I am late for a routine meeting" \
+./target/debug/malleable --reason "I am late for a routine meeting" \
   --headless --require-live --gate-log /tmp/reasons.jsonl
 ```
 
@@ -75,9 +77,9 @@ The optional PR workflow runs these two batches only when the head commit
 contains `[run-demo-gate]` and a repository `BASETEN_API_KEY` secret is available.
 
 
-You say what matters in plain English — the traffic bends. Muse plans the merge; the cars just drive. Dumb equal stays jammed; the scoreboard goes green.
+You say what matters in plain English — the traffic bends. The model plans the merge; the cars just drive. Dumb equal stays jammed; the scoreboard goes green.
 
-Traffic here is a closed ramp merge in meters, not a renderer. Mainline and a ramp accel lane meet at one gore. A fixed priority queue cannot write the fair order before the run, because the order comes from the English (or a small structured stub) plus the jam. Muse emits that order once. Local cars only execute it, under length, speed, and gap limits. The judge scores the trajectories.
+Traffic here is a closed ramp merge in meters, not a renderer. Mainline and a ramp accel lane meet at one gore. A fixed priority queue cannot write the fair order before the run, because the order comes from the English (or a small structured stub) plus the jam. The model emits that order once. Local cars only execute it, under length, speed, and gap limits. The judge scores the trajectories.
 
 ChemStation is not this product.
 
@@ -148,12 +150,12 @@ replay button to watch again. Add `--no-open` for a headless host.
 
 1. Spawn one merge jam (`--cars`, `--jam`).
 2. Roll the selfish baseline and the dumb-equal baseline. Both are red.
-3. Render prefs + symbolic state into a prompt. `MuseClient::complete(prompt) -> String`.
+3. Render prefs + symbolic state into a prompt. The model client completes that prompt into one string.
 4. Parse one `ZonePlan`. Broadcast it on the local stub mailbox.
 5. Cars execute. A cooperative claim waits for a physical gap; two claims at once overlap in the gore. A mid-run rewrite is another `complete` (`--rewrite-every`).
 6. Judge the trajectories.
 
-Muse is not in the tick. A claim is "I want the gore", not a brake.
+The model is not in the tick. A claim is "I want the gore", not a brake.
 
 ## Schemas
 
@@ -184,7 +186,7 @@ Structured prefs are a `Bias` on `Prefs` (`balanced`, `favor_main`, `favor_ramp`
 
 ## Client
 
-`MODEL_API_KEY` selects an HTTP completion through `curl` (`MODEL_API_BASE`, `MODEL_API_MODEL`). With a key, the client label is `muse`.
+`MODEL_API_KEY` selects an HTTP completion through `curl` (`MODEL_API_BASE`, `MODEL_API_MODEL`). With a key, the client label is `model`.
 
 No key: `scripted`, the ALLOW_CHEAT stub. It reads the state inside the prompt and writes a queue-feasible plan. It does not drive. The board uses this path and does not need a key.
 
@@ -195,7 +197,7 @@ No key: `scripted`, the ALLOW_CHEAT stub. It reads the state inside the prompt a
 - No photoreal, CARLA, or Earth twin.
 - No V2X radio race. Peer pings are an instant stub and do not affect the gate.
 - No lights or pedestrians.
-- Muse does not sit in a brake loop or any continuous controller.
+- The model does not sit in a brake loop or any continuous controller.
 - No ChemStation leftover as the product.
 
 ## Layout

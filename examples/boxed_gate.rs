@@ -1,4 +1,4 @@
-use muse::rush_hour;
+use malleable::rush_hour;
 fn main() {
     let args: Vec<_> = std::env::args().collect();
     let start = args

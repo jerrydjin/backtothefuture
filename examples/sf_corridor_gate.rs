@@ -1,5 +1,5 @@
 //! Score the preregistered SF profile once per paired policy, without tuning.
-use muse::{
+use malleable::{
     network::{BroadcastConfig, Network},
     road_map::RoadMap,
     rush_hour::{self, Fcfs, Mock, Run, Truth},
@@ -44,7 +44,7 @@ fn main() -> Result<(), String> {
     let plain_net = map.network()?;
     let incident = args
         .next()
-        .map(muse::incident::LaneIncident::read)
+        .map(malleable::incident::LaneIncident::read)
         .transpose()?;
     let mut net = plain_net.clone();
     if let Some(definition) = &incident {
@@ -157,7 +157,7 @@ fn main() -> Result<(), String> {
             } else {
                 "sf-peak"
             };
-            muse::replay::ReplayArchive::new(muse::rush_board::from_run(broadcast, None)?).write(
+            malleable::replay::ReplayArchive::new(malleable::rush_board::from_run(broadcast, None)?).write(
                 std::path::Path::new(dir)
                     .join(format!("{prefix}-1.replay.json"))
                     .as_path(),

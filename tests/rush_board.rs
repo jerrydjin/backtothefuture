@@ -1,4 +1,4 @@
-use muse::{
+use malleable::{
     network::BroadcastConfig,
     reason::ReasonText,
     replay::ReplayArchive,
@@ -34,7 +34,7 @@ fn dense_replay_preserves_measured_motion_and_causal_bulletins() {
         serde_json::to_value(&replay.board.town).unwrap(),
         serde_json::to_value(&result.run.town).unwrap()
     );
-    let html = muse::board::render_board_html(&replay.board);
+    let html = malleable::board::render_board_html(&replay.board);
     assert_eq!(html.matches("<svg").count(), 1);
     assert!(html.contains("rush-pulse") && html.contains("rush-score"));
     replay.board.rush.as_mut().unwrap().messages[0].route = usize::MAX;

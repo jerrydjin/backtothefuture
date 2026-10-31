@@ -34,9 +34,9 @@ standalone board; open it with `?replay=1` through any local static server.
 ## Capture and measurements
 
 ```sh
-./target/debug/muse --demo --headless --require-live --gate-log /tmp/demo.jsonl --save-replay recordings/demo.json
-./target/debug/muse --reason 'My passenger has severe chest pain' --headless --require-live --gate-log /tmp/reasons.jsonl --save-replay recordings/grant.json
-./target/debug/muse --reason 'I want coffee before it gets cold' --headless --require-live --gate-log /tmp/reasons.jsonl --save-replay recordings/deny.json
+./target/debug/malleable --demo --headless --require-live --gate-log /tmp/demo.jsonl --save-replay recordings/demo.json
+./target/debug/malleable --reason 'My passenger has severe chest pain' --headless --require-live --gate-log /tmp/reasons.jsonl --save-replay recordings/grant.json
+./target/debug/malleable --reason 'I want coffee before it gets cold' --headless --require-live --gate-log /tmp/reasons.jsonl --save-replay recordings/deny.json
 ```
 
 The saved demo passed in **102.085359871s**, with **3/3 Baseten/model replies**,

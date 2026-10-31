@@ -39,11 +39,11 @@ completion and collision-free driving. Malformed maps are rejected before use.
 ## Reproduce
 
 ```sh
-git worktree add --detach /tmp/muse-main b98a554
-(cd /tmp/muse-main && cargo build --release --offline --example driving_gate)
-/tmp/muse-main/target/release/examples/driving_gate seed=1 end=10 > /tmp/main-boxed.jsonl
-/tmp/muse-main/target/release/examples/driving_gate typical seed=1 end=10 > /tmp/main-typical.jsonl
-cargo build --release --offline --examples --bin muse
+git worktree add --detach /tmp/malleable-main b98a554
+(cd /tmp/malleable-main && cargo build --release --offline --example driving_gate)
+/tmp/malleable-main/target/release/examples/driving_gate seed=1 end=10 > /tmp/main-boxed.jsonl
+/tmp/malleable-main/target/release/examples/driving_gate typical seed=1 end=10 > /tmp/main-typical.jsonl
+cargo build --release --offline --examples --bin malleable
 target/release/examples/driving_gate seed=1 end=10 > /tmp/map-boxed.jsonl
 target/release/examples/driving_gate typical seed=1 end=10 > /tmp/map-typical.jsonl
 cmp /tmp/main-boxed.jsonl /tmp/map-boxed.jsonl
@@ -58,9 +58,9 @@ git diff b98a554 --exit-code -- src/make_way.rs tests/make_way.rs src/judge.rs s
 
 ```sh
 cargo build --offline
-target/debug/muse --map maps/town.json --scenario boxed-in --headless --policy live --seed 11 --require-live --score /tmp/map-live.json
-target/debug/muse --demo --headless --require-live --gate-log /tmp/demo-live.jsonl
-target/debug/muse --demo --reason 'my passenger is having a seizure' --headless --require-live --gate-log /tmp/seizure-live.jsonl
+target/debug/malleable --map maps/town.json --scenario boxed-in --headless --policy live --seed 11 --require-live --score /tmp/map-live.json
+target/debug/malleable --demo --headless --require-live --gate-log /tmp/demo-live.jsonl
+target/debug/malleable --demo --reason 'my passenger is having a seizure' --headless --require-live --gate-log /tmp/seizure-live.jsonl
 ```
 
 Credentials must be configured externally. No keys or key values are printed.

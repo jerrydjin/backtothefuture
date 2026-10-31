@@ -128,13 +128,13 @@ ahead, a delivered clearing action, visible ODbL credit, and zero JS errors.
 ```sh
 sha256sum -c maps/sf-zsfg.osm.sha256
 cargo build --release --offline --examples
-target/release/muse import-osm maps/sf-zsfg.osm --out /tmp/sf-zsfg.json
+target/release/malleable import-osm maps/sf-zsfg.osm --out /tmp/sf-zsfg.json
 cmp maps/sf-zsfg.json /tmp/sf-zsfg.json
 target/release/examples/osm_gate maps/sf-zsfg.json 1 10 > /tmp/sf-scores.jsonl
-target/release/muse --map maps/sf-zsfg.json --scenario boxed-in --headless --policy mock --seed 1 --save-replay /tmp/sf.replay.json --save-messages /tmp/sf.messages.json
-target/release/muse --replay /tmp/sf.replay.json --headless --save-replay /tmp/sf-again.json
+target/release/malleable --map maps/sf-zsfg.json --scenario boxed-in --headless --policy mock --seed 1 --save-replay /tmp/sf.replay.json --save-messages /tmp/sf.messages.json
+target/release/malleable --replay /tmp/sf.replay.json --headless --save-replay /tmp/sf-again.json
 cmp /tmp/sf.replay.json /tmp/sf-again.json
-target/release/muse --replay /tmp/sf.replay.json --export-replay /tmp/sf.html
+target/release/malleable --replay /tmp/sf.replay.json --export-replay /tmp/sf.html
 node scripts/check-sf-board.cjs /tmp/sf.html /tmp/sf.replay.json /tmp/sf.messages.json /tmp/sf.png /tmp/sf-browser.json
 cargo test --release --offline
 ```

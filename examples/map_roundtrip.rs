@@ -1,5 +1,5 @@
 //! Exact round-trip checks for the fixed typical and held-out boxed sets.
-use muse::{
+use malleable::{
     network::{BroadcastConfig, Network},
     road_map::RoadMap,
     rush_hour::{self, Mock},

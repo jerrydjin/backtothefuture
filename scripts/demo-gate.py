@@ -14,7 +14,7 @@ import sys
 from datetime import datetime, timezone
 
 p = argparse.ArgumentParser(description=__doc__)
-p.add_argument('--binary', default='target/debug/muse')
+p.add_argument('--binary', default='target/debug/malleable')
 p.add_argument('--output', required=True)
 p.add_argument('--fallback-only', action='store_true')
 p.add_argument('--expanded', action='store_true')

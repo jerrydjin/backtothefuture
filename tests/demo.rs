@@ -1,6 +1,6 @@
 #[test]
 fn demo_is_one_continuous_town_and_ends_on_hospital_priority() {
-    let board = muse::board::demo_board().expect("finite demo");
+    let board = malleable::board::demo_board().expect("finite demo");
     let plan = board.demo.as_ref().unwrap();
     println!("{}", serde_json::to_string_pretty(plan).unwrap());
     assert_eq!(
@@ -34,9 +34,9 @@ fn demo_is_one_continuous_town_and_ends_on_hospital_priority() {
 }
 #[test]
 fn missing_live_credentials_still_write_exactly_one_failed_gate_line() {
-    let path = std::env::temp_dir().join(format!("muse-missing-key-{}.jsonl", std::process::id()));
+    let path = std::env::temp_dir().join(format!("malleable-missing-key-{}.jsonl", std::process::id()));
     let _ = std::fs::remove_file(&path);
-    let output = std::process::Command::new(env!("CARGO_BIN_EXE_muse"))
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_malleable"))
         .args(["--demo", "--headless", "--require-live", "--gate-log"])
         .arg(&path)
         .env_remove("BASETEN_API_KEY")

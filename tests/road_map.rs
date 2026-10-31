@@ -1,4 +1,4 @@
-use muse::{
+use malleable::{
     network::{BroadcastConfig, Network, ScheduledCar, TownSim},
     road_map::RoadMap,
     rush_hour::{self, Mock},

@@ -1,4 +1,4 @@
-use muse::{
+use malleable::{
     network::{BroadcastConfig, TownSim},
     rush_hour::{self, Mock},
 };
@@ -8,7 +8,7 @@ fn gap_acceptance_has_no_overlap_even_with_braking_followers() {
         for b in 0..40 {
             for d in -100_i32..=100 {
                 if TownSim::accepted_lane_gap(200.0, a as f64, 200.0 + d as f64, b as f64) {
-                    assert!(d.abs() as f64 >= muse::world::CAR_LENGTH_M + muse::world::MIN_GAP_M);
+                    assert!(d.abs() as f64 >= malleable::world::CAR_LENGTH_M + malleable::world::MIN_GAP_M);
                 }
             }
         }

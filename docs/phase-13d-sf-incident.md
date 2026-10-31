@@ -137,10 +137,10 @@ model information boundary. Raw evidence is in `docs/gates/phase-13d-*`.
 cargo build --release --offline --examples
 cargo test --release --offline
 target/release/examples/sf_corridor_gate maps/sf-zsfg.json /tmp/sf-incident scenarios/sf-potrero-incident.json > /tmp/sf-incident-scores.jsonl
-target/release/muse --map maps/sf-zsfg.json --incident scenarios/sf-potrero-incident.json --scenario boxed-in --headless --policy mock --seed 1 --save-replay /tmp/sf.replay.json --save-messages /tmp/sf.messages.json
-target/release/muse --replay /tmp/sf.replay.json --headless --save-replay /tmp/sf-again.json
+target/release/malleable --map maps/sf-zsfg.json --incident scenarios/sf-potrero-incident.json --scenario boxed-in --headless --policy mock --seed 1 --save-replay /tmp/sf.replay.json --save-messages /tmp/sf.messages.json
+target/release/malleable --replay /tmp/sf.replay.json --headless --save-replay /tmp/sf-again.json
 cmp /tmp/sf.replay.json /tmp/sf-again.json
-target/release/muse --replay /tmp/sf.replay.json --export-replay /tmp/sf.html
+target/release/malleable --replay /tmp/sf.replay.json --export-replay /tmp/sf.html
 node scripts/check-sf-board.cjs /tmp/sf.html /tmp/sf.replay.json /tmp/sf.messages.json /tmp/sf.png /tmp/sf-browser.json 300
 target/release/examples/sf_corridor_gate maps/sf-zsfg.json > /tmp/sf-no-incident.jsonl
 cmp docs/gates/phase-13c-scores.jsonl /tmp/sf-no-incident.jsonl

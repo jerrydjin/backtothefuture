@@ -1,4 +1,4 @@
-use muse::rush_hour::{self, Decision, Fcfs, Keyword, Policy, PolicyRequest, Truth};
+use malleable::rush_hour::{self, Decision, Fcfs, Keyword, Policy, PolicyRequest, Truth};
 
 #[test]
 fn paired_score_uses_median_gain_signed_cost_and_nearest_rank_p95() {

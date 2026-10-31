@@ -1,4 +1,4 @@
-use muse::make_way::{
+use malleable::make_way::{
     DrivingAction as A, FleetReceiver, MakeWayRequest, SafetyFleet, VehicleProposal,
 };
 fn request() -> MakeWayRequest {
@@ -80,17 +80,17 @@ fn ignore_is_always_allowed_and_every_vehicle_has_one_ordered_action() {
 }
 #[test]
 fn message_wire_and_delivery_log_round_trip_and_replay() {
-    let run = muse::rush_hour::run_experiment(
+    let run = malleable::rush_hour::run_experiment(
         1,
-        &muse::rush_hour::Mock,
+        &malleable::rush_hour::Mock,
         true,
-        Some(muse::network::BroadcastConfig::default()),
+        Some(malleable::network::BroadcastConfig::default()),
     )
     .unwrap();
     let log = run.run.message_log;
     assert!(!log.requests.is_empty());
     let encoded = serde_json::to_vec(&log).unwrap();
-    let restored: muse::make_way::MessageLog = serde_json::from_slice(&encoded).unwrap();
+    let restored: malleable::make_way::MessageLog = serde_json::from_slice(&encoded).unwrap();
     assert_eq!(
         serde_json::to_vec(&restored.replay().unwrap()).unwrap(),
         serde_json::to_vec(&log.events).unwrap()
@@ -102,10 +102,10 @@ fn message_wire_and_delivery_log_round_trip_and_replay() {
 fn replay_drops_scheduled_deliveries_after_revocation() {
     let mut req = request();
     req.expires_at = 0.0;
-    let log = muse::make_way::MessageLog {
+    let log = malleable::make_way::MessageLog {
         version: 1,
         requests: vec![req],
-        events: vec![muse::network::MessageHop {
+        events: vec![malleable::network::MessageHop {
             beneficiary: 1,
             route: 0,
             at_s: 1.0,

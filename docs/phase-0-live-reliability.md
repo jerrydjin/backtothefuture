@@ -134,7 +134,7 @@ overdose, allergic reaction, unconsciousness, choking, not breathing, no pulse
 and labour; explicit non-emergency/absence cases stay denied. **113 tests pass**.
 
 Commands: `cargo test --offline`;
-`muse --reason 'my passenger is having a seizure' --headless --require-live --gate-log FILE`;
+`malleable --reason 'my passenger is having a seizure' --headless --require-live --gate-log FILE`;
 `python3 scripts/reason-live-twelve.py --binary BINARY --output FILE --logs DIR`.
 
 The ten live demo runs above preceded this reason-only medical recognition

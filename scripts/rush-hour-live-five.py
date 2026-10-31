@@ -3,7 +3,7 @@
 import argparse,json,subprocess,time
 from pathlib import Path
 p=argparse.ArgumentParser(description=__doc__)
-p.add_argument('--output',required=True);p.add_argument('--binary',default='./target/debug/muse')
+p.add_argument('--output',required=True);p.add_argument('--binary',default='./target/debug/malleable')
 a=p.parse_args();out=Path(a.output);assert not out.exists();out.parent.mkdir(parents=True,exist_ok=True)
 ok=True
 for seed in range(1,6):

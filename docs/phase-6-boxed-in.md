@@ -23,4 +23,4 @@ included; Phase 7 must demonstrate that driving changes can actually resolve it.
 Raw per-emergency delays: `docs/gates/phase-6-boxed-in.jsonl`.
 
 Reproduce: `cargo run --offline --example boxed_gate > docs/gates/phase-6-boxed-in.jsonl`.
-CLI: `target/debug/muse --scenario boxed-in --headless --policy fcfs --seed 1 --score /tmp/boxed.json`.
+CLI: `target/debug/malleable --scenario boxed-in --headless --policy fcfs --seed 1 --score /tmp/boxed.json`.

@@ -1,7 +1,7 @@
 //! Real loopback HTTP through curl; never a live provider or credential.
-use muse::demo::{drive_headless, DemoServer};
-use muse::muse::{GeminiChat, TalkEndpoint};
-use muse::negotiate::{MergeAgent, MergeSnap, MergeTalk, ScriptedTalk};
+use malleable::demo::{drive_headless, DemoServer};
+use malleable::muse::{GeminiChat, TalkEndpoint};
+use malleable::negotiate::{MergeAgent, MergeSnap, MergeTalk, ScriptedTalk};
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
 use std::sync::{
@@ -120,8 +120,8 @@ fn reply(snap: &MergeSnap) -> String {
 #[ignore = "six genuine Baseten exchanges to check merge/hospital wording variation"]
 fn live_merge_and_hospital_dialogue_varies_without_changing_order() {
     assert!(std::env::var("BASETEN_API_KEY").is_ok());
-    let board = muse::board::demo_board().unwrap();
-    let talk = muse::negotiate::negotiator_from_env();
+    let board = malleable::board::demo_board().unwrap();
+    let talk = malleable::negotiate::negotiator_from_env();
     let mut variants = [
         std::collections::BTreeSet::new(),
         std::collections::BTreeSet::new(),
@@ -155,7 +155,7 @@ fn live_merge_and_hospital_dialogue_varies_without_changing_order() {
 
 #[test]
 fn curl_adapter_recovers_a_parse_failure_and_a_transport_failure() {
-    let board = muse::board::demo_board().unwrap();
+    let board = malleable::board::demo_board().unwrap();
     let snap = &board.town.exchanges[0].forecast;
     for first in [Some((Duration::ZERO, "not an exchange".into())), None] {
         let mock = MockHttp::start(vec![
@@ -176,7 +176,7 @@ fn curl_adapter_recovers_a_parse_failure_and_a_transport_failure() {
 
 #[test]
 fn curl_timeout_obeys_remaining_deadline_without_starting_another_request() {
-    let board = muse::board::demo_board().unwrap();
+    let board = malleable::board::demo_board().unwrap();
     let snap = &board.town.exchanges[0].forecast;
     let mock = MockHttp::start(vec![Some((Duration::from_millis(700), reply(snap)))]);
     let start = Instant::now();
@@ -191,7 +191,7 @@ fn curl_timeout_obeys_remaining_deadline_without_starting_another_request() {
 
 #[test]
 fn two_transport_errors_back_off_and_recover_inside_one_budget() {
-    let board = muse::board::demo_board().unwrap();
+    let board = malleable::board::demo_board().unwrap();
     let snap = &board.town.exchanges[0].forecast;
     let mock = MockHttp::start(vec![None, None, Some((Duration::ZERO, reply(snap)))]);
     let start = Instant::now();
@@ -209,18 +209,18 @@ fn two_transport_errors_back_off_and_recover_inside_one_budget() {
 fn non_cooperative_provider_finishes_with_three_logged_fallbacks() {
     struct Stuck;
     impl MergeTalk for Stuck {
-        fn agree(&self, _: &MergeSnap) -> muse::negotiate::MergeChoice {
+        fn agree(&self, _: &MergeSnap) -> malleable::negotiate::MergeChoice {
             std::thread::sleep(Duration::from_secs(180));
             unreachable!("the demo must finish before this call returns")
         }
     }
-    let board = muse::board::demo_board().unwrap();
+    let board = malleable::board::demo_board().unwrap();
     let server = DemoServer::start(board.clone(), Box::new(Stuck)).unwrap();
     let report = drive_headless(&server, &board, true).unwrap();
     assert!(!report.passed);
     assert_eq!(report.collisions, 0);
     assert_eq!(report.resolved, 3);
-    assert!(report.length_s < muse::demo::MAX_DEMO_S);
+    assert!(report.length_s < malleable::demo::MAX_DEMO_S);
     assert!(report
         .exchanges
         .iter()
@@ -231,7 +231,7 @@ fn non_cooperative_provider_finishes_with_three_logged_fallbacks() {
 #[test]
 #[ignore = "real-time three-scene HTTP gate, approximately 105 seconds"]
 fn slow_first_http_reply_completes_the_demo_with_three_model_exchanges() {
-    let board = muse::board::demo_board().unwrap();
+    let board = malleable::board::demo_board().unwrap();
     let first = format!("```json\n{}\n```", reply(&board.town.exchanges[0].forecast));
     let mut second: serde_json::Value =
         serde_json::from_str(&reply(&board.town.exchanges[1].forecast)).unwrap();

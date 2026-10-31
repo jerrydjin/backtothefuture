@@ -1,12 +1,12 @@
-use muse::negotiate::ScriptedTalk;
-use muse::network::run_story_town;
-use muse::story::{
+use malleable::negotiate::ScriptedTalk;
+use malleable::network::run_story_town;
+use malleable::story::{
     resolve_competing, PriorityLedger, PriorityReason, RiderClaim, StoryKind, StoryRun,
 };
 
 #[test]
 fn sustained_distress_detects_an_emergency_but_noise_and_missing_samples_do_not() {
-    use muse::story::{detect_emergencies, SensorObservation};
+    use malleable::story::{detect_emergencies, SensorObservation};
     let sample = |t, distress| SensorObservation {
         car_id: 177,
         at_s: t,
@@ -76,10 +76,10 @@ fn a_chain_contains_three_real_cars_and_relays_the_same_detected_emergency() {
 
 #[test]
 fn every_chain_participant_must_acknowledge_and_only_a_mouth_car_can_yield() {
-    use muse::negotiate::choice_from_reply;
+    use malleable::negotiate::choice_from_reply;
     let run = run_story_town(7, StoryKind::Chain, Box::new(ScriptedTalk));
     let ex = &run.exchanges[0];
-    let reply = |lines: &[muse::negotiate::MergeLine], yields| {
+    let reply = |lines: &[malleable::negotiate::MergeLine], yields| {
         serde_json::json!({"lines":lines,"yields":yields}).to_string()
     };
     assert_eq!(
@@ -134,7 +134,7 @@ fn an_accepted_counter_offer_waits_for_the_actual_crossing_before_priority() {
 
 #[test]
 fn a_counter_offer_needs_explicit_acceptance_and_a_bounded_delay() {
-    use muse::negotiate::choice_from_reply;
+    use malleable::negotiate::choice_from_reply;
     let run = run_story_town(7, StoryKind::CounterOffer, Box::new(ScriptedTalk));
     let ex = &run.exchanges[0];
     let mut body =
@@ -158,7 +158,7 @@ fn a_counter_offer_needs_explicit_acceptance_and_a_bounded_delay() {
 
 #[test]
 fn valid_offer_delays_share_the_same_safety_governed_forecast() {
-    use muse::negotiate::{MergeChoice, MergeSnap, MergeTalk};
+    use malleable::negotiate::{MergeChoice, MergeSnap, MergeTalk};
     struct Delay(f64);
     impl MergeTalk for Delay {
         fn agree(&self, snap: &MergeSnap) -> MergeChoice {

@@ -1,5 +1,5 @@
 //! Fixed-seed mock report. No parameter selection or retries on scored seeds.
-use muse::{
+use malleable::{
     network::BroadcastConfig,
     road_map::RoadMap,
     rush_hour::{self, Mock, Truth},
@@ -79,9 +79,9 @@ fn main() -> Result<(), String> {
             if let Some(dir) = &artifacts {
                 if seed == start {
                     std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
-                    let board = muse::rush_board::from_run(&result, None)?;
+                    let board = malleable::rush_board::from_run(&result, None)?;
                     let scenario = if boxed { "boxed" } else { "typical" };
-                    let archive = muse::replay::ReplayArchive::new(board);
+                    let archive = malleable::replay::ReplayArchive::new(board);
                     archive.write(
                         std::path::Path::new(dir)
                             .join(format!("sf-{scenario}-{seed}.replay.json"))

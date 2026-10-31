@@ -3,7 +3,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const assert = require('assert');
 (async () => {
-  const child = spawn('python3', ['scripts/play-recording.py','--legacy','--no-open','--binary','target/debug/muse']);
+  const child = spawn('python3', ['scripts/play-recording.py','--legacy','--no-open','--binary','target/debug/malleable']);
   let stdout = '';
   const url = await new Promise((resolve,reject) => {
     child.stdout.on('data', b => { stdout += b; const m=stdout.match(/recording: (http:\/\/[^\s]+)/); if(m)resolve(m[1]); });

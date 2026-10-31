@@ -1,7 +1,7 @@
 //! The town around the dinner merge. A small map of one-way links joined at
 //! junctions, driven by local car-following and give-way rules.
 //!
-//! This is background traffic on the board. The judge never reads it and Muse
+//! This is background traffic on the board. The judge never reads it and the model
 //! never sees it. Cars here are dumb locals: they follow the car ahead, give way
 //! at a junction when a higher-priority stream is close, and zipper where two
 //! equal streams meet. Queues form where demand beats a merge and clear when the

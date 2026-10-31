@@ -3,8 +3,8 @@
 use std::env;
 use std::process::ExitCode;
 
-use muse::negotiate::negotiator_from_env;
-use muse::{
+use malleable::negotiate::negotiator_from_env;
+use malleable::{
     board_from_run, interpret_english, run_dinner, Bias, EpisodeOpts, JamType, MuseKind, Scenario,
     Verdict, DINNER_SENTENCE,
 };
@@ -14,10 +14,10 @@ fn main() -> ExitCode {
         let args: Vec<_> = std::env::args().skip(2).collect();
         let result = (|| -> Result<(), String> {
             if args.len() != 3 || args[1] != "--out" {
-                return Err("usage: muse import-osm FILE.osm --out maps/X.json".into());
+                return Err("usage: malleable import-osm FILE.osm --out maps/X.json".into());
             }
             let text = std::fs::read_to_string(&args[0]).map_err(|e| e.to_string())?;
-            muse::osm::import(&text)?.write(&args[2])
+            malleable::osm::import(&text)?.write(&args[2])
         })();
         return match result {
             Ok(()) => ExitCode::SUCCESS,
@@ -101,7 +101,7 @@ fn main() -> ExitCode {
     }
 
     if args.demo {
-        return match muse::demo::run(
+        return match malleable::demo::run(
             args.headless,
             !args.no_open,
             args.require_live,
@@ -118,7 +118,7 @@ fn main() -> ExitCode {
     }
 
     if let Some(path) = &args.replay {
-        let archive = match muse::replay::ReplayArchive::read(path) {
+        let archive = match malleable::replay::ReplayArchive::read(path) {
             Ok(archive) => archive,
             Err(error) => {
                 eprintln!("{error}");
@@ -127,7 +127,7 @@ fn main() -> ExitCode {
         };
         println!("Replay: saved trajectories and dialogue; model calls=0");
         if let Some(path) = &args.export_replay {
-            if let Err(error) = std::fs::write(path, muse::board::render_board_html(&archive.board))
+            if let Err(error) = std::fs::write(path, malleable::board::render_board_html(&archive.board))
             {
                 eprintln!("replay export: {error}");
                 return ExitCode::from(1);
@@ -147,7 +147,7 @@ fn main() -> ExitCode {
         if args.headless {
             return ExitCode::SUCCESS;
         }
-        return match muse::board_server::serve_replay(&archive.board, !args.no_open) {
+        return match malleable::board_server::serve_replay(&archive.board, !args.no_open) {
             Ok(()) => ExitCode::SUCCESS,
             Err(error) => {
                 eprintln!("replay: {error}");
@@ -182,7 +182,7 @@ fn main() -> ExitCode {
     };
     let report = dinner.to_report(muse.label(), &opts);
 
-    println!("Muse day-1");
+    println!("Malleable day-1");
     println!("{DINNER_SENTENCE}");
     println!();
     println!(
@@ -217,11 +217,11 @@ fn main() -> ExitCode {
     }
     if args.board || args.priority.is_some() || args.story.is_some() || args.save_replay.is_some() {
         let board = if let Some(kind) = args.story {
-            muse::board::story_board_from_run(&dinner, muse.label(), kind)
+            malleable::board::story_board_from_run(&dinner, muse.label(), kind)
         } else {
             match args.priority {
                 Some(enabled) => {
-                    muse::board::priority_board_from_run(&dinner, muse.label(), enabled)
+                    malleable::board::priority_board_from_run(&dinner, muse.label(), enabled)
                 }
                 None => board_from_run(&dinner, muse.label()),
             }
@@ -242,14 +242,14 @@ fn main() -> ExitCode {
             }
         }
         if let Some(path) = &args.save_replay {
-            if let Err(error) = muse::replay::ReplayArchive::new(board.clone()).write(path) {
+            if let Err(error) = malleable::replay::ReplayArchive::new(board.clone()).write(path) {
                 eprintln!("{error}");
                 return ExitCode::from(1);
             }
             println!("replay: {} (updated as replies arrive)", path.display());
         }
         if args.board {
-            if let Err(error) = muse::board_server::serve_board_recording(
+            if let Err(error) = malleable::board_server::serve_board_recording(
                 &board,
                 negotiator_from_env(),
                 !args.no_open,
@@ -293,12 +293,12 @@ struct Args {
     gate_log: Option<std::path::PathBuf>,
     no_open: bool,
     priority: Option<bool>,
-    story: Option<muse::story::StoryKind>,
+    story: Option<malleable::story::StoryKind>,
     replay: Option<std::path::PathBuf>,
     save_replay: Option<std::path::PathBuf>,
     export_replay: Option<std::path::PathBuf>,
     rewrite_every: Option<u32>,
-    reason: Option<muse::reason::ReasonText>,
+    reason: Option<malleable::reason::ReasonText>,
     reason_debug: bool,
     connected_share: f64,
 }
@@ -419,7 +419,7 @@ impl Args {
                 "--reason" => {
                     let text = args.next().ok_or("--reason needs a sentence")?;
                     parsed.reason =
-                        Some(muse::reason::ReasonText::new(&text).map_err(str::to_string)?);
+                        Some(malleable::reason::ReasonText::new(&text).map_err(str::to_string)?);
                 }
                 "--reason-debug" => parsed.reason_debug = true,
                 "--connected-share" => {
@@ -451,7 +451,7 @@ impl Args {
                         "--story needs competing, abuse, emergency, chain, or counter-offer",
                     )?;
                     parsed.story = Some(
-                        muse::story::StoryKind::parse(&value)
+                        malleable::story::StoryKind::parse(&value)
                             .ok_or_else(|| format!("unknown story {value}"))?,
                     );
                 }
@@ -609,17 +609,17 @@ Score:
 
 Blocker:
   MODEL_API_KEY selects the HTTP client (curl). When it is unset, the scripted plan runs (ALLOW_CHEAT).
-  With a key, the client label is muse. ALLOW_CHEAT=0 with no key fails closed."
+  With a key, the client label is model. ALLOW_CHEAT=0 with no key fails closed."
     )
 }
 
 fn run_typed_reason(args: &Args) -> Result<(), String> {
     if args.reason_debug {
-        muse::reason::enable_reason_debug();
+        malleable::reason::enable_reason_debug();
     }
     use std::io::Write;
     let reason = args.reason.as_ref().ok_or("reason required")?;
-    let config = Some(muse::network::BroadcastConfig {
+    let config = Some(malleable::network::BroadcastConfig {
         speed_multiple: args.message_speed,
         hop_delay_s: args.hop_delay,
         lookahead_s: args.lookahead_minutes * 60.0,
@@ -634,24 +634,24 @@ fn run_typed_reason(args: &Args) -> Result<(), String> {
         args.policy.clone()
     };
     let mut session =
-        muse::rush_board::Session::boxed(args.seed, policy_name, config, args.save_replay.clone())?;
+        malleable::rush_board::Session::boxed(args.seed, policy_name, config, args.save_replay.clone())?;
     if args.map.is_some() {
         session.use_map(selected_map(args)?);
     }
     if args.require_live {
         let decision = session.assess(reason)?;
         if decision.source != "model" || decision.provider != "baseten" {
-            let report = muse::reason::ReasonReport {
+            let report = malleable::reason::ReasonReport {
                 reason: reason.as_str().into(),
-                decision: muse::reason::ReasonDecision {
+                decision: malleable::reason::ReasonDecision {
                     granted: decision.granted,
                     explanation: decision.explanation.clone(),
                     lines: vec![
-                        muse::negotiate::MergeLine {
+                        malleable::negotiate::MergeLine {
                             id: decision.car,
                             say: decision.requester.clone(),
                         },
-                        muse::negotiate::MergeLine {
+                        malleable::negotiate::MergeLine {
                             id: 0,
                             say: decision.other.clone(),
                         },
@@ -697,17 +697,17 @@ fn run_typed_reason(args: &Args) -> Result<(), String> {
     let collisions = rush.score.collisions;
     let live_ok = typed.decision.source == "model" && typed.decision.provider == "baseten";
     let passed = collisions == 0 && rush.score.passed && (!args.require_live || live_ok);
-    let report = muse::reason::ReasonReport {
+    let report = malleable::reason::ReasonReport {
         reason: reason.as_str().into(),
-        decision: muse::reason::ReasonDecision {
+        decision: malleable::reason::ReasonDecision {
             granted: typed.decision.granted,
             explanation: typed.decision.explanation.clone(),
             lines: vec![
-                muse::negotiate::MergeLine {
+                malleable::negotiate::MergeLine {
                     id: typed.car,
                     say: typed.decision.requester.clone(),
                 },
-                muse::negotiate::MergeLine {
+                malleable::negotiate::MergeLine {
                     id: 0,
                     say: typed.decision.other.clone(),
                 },
@@ -747,7 +747,7 @@ fn run_typed_reason(args: &Args) -> Result<(), String> {
         );
     }
     if let Some(path) = &args.save_replay {
-        let mut archive = muse::replay::ReplayArchive::new(board.clone());
+        let mut archive = malleable::replay::ReplayArchive::new(board.clone());
         archive.reply_seconds = vec![Some(report.decision.reply_s)];
         archive.write(path)?;
     }
@@ -756,11 +756,11 @@ fn run_typed_reason(args: &Args) -> Result<(), String> {
     }
     if args.board {
         let server =
-            muse::rush_server::RushServer::start(board, session).map_err(|e| e.to_string())?;
+            malleable::rush_server::RushServer::start(board, session).map_err(|e| e.to_string())?;
         let url = format!("http://{}/", server.address);
         println!("board: {url}");
         if !args.no_open {
-            let _ = muse::board::open_board_url(&url);
+            let _ = malleable::board::open_board_url(&url);
         }
         loop {
             std::thread::park_timeout(std::time::Duration::from_secs(1));
@@ -771,13 +771,13 @@ fn run_typed_reason(args: &Args) -> Result<(), String> {
 
 fn run_reason(args: &Args) -> Result<(), String> {
     if args.reason_debug {
-        muse::reason::enable_reason_debug();
+        malleable::reason::enable_reason_debug();
     }
     use std::io::Write;
-    let baseline = muse::reason::baseline();
-    let agent = muse::reason::ReasonAgent::from_env();
+    let baseline = malleable::reason::baseline();
+    let agent = malleable::reason::ReasonAgent::from_env();
     let (town, report) = if let Some(reason) = &args.reason {
-        let (town, mut report) = muse::reason::evaluate(reason, &agent, &baseline)?;
+        let (town, mut report) = malleable::reason::evaluate(reason, &agent, &baseline)?;
         report.passed &= !args.require_live
             || (report.decision.source == "model" && report.decision.provider == "baseten");
         let json = serde_json::to_string(&report).map_err(|_| "cannot serialize reason report")?;
@@ -802,9 +802,9 @@ fn run_reason(args: &Args) -> Result<(), String> {
     } else {
         (baseline, None)
     };
-    let board = muse::reason::board(town, report)?;
+    let board = malleable::reason::board(town, report)?;
     if let Some(path) = &args.save_replay {
-        let mut archive = muse::replay::ReplayArchive::new(board.clone());
+        let mut archive = malleable::replay::ReplayArchive::new(board.clone());
         archive.reply_seconds = board
             .reason
             .as_ref()
@@ -817,11 +817,11 @@ fn run_reason(args: &Args) -> Result<(), String> {
     }
     if args.board {
         let server =
-            muse::reason_server::ReasonServer::start(board, agent).map_err(|e| e.to_string())?;
+            malleable::reason_server::ReasonServer::start(board, agent).map_err(|e| e.to_string())?;
         let url = format!("http://{}/?reason=1", server.address);
         println!("board: {url}");
         if !args.no_open {
-            let _ = muse::board::open_board_url(&url);
+            let _ = malleable::board::open_board_url(&url);
         }
         loop {
             std::thread::park_timeout(std::time::Duration::from_secs(1));
@@ -830,23 +830,23 @@ fn run_reason(args: &Args) -> Result<(), String> {
     Ok(())
 }
 
-fn selected_map(args: &Args) -> Result<muse::network::Network, String> {
+fn selected_map(args: &Args) -> Result<malleable::network::Network, String> {
     let mut net = match &args.map {
-        Some(path) => muse::road_map::RoadMap::read(path)?.network()?,
-        None => muse::network::Network::town(),
+        Some(path) => malleable::road_map::RoadMap::read(path)?.network()?,
+        None => malleable::network::Network::town(),
     };
     if let Some(path) = &args.incident {
-        net.add_incident(muse::incident::LaneIncident::read(path)?)?;
+        net.add_incident(malleable::incident::LaneIncident::read(path)?)?;
     }
     Ok(net)
 }
 
 fn run_rush_hour(args: &Args) -> Result<(), String> {
-    let policy = muse::rush_hour::policy(&args.policy)?;
+    let policy = malleable::rush_hour::policy(&args.policy)?;
     let config = if args.local_only {
         None
     } else {
-        Some(muse::network::BroadcastConfig {
+        Some(malleable::network::BroadcastConfig {
             speed_multiple: args.message_speed,
             hop_delay_s: args.hop_delay,
             lookahead_s: args.lookahead_minutes * 60.0,
@@ -856,11 +856,11 @@ fn run_rush_hour(args: &Args) -> Result<(), String> {
     };
     let net = selected_map(args)?;
     let trips = if args.boxed_in {
-        muse::rush_hour::boxed_population_on(args.seed, &net)?
+        malleable::rush_hour::boxed_population_on(args.seed, &net)?
     } else {
-        muse::rush_hour::population_on(args.seed, &net)
+        malleable::rush_hour::population_on(args.seed, &net)
     };
-    let mut result = muse::rush_hour::run_on_map(
+    let mut result = malleable::rush_hour::run_on_map(
         args.seed,
         policy.as_ref(),
         !args.no_history,
@@ -913,8 +913,8 @@ fn run_rush_hour(args: &Args) -> Result<(), String> {
         );
     }
     if args.board || args.save_replay.is_some() || args.reason.is_some() {
-        let mut board = muse::rush_board::from_run(&result, None)?;
-        let mut session = muse::rush_board::Session::new(
+        let mut board = malleable::rush_board::from_run(&result, None)?;
+        let mut session = malleable::rush_board::Session::new(
             args.seed,
             args.policy.clone(),
             config,
@@ -925,7 +925,7 @@ fn run_rush_hour(args: &Args) -> Result<(), String> {
         session.use_map(net.clone());
         if let Some(reason) = &args.reason {
             if args.reason_debug {
-                muse::reason::enable_reason_debug();
+                malleable::reason::enable_reason_debug();
             }
             board = session.evaluate(reason)?;
             if let Some(typed) = board.rush.as_ref().and_then(|rush| rush.typed.as_ref()) {
@@ -950,18 +950,18 @@ fn run_rush_hour(args: &Args) -> Result<(), String> {
             }
         }
         if let Some(path) = &args.save_replay {
-            muse::replay::ReplayArchive::new(board.clone()).write(path)?;
+            malleable::replay::ReplayArchive::new(board.clone()).write(path)?;
         }
         if args.require_live && !typed_live {
             return Err("typed reason used a labelled fallback; inspect score/replay".into());
         }
         if args.board {
             let server =
-                muse::rush_server::RushServer::start(board, session).map_err(|e| e.to_string())?;
+                malleable::rush_server::RushServer::start(board, session).map_err(|e| e.to_string())?;
             let url = format!("http://{}/", server.address);
             println!("board: {url}");
             if !args.no_open {
-                let _ = muse::board::open_board_url(&url);
+                let _ = malleable::board::open_board_url(&url);
             }
             loop {
                 std::thread::park_timeout(std::time::Duration::from_secs(1));

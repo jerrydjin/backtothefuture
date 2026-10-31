@@ -1,4 +1,4 @@
-use muse::osm;
+use malleable::osm;
 const XML: &str = include_str!("fixtures/import.osm");
 #[test]
 fn deterministic_import_filters_access_and_keeps_largest_directed_component() {
@@ -38,10 +38,10 @@ fn directional_lane_tags_and_missing_geometry_are_handled_explicitly() {
 }
 #[test]
 fn importer_cli_writes_exact_format_and_rejects_bad_usage() {
-    let dir = std::env::temp_dir().join(format!("muse-osm-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("malleable-osm-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let out = dir.join("map.json");
-    let result = std::process::Command::new(env!("CARGO_BIN_EXE_muse"))
+    let result = std::process::Command::new(env!("CARGO_BIN_EXE_malleable"))
         .args(["import-osm", "tests/fixtures/import.osm", "--out"])
         .arg(&out)
         .output()
@@ -59,7 +59,7 @@ fn importer_cli_writes_exact_format_and_rejects_bad_usage() {
         )
         .as_bytes()
     );
-    assert!(!std::process::Command::new(env!("CARGO_BIN_EXE_muse"))
+    assert!(!std::process::Command::new(env!("CARGO_BIN_EXE_malleable"))
         .arg("import-osm")
         .output()
         .unwrap()
@@ -148,7 +148,7 @@ fn sub_car_length_spans_are_removed_before_retaining_drivable_routes() {
         <way id="11"><nd ref="9"/><nd ref="5"/><tag k="highway" v="service"/></way></osm>"#,
         );
     let map = osm::import(&xml).unwrap();
-    let need = muse::world::CAR_LENGTH_M + muse::world::MIN_GAP_M + 0.5 + 0.01;
+    let need = malleable::world::CAR_LENGTH_M + malleable::world::MIN_GAP_M + 0.5 + 0.01;
     assert!(map.edges.iter().all(|e| e.length_m > need));
     let net = map.network().unwrap();
     assert!(net

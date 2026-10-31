@@ -60,7 +60,7 @@ cargo build
 cargo fmt --check
 # Start with a fresh /tmp/phase1-live.jsonl; keep previous attempts separately.
 for run in 1 2 3 4 5; do
-  ./target/debug/muse --demo --headless --require-live \
+  ./target/debug/malleable --demo --headless --require-live \
     --gate-log /tmp/phase1-live.jsonl || exit 1
 done
 ```

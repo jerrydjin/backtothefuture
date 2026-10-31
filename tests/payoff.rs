@@ -1,8 +1,8 @@
-use muse::board::render_board_html;
-use muse::network::BroadcastConfig;
-use muse::reason::ReasonText;
-use muse::rush_board;
-use muse::rush_hour::{self, PolicyRequest};
+use malleable::board::render_board_html;
+use malleable::network::BroadcastConfig;
+use malleable::reason::ReasonText;
+use malleable::rush_board;
+use malleable::rush_hour::{self, PolicyRequest};
 use serde_json::Value;
 
 #[test]
@@ -49,8 +49,8 @@ fn boxed_grant_is_at_least_twenty_seconds_sooner_and_shown_on_the_board() {
     assert_eq!(denied.requester, "Fair, I'll wait my turn");
 }
 
-fn muse(args: &[&str]) -> std::process::Output {
-    std::process::Command::new(env!("CARGO_BIN_EXE_muse"))
+fn run_bin(args: &[&str]) -> std::process::Output {
+    std::process::Command::new(env!("CARGO_BIN_EXE_malleable"))
         .args(args)
         .env_remove("BASETEN_API_KEY")
         .env_remove("MODEL_API_KEY")
@@ -62,7 +62,7 @@ fn muse(args: &[&str]) -> std::process::Output {
 
 #[test]
 fn reason_cli_uses_the_boxed_corridor_and_a_scripted_grant() {
-    let output = muse(&[
+    let output = run_bin(&[
         "--reason",
         "my passenger is having a seizure",
         "--headless",
@@ -91,7 +91,7 @@ fn reason_cli_uses_the_boxed_corridor_and_a_scripted_grant() {
 
 #[test]
 fn demo_reason_require_live_does_not_print_a_mock_rush_hour_table() {
-    let output = muse(&[
+    let output = run_bin(&[
         "--demo",
         "--reason",
         "my passenger is having a seizure",

@@ -16,7 +16,7 @@ impl std::fmt::Display for Bias {
     }
 }
 
-/// Preferences Muse is allowed to see. `structured` is optional and wins when it is set.
+/// Preferences the model is allowed to see. `structured` is optional and wins when it is set.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Prefs {
     pub english: String,
@@ -81,7 +81,7 @@ fn favors(text: &str, lane: &str) -> bool {
     patterns.iter().any(|pattern| text.contains(pattern))
 }
 
-/// Read the prefs block that was embedded in a Muse prompt.
+/// Read the prefs block that was embedded in the model prompt.
 pub fn bias_from_prefs_block(block: &str) -> Bias {
     let mut english = String::new();
     let mut structured = None;
