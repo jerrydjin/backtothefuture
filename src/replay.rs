@@ -180,11 +180,29 @@ impl ReplayArchive {
             }
         }
         if let Some(rush) = &self.board.rush {
-            let ids: BTreeSet<_> = town
+            if let Some(log) = &rush.message_log {
+                log.replay()?;
+                if serde_json::to_vec(&log.events).map_err(|e| e.to_string())?
+                    != serde_json::to_vec(&rush.messages).map_err(|e| e.to_string())?
+                {
+                    return Err("replay message log differs from board deliveries".into());
+                }
+            }
+            let mut ids: BTreeSet<_> = town
                 .frames
                 .iter()
                 .flat_map(|f| f.cars.iter().map(|c| c.0))
                 .collect();
+            if !rush.scheduled_cars.is_empty() {
+                let scheduled: BTreeSet<_> = rush.scheduled_cars.iter().copied().collect();
+                if scheduled.len() != rush.scheduled_cars.len()
+                    || scheduled.len() != rush.score.trips
+                    || !ids.is_subset(&scheduled)
+                {
+                    return Err("replay has invalid scheduled rush-hour cars".into());
+                }
+                ids.extend(scheduled);
+            }
             let mut decisions = BTreeSet::new();
             for d in &rush.decisions {
                 if !ids.contains(&d.car)

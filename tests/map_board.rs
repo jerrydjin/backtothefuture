@@ -19,6 +19,7 @@ fn loaded_map_demo_reason_and_saved_replay_preserve_projected_motion() {
     let path = dir.join("map.json");
     map.write(&path).unwrap();
     let replay = dir.join("replay.json");
+    let messages = dir.join("messages.json");
     run(&[
         "--demo",
         "--map",
@@ -30,9 +31,58 @@ fn loaded_map_demo_reason_and_saved_replay_preserve_projected_motion() {
         "1",
         "--save-replay",
         replay.to_str().unwrap(),
+        "--save-messages",
+        messages.to_str().unwrap(),
     ]);
     let archive = ReplayArchive::read(&replay).unwrap();
     let net = map.network().unwrap();
+    assert_eq!(archive.board.town.attribution, map.attribution);
+    let log: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&messages).unwrap()).unwrap();
+    assert_eq!(
+        serde_json::to_value(
+            archive
+                .board
+                .rush
+                .as_ref()
+                .unwrap()
+                .message_log
+                .as_ref()
+                .unwrap()
+        )
+        .unwrap(),
+        log
+    );
+    let mut pending = archive.clone();
+    let rush = pending.board.rush.as_mut().unwrap();
+    let mut queued_decision = rush.decisions[0].clone();
+    queued_decision.car = u32::MAX;
+    rush.decisions.push(queued_decision);
+    rush.scheduled_cars.push(u32::MAX);
+    rush.score.trips += 1;
+    rush.score.passed = false;
+    // A real request can be waiting off-map; a diagnostic replay must retain it.
+    pending.validate().unwrap();
+    pending.board.rush.as_mut().unwrap().scheduled_cars.pop();
+    assert!(pending
+        .validate()
+        .unwrap_err()
+        .contains("scheduled rush-hour cars"));
+    let mut corrupt = archive.clone();
+    corrupt
+        .board
+        .rush
+        .as_mut()
+        .unwrap()
+        .message_log
+        .as_mut()
+        .unwrap()
+        .events
+        .clear();
+    assert!(corrupt
+        .validate()
+        .unwrap_err()
+        .contains("differs from board deliveries"));
     let assert_map = |archive: &ReplayArchive| {
         assert_eq!(
             serde_json::to_vec(&archive.board.town.links[..net.links.len()]).unwrap(),
@@ -48,7 +98,13 @@ fn loaded_map_demo_reason_and_saved_replay_preserve_projected_motion() {
         .iter()
         .any(|f| f.make_way.iter().any(|s| s.2 == "pull_over")));
     let again = dir.join("again.json");
-    archive.write(&again).unwrap();
+    run(&[
+        "--replay",
+        replay.to_str().unwrap(),
+        "--headless",
+        "--save-replay",
+        again.to_str().unwrap(),
+    ]);
     assert_eq!(
         std::fs::read(&replay).unwrap(),
         std::fs::read(&again).unwrap()

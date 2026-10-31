@@ -1,5 +1,7 @@
 # Phase 14: map board; SF evidence blocked
 
+> Current SF results are in [Phase 13b](phase-13b-real-sf.md), which supplies the real extract, importer fixes, scores, replay and attributed screenshot. The blocked gates below record the original PR state.
+
 Loaded maps use the same single white SVG board. Road polylines come from the
 map loader's projected lat/lon geometry; the rush view now fits those roads
 without including the unrelated dinner geometry in its bounds. Roads remain

@@ -816,6 +816,10 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
 
   var links = town.links.map(function (link) {
     var r = roadOf(link.pts);
+    // Recorded stations use the host lengths (including declared map length).
+    var lengthScale = link.len / r.len;
+    r.cum = r.cum.map(function(d){return d * lengthScale;});
+    r.len = link.len;
     r.cls = link.class;
     r.level = link.level;
     return r;
@@ -1090,6 +1094,13 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
         (!town.story || town.story.priority_until_s == null || t < town.story.priority_until_s);
       var makeWay = (a.make_way || []).find(function(s) { return s[0] === car[0]; });
       var state = makeWay ? makeWay[2] : "driving";
+      if (isRush && makeWay && data.rush.message_log) {
+        var action = state === "pull_over" ? "lane_change" : state;
+        var delivered = data.rush.message_log.events.some(function(h) {
+          return h.recipient_car === car[0] && h.beneficiary === makeWay[1] && h.action === action && h.at_s <= t;
+        });
+        if (!delivered) state = "driving";
+      }
       var granted = isRush && data.rush.decisions.some(function(d) {
         return d.car === car[0] && d.granted && d.at_s <= t;
       });
@@ -1222,32 +1233,54 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
     var typed = rush.typed;
     var caught=(rush.caught_at||[]).filter(function(pair){return pair[1]<=t;}).length;
     var gain=rush.score.emergency_gain_vs_local;
-    var subtitle = Math.abs(gain).toFixed(1)+(gain>=0?"s saved vs local · ":"s later vs local · ")+caught+" liars caught · collisions "+rush.score.collisions;
+    var subtitle = Math.abs(gain).toFixed(1)+(gain>=0?"s saved vs local · ":"s later vs local · ")+caught+" liars caught · collisions "+rush.score.collisions+" · completed "+rush.score.completed+"/"+rush.score.trips+(rush.score.passed?"":" · gate failed");
     ctx.appendChild(svgNode("text",{x:14,y:24,fill:"#666","font-family":"system-ui, sans-serif","font-size":12,"data-role":"rush-score"},subtitle));
     if(typed&&typed.show_payoff){
       var payoff="cleared "+Math.round(typed.clear_ahead_m)+"m ahead · home "+Math.round(typed.sooner_s)+"s sooner · others +"+Number(typed.others_s).toFixed(1)+"s";
       ctx.appendChild(svgNode("text",{x:14,y:42,fill:"#3d4a3a","font-family":"system-ui, sans-serif","font-size":13,"data-role":"make-way-payoff"},payoff));
     }
     rush.decisions.filter(function(d){return d.granted && d.at_s<=t && cars[d.car];}).forEach(function(d){
-      var car=cars[d.car],at=rushPoint(view,car[1],car[2]-2.2);
+      var car=cars[d.car];
+      var nextFrame=town.frames[Math.min(town.frames.length-1,Math.floor(t)+1)];
+      var later=nextFrame.cars.find(function(c){return c[0]===car[0];});
+      var carM=later ? car[2]+(later[2]-car[2])*(t-Math.floor(t)) : car[2]+car[3]*(t-Math.floor(t));
+      var at=rushPoint(view,car[1],carM-2.2);
       ctx.appendChild(svgNode("circle",{cx:at.x,cy:at.y,r:5,fill:"none",stroke:"#6a93ae","stroke-width":1,"data-role":"rush-granted","data-car":d.car}));
-      var hops=rush.messages.filter(function(h){return h.beneficiary===d.car&&h.action==="relay";}).sort(function(a,b){return a.at_s-b.at_s;});
+      // Use the exact --save-messages evidence, including action deliveries:
+      // direct car deliveries can precede a scheduled junction relay.
+      var log = rush.message_log;
+      var request = log && log.requests.find(function(r){return r.issuer===d.car && r.issued_at<=t && t<r.expires_at;});
+      if(log && !request)return;
+      var hops=(log ? log.events : rush.messages).filter(function(h){
+        return h.beneficiary===d.car && (!request || (h.at_s>=request.issued_at && h.at_s<request.expires_at));
+      }).sort(function(a,b){return a.at_s-b.at_s || a.route_m-b.route_m;});
       if(!hops.length)return;
-      var originM=hops[0].route_m-hops[0].ahead_m,previousM=originM,previousT=d.at_s,head=originM;
-      hops.forEach(function(h){
-        if(t>=h.at_s)head=h.route_m;
-        else if(t>=previousT)head=previousM+(h.route_m-previousM)*Math.max(0,Math.min(1,(t-previousT)/(h.at_s-previousT)));
-        previousM=h.route_m;previousT=h.at_s;
-      });
-      if(head>car[2])ctx.appendChild(svgNode("path",{d:rushPath(view,hops[0].route,Math.max(originM,car[2]),head),fill:"none",stroke:"#7b9db5","stroke-width":1,opacity:.38,"data-role":"rush-pulse","data-beneficiary":d.car}));
-      if(t<=hops[hops.length-1].at_s+1){var dot=rushPoint(view,hops[0].route,head);ctx.appendChild(svgNode("circle",{cx:dot.x,cy:dot.y,r:2,fill:"#6a93ae","data-role":"rush-pulse-head"}));}
+      var originHop=hops.find(function(h){return h.action==="relay";}) || hops[0];
+      var originM=originHop.route_m-originHop.ahead_m;
+      var previousM=originM,previousT=request ? request.issued_at : d.at_s,head=originM;
+      // A monotone envelope of recorded deliveries. Never invent propagation
+      // speed or use the current car position as the message's starting point.
+      for(var i=0;i<hops.length;i++){
+        var h=hops[i];
+        if(h.route_m<=previousM)continue;
+        if(t<h.at_s){
+          head=previousM+(h.route_m-previousM)*Math.max(0,Math.min(1,(t-previousT)/(h.at_s-previousT)));
+          break;
+        }
+        head=h.route_m;previousM=head;previousT=h.at_s;
+      }
+      if(head>carM){
+        ctx.appendChild(svgNode("path",{d:rushPath(view,hops[0].route,Math.max(originM,carM),head),fill:"none",stroke:"#6a93ae","stroke-width":1,opacity:.8,"data-role":"rush-pulse","data-beneficiary":d.car,"data-head-m":head,"data-car-m":carM,"data-evidence":"save-messages"}));
+        var dot=rushPoint(view,hops[0].route,head);
+        ctx.appendChild(svgNode("line",{x1:dot.x-3,y1:dot.y-3,x2:dot.x+3,y2:dot.y+3,stroke:"#6a93ae","stroke-width":1,"data-role":"rush-pulse-head","data-beneficiary":d.car}));
+      }
     });
     var farthestCue=null;
     (frame.make_way||[]).forEach(function(state){
       var c=cars[state[0]],urgent=cars[state[1]];
       if(!c||!urgent||(state[2]==="hold"&&c[3]>.5))return;
       var h=rush.messages.find(function(h){return h.recipient_car===c[0]&&h.beneficiary===urgent[0]&&h.action===state[2]&&h.at_s<=t&&h.route_m>urgent[2];});
-      if(!h||h.route_m-urgent[2]<100)return;
+      if(!h)return;
       var at=rushPoint(view,c[1],c[2]-2.2);
       ctx.appendChild(svgNode("circle",{cx:at.x,cy:at.y,r:6,fill:"none",stroke:"#b49c6d","stroke-width":1,"data-role":"rush-make-way","data-action":state[2],"data-car":c[0],"data-beneficiary":h.beneficiary,"data-ahead-m":(h.route_m-urgent[2]).toFixed(1)}));
       var ahead=h.route_m-urgent[2];
@@ -1290,6 +1323,11 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
       drawPriorityHome(ctx, view, townTime(now));
       drawStory(ctx, view, townTime(now));
       drawReason(ctx, view, townTime(now));
+    }
+    if(town.attribution){
+      var credit=svgNode("a",{href:"https://www.openstreetmap.org/copyright",target:"_blank"});
+      credit.appendChild(svgNode("text",{x:fitted.w-12,y:fitted.h-12,"text-anchor":"end",fill:"#555",stroke:"white","stroke-width":3,"paint-order":"stroke","font-family":"system-ui, sans-serif","font-size":11,"data-role":"map-attribution"},town.attribution));
+      ctx.appendChild(credit);
     }
     canvas.replaceChildren(ctx);
   }

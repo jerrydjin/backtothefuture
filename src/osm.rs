@@ -72,9 +72,91 @@ fn lanes(tag: Option<&String>, default: u32) -> u8 {
 fn distance(a: &GeoPoint, b: &GeoPoint, lat: f64) -> f64 {
     ((a.lon - b.lon) * 111_320.0 * lat.to_radians().cos()).hypot((a.lat - b.lat) * 111_320.0)
 }
+/// Area centroid in the local equirectangular plane. Removing the duplicate
+/// closing vertex also keeps the fallback mean independent of ring closure.
+fn hospital_centroid(w: &Way, points: &BTreeMap<i64, GeoPoint>) -> Result<GeoPoint, String> {
+    let mut refs = w.refs.as_slice();
+    let closed = refs.len() > 2 && refs.first() == refs.last();
+    if closed {
+        refs = &refs[..refs.len() - 1];
+    }
+    let p: Vec<_> = refs
+        .iter()
+        .map(|id| points.get(id).ok_or("OSM hospital references missing node"))
+        .collect::<Result<_, _>>()?;
+    if p.is_empty() {
+        return Err("OSM hospital has no geometry".into());
+    }
+    let origin = p[0];
+    let mut area = 0.0;
+    let (mut x, mut y) = (0.0, 0.0);
+    if closed {
+        for (a, b) in p.iter().zip(p.iter().cycle().skip(1)).take(p.len()) {
+            let (ax, ay) = (a.lon - origin.lon, a.lat - origin.lat);
+            let (bx, by) = (b.lon - origin.lon, b.lat - origin.lat);
+            let cross = ax * by - bx * ay;
+            area += cross;
+            x += (ax + bx) * cross;
+            y += (ay + by) * cross;
+        }
+    }
+    Ok(if area.abs() > 1e-16 {
+        GeoPoint {
+            lat: origin.lat + y / (3.0 * area),
+            lon: origin.lon + x / (3.0 * area),
+            local_m: None,
+        }
+    } else {
+        GeoPoint {
+            lat: p.iter().map(|p| p.lat).sum::<f64>() / p.len() as f64,
+            lon: p.iter().map(|p| p.lon).sum::<f64>() / p.len() as f64,
+            local_m: None,
+        }
+    })
+}
+
+/// Bound shape spacing before the host's Catmull-Rom interpolation. Sparse
+/// spans beside short end spans otherwise overshoot a junction and can make
+/// its incoming/outgoing connector collapse after centimetre rounding.
+/// Keep every OSM vertex; insert linear points at most two metres apart.
+fn road_shape(refs: &[i64], points: &BTreeMap<i64, GeoPoint>, lat: f64) -> Vec<GeoPoint> {
+    let mut shape = Vec::new();
+    for pair in refs.windows(2) {
+        let (a, b) = (&points[&pair[0]], &points[&pair[1]]);
+        let steps = (distance(a, b, lat) / 2.0).ceil().max(1.0) as usize;
+        for i in 1..=steps {
+            let u = i as f64 / steps as f64;
+            shape.push(GeoPoint {
+                lat: a.lat + (b.lat - a.lat) * u,
+                lon: a.lon + (b.lon - a.lon) * u,
+                local_m: None,
+            });
+        }
+    }
+    shape.pop(); // the final point is already the edge's endpoint
+    shape
+}
+
 /// Accepts OSM XML only (not PBF). Stable ordered ids and tie-breaking make the
 /// same input produce byte-identical JSON. Only the largest directed SCC stays.
 pub fn import(xml: &str) -> Result<RoadMap, String> {
+    let mut excluded = BTreeSet::new();
+    loop {
+        let (map, unusable) = import_retained(xml, &excluded)?;
+        if unusable.is_empty() {
+            return Ok(map);
+        }
+        // Filtering can change the largest component and its junction trims.
+        // Rebuild until every retained road can release a car's old claim
+        // before it stops for the next junction. No scored seed enters this.
+        excluded.extend(unusable);
+    }
+}
+
+fn import_retained(
+    xml: &str,
+    excluded: &BTreeSet<Vec<i64>>,
+) -> Result<(RoadMap, Vec<Vec<i64>>), String> {
     if xml.len() > 64 * 1024 * 1024 {
         return Err("OSM extract exceeds 64 MiB".into());
     }
@@ -158,14 +240,7 @@ pub fn import(xml: &str) -> Result<RoadMap, String> {
         .values()
         .filter(|w| w.tags.get("amenity").map(String::as_str) == Some("hospital"))
     {
-        let p: Vec<_> = w.refs.iter().filter_map(|id| points.get(id)).collect();
-        if !p.is_empty() {
-            hospitals.push(GeoPoint {
-                lat: p.iter().map(|p| p.lat).sum::<f64>() / p.len() as f64,
-                lon: p.iter().map(|p| p.lon).sum::<f64>() / p.len() as f64,
-                local_m: None,
-            });
-        }
+        hospitals.push(hospital_centroid(w, &points)?);
     }
     let roads: Vec<_> = ways
         .values()
@@ -279,6 +354,7 @@ pub fn import(xml: &str) -> Result<RoadMap, String> {
             start = end;
         }
     }
+    segments.retain(|s| !excluded.contains(&s.0));
     let ids: BTreeSet<_> = segments
         .iter()
         .flat_map(|s| [s.0[0], *s.0.last().unwrap()])
@@ -408,6 +484,7 @@ pub fn import(xml: &str) -> Result<RoadMap, String> {
         nodes[i].demand_per_s = 0.05;
     }
     let mut edges = Vec::new();
+    let mut edge_keys = Vec::new();
     for (refs, lanes, speed, length, one_way, class) in segments {
         let a = refs[0];
         let b = *refs.last().unwrap();
@@ -416,8 +493,11 @@ pub fn import(xml: &str) -> Result<RoadMap, String> {
         }
         let from = index[&a];
         let to = index[&b];
-        nodes[from].trim_m = nodes[from].trim_m.min(length * 0.1);
-        nodes[to].trim_m = nodes[to].trim_m.min(length * 0.1);
+        // Reserve at most a quarter of each incident span at either end.
+        // Ten percent can place offset turning lanes on the same rounded point.
+        nodes[from].trim_m = nodes[from].trim_m.min(length * 0.25);
+        nodes[to].trim_m = nodes[to].trim_m.min(length * 0.25);
+        edge_keys.push(refs.clone());
         edges.push(MapEdge {
             id: edges.len(),
             from,
@@ -427,14 +507,15 @@ pub fn import(xml: &str) -> Result<RoadMap, String> {
             length_m: length,
             one_way,
             class,
-            shape: refs[1..refs.len() - 1]
-                .iter()
-                .map(|i| points[i].clone())
-                .collect(),
+            shape: road_shape(&refs, &points, origin[0]),
         });
     }
     let map = RoadMap {
         version: 1,
+        attribution: Some(
+            "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright"
+                .into(),
+        ),
         hospital_node: if hospitals.is_empty() {
             None
         } else {
@@ -446,8 +527,58 @@ pub fn import(xml: &str) -> Result<RoadMap, String> {
         edges,
     };
     map.validate()?;
-    if map.network()?.routes().is_empty() {
-        return Err("imported map has no routes".into());
+    let net = map.network()?;
+    // The car stops MIN_GAP_M behind the host's line obstacle, 0.5 m
+    // before the next connector. Its rear must have cleared the previous
+    // connector by then. Allow a centimetre for rounded host geometry.
+    let minimum_road = crate::world::CAR_LENGTH_M + crate::world::MIN_GAP_M + 0.5 + 0.01;
+    let unusable: BTreeSet<_> = net
+        .links
+        .iter()
+        .filter(|l| !l.is_connector() && l.len <= minimum_road)
+        .map(|l| edge_keys[l.edge].clone())
+        .collect();
+    Ok((map, unusable.into_iter().collect()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn area_centroid_ignores_vertex_density_and_ring_direction() {
+        let points = [
+            (1, 37.7539, -122.4081),
+            (2, 37.7539, -122.4079),
+            (3, 37.75395, -122.4079),
+            (4, 37.7540, -122.4079),
+            (5, 37.75405, -122.4079),
+            (6, 37.7541, -122.4079),
+            (7, 37.7541, -122.4081),
+        ]
+        .into_iter()
+        .map(|(id, lat, lon)| {
+            (
+                id,
+                GeoPoint {
+                    lat,
+                    lon,
+                    local_m: None,
+                },
+            )
+        })
+        .collect();
+        for refs in [vec![1, 2, 3, 4, 5, 6, 7, 1], vec![7, 6, 5, 4, 3, 2, 1, 7]] {
+            let p = hospital_centroid(
+                &Way {
+                    refs,
+                    tags: BTreeMap::new(),
+                },
+                &points,
+            )
+            .unwrap();
+            assert!((p.lat - 37.754).abs() < 1e-12);
+            assert!((p.lon + 122.408).abs() < 1e-12);
+        }
     }
-    Ok(map)
 }

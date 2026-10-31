@@ -1,0 +1,114 @@
+{
+  "map": {
+    "source": "https://api.openstreetmap.org/api/0.6/map?bbox=-122.416,37.750,-122.400,37.764",
+    "fetched_utc": "2026-10-31",
+    "raw_file": "maps/sf-zsfg.osm",
+    "bytes": 12811618,
+    "sha256": "285c955b7ed48b6be2dab528ee59e7d6422ba96328543300bb6032b9426d306a",
+    "bbox_west_south_east_north": [
+      -122.416,
+      37.75,
+      -122.4,
+      37.764
+    ],
+    "attribution": "© OpenStreetMap contributors. Data available under the Open Database License (ODbL 1.0).",
+    "copyright_url": "https://www.openstreetmap.org/copyright",
+    "license_url": "https://opendatacommons.org/licenses/odbl/1-0/",
+    "nodes": 238,
+    "edges": 297,
+    "hospital_node": 4,
+    "hospital_osm_way": 24446045,
+    "hospital_matched_osm_node": 65308735,
+    "minimum_retained_host_road_m": 7.01
+  },
+  "main_commit": "255baa9f566f8156bc689016a978a79759ee23d6",
+  "town_comparisons": [
+    {
+      "scenario": "boxed",
+      "seeds": [
+        1,
+        20
+      ],
+      "byte_identical": true,
+      "main_sha256": "47ea42e9d43d3b8eedfb07b2b2ddab02e842d3756b19f91a3fa0660d7bc1db3a",
+      "town_sha256": "47ea42e9d43d3b8eedfb07b2b2ddab02e842d3756b19f91a3fa0660d7bc1db3a"
+    },
+    {
+      "scenario": "typical",
+      "seeds": [
+        1,
+        20
+      ],
+      "byte_identical": true,
+      "main_sha256": "9cec7a3b104fe36fb1d944bf66eba2c3112605e3078cdf8cd426df3ee3b8cf89",
+      "town_sha256": "9cec7a3b104fe36fb1d944bf66eba2c3112605e3078cdf8cd426df3ee3b8cf89"
+    }
+  ],
+  "sf": [
+    {
+      "scenario": "boxed",
+      "runs": 10,
+      "all_completed": true,
+      "collisions": 0,
+      "median_seed_gain_vs_local_s": 0.0,
+      "others_p95_above_30s_seeds": []
+    },
+    {
+      "scenario": "typical",
+      "runs": 10,
+      "all_completed": true,
+      "collisions": 0,
+      "median_seed_gain_vs_local_s": 0.0,
+      "others_p95_above_30s_seeds": [
+        1,
+        2,
+        5,
+        6
+      ]
+    }
+  ],
+  "replay": {
+    "path": "docs/gates/phase-13b/sf-boxed-1.replay.json",
+    "archive_roundtrip_byte_identical": true,
+    "export_roundtrip_byte_identical": true,
+    "cli_matches_reporter_archive_and_messages": true,
+    "model_calls": 0
+  },
+  "tests": {
+    "command": "cargo test --release --offline",
+    "passed": 165,
+    "failed": 0,
+    "ignored": 3,
+    "live_calls": 0
+  },
+  "browser": {
+    "time": 124,
+    "attribution": "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright",
+    "emergency": 2,
+    "reacting": [
+      {
+        "car": 1047,
+        "state": "clear"
+      }
+    ],
+    "fronts": [
+      {
+        "beneficiary": 1012,
+        "head": 1497.749352699142,
+        "car": 12.9,
+        "width": 1,
+        "evidence": "save-messages"
+      },
+      {
+        "beneficiary": 1019,
+        "head": 1497.749352699142,
+        "car": 4.8,
+        "width": 1,
+        "evidence": "save-messages"
+      }
+    ],
+    "maxRoadWidth": 2.3956825063878138,
+    "svgs": 1
+  },
+  "checked_reaction_states": 61
+}

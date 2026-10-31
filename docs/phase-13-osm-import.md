@@ -1,5 +1,7 @@
 # Phase 13: deterministic OSM importer; real-map evidence blocked
 
+> Current SF results are in [Phase 13b](phase-13b-real-sf.md), which supplies the real extract, importer fixes, scores, replay and attributed screenshot. The blocked gates below record the original PR state.
+
 Implemented local `muse import-osm FILE.osm --out maps/X.json`, including tag
 and access filtering, direction/lane/speed defaults, shared-node intersections,
 shape retention and largest directed SCC. See maps/OSM.md for the full contract,
