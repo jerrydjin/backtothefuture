@@ -1,6 +1,17 @@
 use muse::rush_hour;
 fn main() {
-    for seed in 1..=5 {
+    let args: Vec<_> = std::env::args().collect();
+    let start = args
+        .iter()
+        .find_map(|a| a.strip_prefix("seed="))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(1);
+    let end = args
+        .iter()
+        .find_map(|a| a.strip_prefix("end="))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(5);
+    for seed in start..=end {
         let (origin, pulse, delays, collisions, completed) =
             rush_hour::emergency_on_map_delays(seed).unwrap();
         println!(

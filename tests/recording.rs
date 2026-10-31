@@ -17,12 +17,24 @@ fn typed_reason_can_be_saved_and_exported_without_new_decisions() {
         .env_remove("BASETEN_API_KEY")
         .output()
         .unwrap();
-    assert!(run.status.success());
+    assert!(
+        run.status.success(),
+        "{}",
+        String::from_utf8_lossy(&run.stderr)
+    );
     let archive = ReplayArchive::read(&replay).unwrap();
     let reason = archive.board.reason.as_ref().unwrap();
+    let typed = archive
+        .board
+        .rush
+        .as_ref()
+        .and_then(|rush| rush.typed.as_ref())
+        .expect("boxed typed rider");
     assert!(reason.decision.granted);
-    assert_eq!(reason.decision.source, "fallback");
-    assert_eq!(reason.time_home_s, 126.5);
+    assert_eq!(reason.decision.source, "scripted");
+    assert!(typed.show_payoff);
+    assert!(typed.sooner_s >= 20.0, "grant saved {:.2}s", typed.sooner_s);
+    assert_eq!(reason.time_home_s, typed.home_at_s);
     assert_eq!(archive.reply_seconds, vec![Some(reason.decision.reply_s)]);
     let before = std::fs::read(&replay).unwrap();
     let run = std::process::Command::new(env!("CARGO_BIN_EXE_muse"))

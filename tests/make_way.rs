@@ -1,6 +1,7 @@
 use muse::make_way::{
-    car_connected, choose, rejoin, time_relays, CarLocal, DrivingAction, MakeWayMessage,
-    Propagation, Rejoin, RelayHop, RoadGraph, PULLOVER_MAX_S, PULLOVER_MIN_S,
+    car_connected, choose, in_yield_window, rejoin, time_relays, CarLocal, DrivingAction,
+    MakeWayMessage, Propagation, Rejoin, RelayHop, RoadGraph, LOCAL_YIELD_M, PULLOVER_MAX_S,
+    PULLOVER_MIN_S,
 };
 use muse::world::CAR_LENGTH_M;
 
@@ -87,7 +88,7 @@ fn step(cars: &mut [CarLocal], emergency: u32, dt: f64) {
 fn the_same_layer_clears_a_different_graph_without_a_collision() {
     let graph = Grid {
         length: vec![300.0, 300.0],
-        speed: vec![11.0, 11.0],
+        speed: vec![15.0, 15.0],
         parallel: vec![Some(1), Some(0)],
         next: vec![vec![], vec![]],
         connector: vec![false, false],
@@ -171,6 +172,66 @@ fn relays_pay_the_hop_delay_and_full_share_connects_everyone() {
     assert!(car_connected(7, 3, 1.0));
     assert!(!car_connected(7, 3, 0.0));
     assert_eq!(car_connected(7, 3, 0.3), car_connected(7, 3, 0.3));
+}
+
+#[test]
+fn lookahead_reaches_the_queue_on_a_long_motorway_link() {
+    // 200 m ahead at 15 m/s is 13.3 s, inside the 240 s lookahead, and far
+    // past the old three-car metre cap that local-only already covers.
+    assert!(in_yield_window(200.0, 15.0, 240.0));
+    assert!(!in_yield_window(200.0, 15.0, 10.0));
+    assert!(!in_yield_window(0.0, 15.0, 240.0));
+    assert!(LOCAL_YIELD_M < 20.0);
+    assert!(200.0 > LOCAL_YIELD_M);
+
+    let graph = Grid {
+        length: vec![400.0, 400.0],
+        speed: vec![15.0, 15.0],
+        parallel: vec![Some(1), Some(0)],
+        next: vec![vec![], vec![]],
+        connector: vec![false, false],
+    };
+    let emergency = car(1, 0, 8.0, 0.0);
+    let queued = car(10, 0, 120.0, 8.0);
+    let flowing = car(11, 0, 220.0, 15.0);
+    let message = MakeWayMessage {
+        emergency: 1,
+        route: vec![0],
+        urgency: 1.0,
+        expiry_s: 600.0,
+        issued_at_s: 0.0,
+    };
+    let prop = Propagation {
+        hop_delay_s: 0.1,
+        lookahead_s: 240.0,
+        message_speed_mps: 150.0,
+    };
+    let actions = choose(2.0, &message, &emergency, &[queued, flowing], &graph, &prop);
+    assert!(
+        actions.iter().any(|(id, action)| {
+            *id == 10 && matches!(action, DrivingAction::LaneChange { to_link: 1 })
+        }),
+        "{actions:?}"
+    );
+    assert!(
+        actions
+            .iter()
+            .any(|(id, action)| *id == 11 && matches!(action, DrivingAction::Ignore)),
+        "{actions:?}"
+    );
+    assert!(muse::make_way::lane_change_window(
+        112.0, 15.0, 240.0, true, 8.0, 280.0
+    ));
+    assert!(!muse::make_way::lane_change_window(
+        200.0, 15.0, 240.0, true, 15.0, 180.0
+    ));
+    assert!(!muse::make_way::lane_change_window(
+        112.0, 15.0, 240.0, false, 8.0, 280.0
+    )); // no parallel lane
+        // Free-flow-ish car near the exit is not caught on this link.
+    assert!(!muse::make_way::lane_change_window(
+        80.0, 11.0, 240.0, true, 10.0, 20.0
+    ));
 }
 
 #[test]

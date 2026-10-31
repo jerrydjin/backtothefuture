@@ -105,6 +105,44 @@ pub struct Session {
     boxed: bool,
 }
 impl Session {
+    /// Boxed corridor, mock background grants, and a policy used only for the
+    /// typed rider. Skips a full background simulation so `--reason` can
+    /// compare grant against deny without first replaying 240 mock trips.
+    pub fn boxed(
+        seed: u64,
+        policy_name: String,
+        config: Option<BroadcastConfig>,
+        save: Option<PathBuf>,
+    ) -> Result<Self, String> {
+        let trips = rush_hour::boxed_population(seed);
+        let background = rush_hour::policy("mock")?;
+        let decisions = trips
+            .iter()
+            .map(|trip| {
+                (
+                    trip.car,
+                    background.decide(&PolicyRequest {
+                        car: trip.car,
+                        rider: trip.rider,
+                        reason: trip.reason.clone(),
+                        at_s: trip.request_s,
+                        history: Vec::new(),
+                    }),
+                )
+            })
+            .collect();
+        Ok(Self {
+            seed,
+            policy_name,
+            config,
+            decisions,
+            past: Vec::new(),
+            session_s: 0.0,
+            save,
+            boxed: true,
+        })
+    }
+
     pub fn new(
         seed: u64,
         policy_name: String,
@@ -129,18 +167,16 @@ impl Session {
             boxed,
         }
     }
-    pub fn evaluate(&mut self, reason: &ReasonText) -> Result<DinnerBoard, String> {
-        let mut trips = if self.boxed {
+    fn trips(&self) -> Vec<rush_hour::Trip> {
+        if self.boxed {
             rush_hour::boxed_population(self.seed)
         } else {
             rush_hour::population(self.seed)
-        };
-        // A unique rider. On the ordinary board this is an actual gym route:
-        // unknown on their first claim. The planned destination is NOT passed
-        // to the policy. Only a completed trip can become evidence later.
-        // The boxed payoff keeps that rider on the emergency corridor so a
-        // grant can move the queue. It does not relabel them as a gym liar.
-        let index = if self.boxed {
+        }
+    }
+
+    fn typed_index(trips: &[rush_hour::Trip], boxed: bool) -> Result<usize, String> {
+        if boxed {
             let origin = trips
                 .iter()
                 .find(|t| t.truth == Truth::Emergency)
@@ -156,13 +192,42 @@ impl Session {
                         .then(a.1.car.cmp(&b.1.car))
                 })
                 .map(|(i, _)| i)
-                .ok_or("no boxed-in rider")?
+                .ok_or("no boxed-in rider".into())
         } else {
             trips
                 .iter()
                 .position(|t| t.truth == Truth::Ordinary && t.destination == "gym")
-                .ok_or("no gym rider")?
+                .ok_or("no gym rider".into())
+        }
+    }
+
+    /// One policy call for the typed rider. Does not tick the town, so a
+    /// `--require-live` miss can fail closed without a boxed replay.
+    pub fn assess(&self, reason: &ReasonText) -> Result<Decision, String> {
+        let trips = self.trips();
+        let index = Self::typed_index(&trips, self.boxed)?;
+        let trip = &trips[index];
+        let request = PolicyRequest {
+            car: trip.car,
+            rider: 1_000_000 + trip.car,
+            reason: reason.as_str().to_string(),
+            at_s: self.session_s + trip.request_s,
+            history: self.past.clone(),
         };
+        let policy = rush_hour::policy(&self.policy_name)?;
+        let mut decision = policy.decide(&request);
+        decision.at_s = trip.request_s;
+        Ok(decision)
+    }
+
+    pub fn evaluate(&mut self, reason: &ReasonText) -> Result<DinnerBoard, String> {
+        let mut trips = self.trips();
+        // A unique rider. On the ordinary board this is an actual gym route:
+        // unknown on their first claim. The planned destination is NOT passed
+        // to the policy. Only a completed trip can become evidence later.
+        // The boxed payoff keeps that rider on the emergency corridor so a
+        // grant can move the queue. It does not relabel them as a gym liar.
+        let index = Self::typed_index(&trips, self.boxed)?;
         let trip = &mut trips[index];
         trip.rider = 1_000_000 + trip.car; // the new typed rider, distinct from the scripted commuter
         trip.reason = reason.as_str().to_string();

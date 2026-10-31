@@ -1285,27 +1285,50 @@ impl TownSim {
                 }) else {
                     continue;
                 };
-                let ahead_m = path
+                let car_link = own.links[car.idx];
+                let urgent_link = self.routes[urgent.route].links[urgent.idx];
+                let same_link = car_link == urgent_link;
+                let speed = self.net.links[car_link].speed;
+                let Some(ahead) = path
                     .links
                     .iter()
-                    .position(|l| *l == own.links[car.idx])
-                    .and_then(|step| {
-                        let ahead = path.start[step] + car.d - own.start[car.idx] - urgent.d;
-                        (ahead > 0.0 && ahead <= make_way::LOCAL_YIELD_M).then_some(ahead)
-                    });
-                if ahead_m.is_none() {
+                    .position(|l| *l == car_link)
+                    .map(|step| path.start[step] + car.d - own.start[car.idx] - urgent.d)
+                else {
+                    continue;
+                };
+                let remaining = self.net.links[car_link].len - (car.d - own.start[car.idx]);
+                let pull_over = make_way::lane_change_window(
+                    ahead,
+                    speed,
+                    config.lookahead_s,
+                    same_link,
+                    car.v,
+                    remaining,
+                );
+                let downstream =
+                    !same_link && make_way::in_yield_window(ahead, speed, config.lookahead_s);
+                if !pull_over && !downstream {
                     continue;
                 }
                 let eta = self.route_eta(path, urgent.d, path.start[*k]);
                 if eta > config.lookahead_s {
                     continue;
                 }
-                candidates.push((ci, b.car, b.route, path.start[*k], eta, *received));
+                candidates.push((
+                    ci,
+                    b.car,
+                    b.route,
+                    path.start[*k],
+                    eta,
+                    *received,
+                    pull_over,
+                ));
                 break;
             }
         }
         // Apply serially so the second lane change sees the first one's body.
-        for (ci, beneficiary, route, route_m, eta, _) in candidates {
+        for (ci, beneficiary, route, route_m, eta, _, pull_over) in candidates {
             let car = &self.cars[ci];
             let old = &self.routes[car.route];
             let link = old.links[car.idx];
@@ -1336,13 +1359,12 @@ impl TownSim {
                         })
                     })
             });
-            let room = self.net.links[link].len - front
-                > car.v * car.v / (2.0 * IDM_B) + CAR_LENGTH_M + MIN_GAP_M;
+            let room = make_way::pullover_room(self.net.links[link].len - front, car.v);
             let lane_action = make_way::route_choice(&make_way::RouteTerms {
                 connected: true,
                 reached: true,
                 on_path_ahead: true,
-                lane_changes: config.lane_changes,
+                lane_changes: config.lane_changes && pull_over,
                 reroutes: false,
                 parallel: lane,
                 gap_ok,

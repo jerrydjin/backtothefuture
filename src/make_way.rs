@@ -7,7 +7,7 @@
 //! node names, or demo identities. The simulator applies the action and keeps
 //! the physics (car-following, junction reservations, integration).
 
-use crate::world::{CAR_LENGTH_M, MIN_GAP_M};
+use crate::world::{CAR_LENGTH_M, MIN_GAP_M, V_MAX_MPS};
 
 /// Comfortable braking used only for gap acceptance. Matches the simulator's
 /// IDM comfortable deceleration so a lane change the layer accepts is one the
@@ -16,10 +16,68 @@ const COMFORT_BRAKE_MPS2: f64 = 2.5;
 const STEP_S: f64 = 0.25;
 /// One car may be asked to wait this long in total, then it is left alone.
 pub const HOLD_BUDGET_S: f64 = 3.0;
-/// Only the immediate queue changes lanes: three vehicles, each a car length
-/// plus the minimum gap. Farther cars stay put. An 80m window also moved cars
-/// that then sat at the shared connector for the rest of the main-lane queue.
+/// Immediate queue: three vehicles. Local-only already holds these neighbours.
+/// Farther cars are in the way only when the emergency will catch them on
+/// this link; see [`lane_change_window`].
 pub const LOCAL_YIELD_M: f64 = 3.0 * (CAR_LENGTH_M + MIN_GAP_M);
+
+/// True when the emergency will reach this car within the broadcast lookahead,
+/// measured at the link's free-flow speed.
+pub fn in_yield_window(ahead_m: f64, speed_mps: f64, lookahead_s: f64) -> bool {
+    ahead_m > 0.0 && speed_mps > 0.0 && lookahead_s >= 0.0 && ahead_m / speed_mps <= lookahead_s
+}
+
+/// Lane-change the cars the emergency will actually meet on this link.
+///
+/// Local-only already holds the nearest neighbour. On a long motorway the
+/// slower bodies sit farther ahead on the same link; a 19.5 m cap never
+/// sees them, so broadcast matched local-only (gains −0.9 / 11.6 / 11.8 s
+/// on origins 40 and 34). Asking every free-flow car within the 240 s
+/// lookahead to pull over parked them on the parallel at the shared
+/// connector, and the emergency finished later than local-only.
+///
+/// Lookahead still bounds the message. The immediate three cars always
+/// count. A farther car on the emergency's current link counts only when
+/// it is slower than the link and the emergency would catch it before it
+/// leaves. Later links of a split motorway are a different queue: pulling
+/// those cars over parked them on the parallel at the shared connector.
+pub fn lane_change_window(
+    ahead_m: f64,
+    link_speed_mps: f64,
+    lookahead_s: f64,
+    same_link: bool,
+    car_speed_mps: f64,
+    remaining_m: f64,
+) -> bool {
+    if !same_link || !in_yield_window(ahead_m, link_speed_mps, lookahead_s) {
+        return false;
+    }
+    if ahead_m <= LOCAL_YIELD_M {
+        return true;
+    }
+    // Arterial 19.5 m already clears the local queue. Extending it there
+    // pulled free-flow cars toward the shared connector and raised others'
+    // p95. Motorway-speed links are the long queues the metre cap misses.
+    if link_speed_mps + 1e-9 < V_MAX_MPS {
+        return false;
+    }
+    let closing = link_speed_mps - car_speed_mps;
+    if closing <= 0.0 || remaining_m <= 0.0 {
+        return false;
+    }
+    let catch_s = ahead_m / closing;
+    let clear_s = remaining_m / car_speed_mps.max(0.1);
+    catch_s <= lookahead_s && catch_s <= clear_s
+}
+
+/// A pull-over is not an exit. The car brakes on the parallel and does not
+/// take the connector, so it only needs to finish the lane change on the
+/// carriageway. A full-stop-before-exit test left the head of a long
+/// motorway queue in the main lane, and those cars fed the street that
+/// has no second lane.
+pub fn pullover_room(remaining_m: f64, speed_mps: f64) -> bool {
+    remaining_m > speed_mps.max(0.0) + CAR_LENGTH_M + MIN_GAP_M
+}
 /// Minimum time on the parallel before a rejoin is allowed. Rejoining as soon
 /// as the lead beneficiary passed put the car back in front of the emergencies
 /// still queued behind it. 30s keeps the lane clear for that following queue.
@@ -342,10 +400,19 @@ fn action_for(
         return DrivingAction::Ignore;
     }
     let speed = graph.speed_mps(link).max(0.1);
-    if ahead_m / speed > prop.lookahead_s {
+    if !in_yield_window(ahead_m, speed, prop.lookahead_s) {
         return DrivingAction::Ignore;
     }
     let parallel = graph.parallel(link);
+    let remaining = graph.length_m(link) - car.offset_m;
+    let pull_over = lane_change_window(
+        ahead_m,
+        speed,
+        prop.lookahead_s,
+        emergency_at == Some(at),
+        car.speed_mps,
+        remaining,
+    );
     let gap_ok = parallel.is_some_and(|lane| {
         cars.iter().filter(|other| other.id != car.id).all(|other| {
             let Some(other_link) = other.route.get(other.index).copied() else {
@@ -355,8 +422,7 @@ fn action_for(
                 || accepted_lane_gap(car.offset_m, car.speed_mps, other.offset_m, other.speed_mps)
         })
     });
-    let room = graph.length_m(link) - car.offset_m
-        > car.speed_mps * car.speed_mps / (2.0 * COMFORT_BRAKE_MPS2) + CAR_LENGTH_M + MIN_GAP_M;
+    let room = pullover_room(graph.length_m(link) - car.offset_m, car.speed_mps);
     let sink = *car.route.last().unwrap_or(&link);
     let escape = graph.successors(link).into_iter().find(|next| {
         *next != sink
@@ -389,7 +455,7 @@ fn action_for(
         connected: true,
         reached: true,
         on_path_ahead: true,
-        lane_changes: true,
+        lane_changes: pull_over,
         reroutes: escape.is_some(),
         parallel,
         gap_ok,
