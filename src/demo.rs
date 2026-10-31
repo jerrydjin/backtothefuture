@@ -209,17 +209,19 @@ impl Clock {
             let ex = &board.town.exchanges[stage.event];
             let typing = stage.typing_s();
             let elapsed = (now - self.stage_start).max(0.0);
-            let delay = delivered[stage.event].map(|t| {
-                (t - self.stage_start - typing - APPROACH_S)
-                    .max(0.0)
-                    .min(REPLY_DEADLINE_S - APPROACH_S)
-            });
-            let end = typing
-                + APPROACH_S
-                + delay.unwrap_or(REPLY_DEADLINE_S - APPROACH_S)
-                + DIALOGUE_S
-                + ACTION_S
-                + FADE_S;
+            // A reply that is already in does not sit through the 25s approach.
+            // The approach lasts only as long as we actually waited after typing,
+            // and never past the reply deadline. Before delivery, approach still
+            // runs up to APPROACH_S and then the late phase until the deadline.
+            let delivered_at = delivered[stage.event].filter(|t| *t <= now + 1e-9);
+            let wait = delivered_at
+                .map(|t| {
+                    (t - self.stage_start - typing)
+                        .max(0.0)
+                        .min(REPLY_DEADLINE_S)
+                })
+                .unwrap_or(REPLY_DEADLINE_S);
+            let end = typing + wait + DIALOGUE_S + ACTION_S + FADE_S;
             if delivered[stage.event].is_some()
                 && elapsed >= end
                 && i + 1 == plan.stages.len()
@@ -277,47 +279,54 @@ impl Clock {
             }
             let progress = |s: f64, duration: f64| (s / duration).clamp(0.0, 1.0);
             let mix = |a, b, u| a + (b - a) * u;
-            let local = elapsed - typing;
             let (phase, sim_t) = if elapsed < typing {
                 (
                     "typing",
                     mix(stage.from_t, stage.trigger_t, progress(elapsed, typing)),
                 )
-            } else if local < APPROACH_S {
+            } else if let Some(_) = delivered_at {
+                let into = elapsed - typing;
+                if wait > 0.0 && into < wait {
+                    (
+                        "approach",
+                        mix(stage.trigger_t, ex.t - DIALOGUE_S, progress(into, wait)),
+                    )
+                } else {
+                    let speaking = into - wait;
+                    if speaking < DIALOGUE_S {
+                        (
+                            "dialogue",
+                            mix(ex.t - DIALOGUE_S, ex.t, progress(speaking, DIALOGUE_S)),
+                        )
+                    } else if speaking < DIALOGUE_S + ACTION_S {
+                        (
+                            "yield",
+                            mix(ex.t, ex.until, progress(speaking - DIALOGUE_S, ACTION_S)),
+                        )
+                    } else if elapsed < end {
+                        (
+                            "fade",
+                            mix(
+                                ex.until,
+                                ex.until + ex.fade_s,
+                                progress(speaking - DIALOGUE_S - ACTION_S, FADE_S),
+                            ),
+                        )
+                    } else {
+                        ("complete", ex.until + ex.fade_s)
+                    }
+                }
+            } else if elapsed < typing + APPROACH_S {
                 (
                     "approach",
                     mix(
                         stage.trigger_t,
                         ex.t - DIALOGUE_S,
-                        progress(local, APPROACH_S),
+                        progress(elapsed - typing, APPROACH_S),
                     ),
                 )
-            } else if delay.is_none() {
-                ("late", ex.t - DIALOGUE_S)
             } else {
-                let speaking = local - APPROACH_S - delay.unwrap();
-                if speaking < DIALOGUE_S {
-                    (
-                        "dialogue",
-                        mix(ex.t - DIALOGUE_S, ex.t, progress(speaking, DIALOGUE_S)),
-                    )
-                } else if speaking < DIALOGUE_S + ACTION_S {
-                    (
-                        "yield",
-                        mix(ex.t, ex.until, progress(speaking - DIALOGUE_S, ACTION_S)),
-                    )
-                } else if elapsed < end {
-                    (
-                        "fade",
-                        mix(
-                            ex.until,
-                            ex.until + ex.fade_s,
-                            progress(speaking - DIALOGUE_S - ACTION_S, FADE_S),
-                        ),
-                    )
-                } else {
-                    ("complete", ex.until + ex.fade_s)
-                }
+                ("late", ex.t - DIALOGUE_S)
             };
             return DemoView {
                 stage: i,
@@ -335,8 +344,7 @@ impl Clock {
                 } else {
                     String::new()
                 },
-                request_event: (elapsed >= typing && delivered[stage.event].is_none())
-                    .then_some(stage.event),
+                request_event: (elapsed >= typing && delivered_at.is_none()).then_some(stage.event),
                 complete: phase == "complete",
                 wall_s: now - self.origin,
             };
@@ -1350,5 +1358,107 @@ mod tests {
         let (_, body) = response.split_once("\r\n\r\n").unwrap();
         let view: DemoView = serde_json::from_str(body).unwrap();
         assert_eq!(view.phase, "approach");
+    }
+
+    #[test]
+    fn a_delivered_reply_starts_dialogue_without_the_approach_hold() {
+        let board = crate::board::demo_board().unwrap();
+        let mut clock = Clock::new(0.0);
+        let view = clock.view(0.0, &board, &[Some(0.0), None, None]);
+        assert_eq!(view.event, 0);
+        assert_eq!(view.phase, "dialogue");
+        assert!(view.request_event.is_none());
+        let later = clock.view(1.0, &board, &[Some(0.0), None, None]);
+        assert_eq!(later.phase, "dialogue");
+        assert!(later.sim_t + 1e-9 >= view.sim_t);
+        let yield_at = clock.view(DIALOGUE_S, &board, &[Some(0.0), None, None]);
+        assert_eq!(yield_at.phase, "yield");
+    }
+
+    #[test]
+    fn fast_provider_phases_stay_inside_their_budgets() {
+        struct Fast;
+        impl MergeTalk for Fast {
+            fn agree(&self, snap: &crate::negotiate::MergeSnap) -> MergeChoice {
+                let mut choice = ScriptedTalk.agree(snap);
+                choice.source = "model".into();
+                choice
+            }
+        }
+        let board = crate::board::demo_board().unwrap();
+        let server = DemoServer::start(board, Box::new(Fast)).unwrap();
+        let started = Instant::now();
+        let mut seen: Vec<(usize, String, f64)> = Vec::new();
+        let mut last = None;
+        loop {
+            assert!(
+                started.elapsed() < Duration::from_secs(45),
+                "fast provider still held a phase"
+            );
+            let (code, state) = http(server.address, "GET", "/demo/state").unwrap();
+            assert_eq!(code, 200);
+            let view: DemoView = serde_json::from_value(state).unwrap();
+            assert_ne!(view.phase, "late");
+            let key = (view.event, view.phase.clone());
+            if last.as_ref() != Some(&key) {
+                seen.push((
+                    view.event,
+                    view.phase.clone(),
+                    started.elapsed().as_secs_f64(),
+                ));
+                last = Some(key);
+            }
+            if let Some(event) = view.request_event {
+                let _ = http(server.address, "POST", &format!("/negotiate?event={event}"));
+                let _ = http(
+                    server.address,
+                    "GET",
+                    &format!("/result?event={event}&compact=1"),
+                );
+            }
+            if view.complete {
+                break;
+            }
+        }
+        assert!(started.elapsed().as_secs_f64() < 40.0);
+        let dialogue = seen
+            .iter()
+            .find(|row| row.0 == 0 && row.1 == "dialogue")
+            .expect("event 0 dialogue");
+        assert!(
+            dialogue.2 < 3.0,
+            "event 0 waited {:.2}s before dialogue",
+            dialogue.2
+        );
+        let typing = seen.iter().find(|row| row.0 == 1 && row.1 == "typing");
+        let event1 = seen
+            .iter()
+            .find(|row| row.0 == 1 && row.1 == "dialogue")
+            .expect("event 1 dialogue");
+        if let Some(typing) = typing {
+            assert!(
+                event1.2 - typing.2 < 3.0,
+                "event 1 approach held for {:.2}s",
+                event1.2 - typing.2
+            );
+        }
+        for pair in seen.windows(2) {
+            let dur = pair[1].2 - pair[0].2;
+            let budget = match pair[0].1.as_str() {
+                "typing" => 2.0,
+                "approach" => 2.0,
+                "dialogue" => DIALOGUE_S,
+                "yield" => ACTION_S,
+                "fade" => FADE_S,
+                "complete" => 1.0,
+                other => panic!("unexpected phase {other}"),
+            };
+            assert!(
+                dur <= budget + 0.75,
+                "event {} phase {} lasted {dur:.2}s",
+                pair[0].0,
+                pair[0].1
+            );
+        }
     }
 }

@@ -2,7 +2,7 @@
 //! Only a precedence flag enters TownSim; trajectories use its existing rules.
 use crate::negotiate::{human_line, roles_match, MergeLine};
 use crate::network::{
-    BroadcastConfig, MessageHop, NetStats, Network, NetworkRun, ScheduledCar, TownSim,
+    BroadcastConfig, MessageHop, NetStats, Network, NetworkRun, RoadClass, ScheduledCar, TownSim,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -523,9 +523,79 @@ pub fn population(seed: u64) -> Vec<Trip> {
     trips
 }
 
-/// Boxed-in demand rule is preregistered in docs/phase-6-boxed-in.md.
+fn non_connector_links(net: &Network, links: &[usize]) -> BTreeSet<usize> {
+    links
+        .iter()
+        .copied()
+        .filter(|link| !net.links[*link].is_connector())
+        .collect()
+}
+
+fn fast_class(class: RoadClass) -> bool {
+    matches!(class, RoadClass::Arterial | RoadClass::Motorway)
+}
+
+/// Hospital corridors that open on two fast links and then drop through a ramp.
+/// Computed from the map. On the current town these are routes 3, 34 and 40.
+fn corridor_routes(net: &Network) -> Vec<usize> {
+    net.routes()
+        .iter()
+        .enumerate()
+        .filter_map(|(index, (_, sink, route))| {
+            if *sink != 4 {
+                return None;
+            }
+            let plain: Vec<_> = route
+                .links
+                .iter()
+                .copied()
+                .filter(|link| !net.links[*link].is_connector())
+                .collect();
+            if plain.len() < 2 {
+                return None;
+            }
+            let ramp = route
+                .links
+                .iter()
+                .any(|link| net.links[*link].class == RoadClass::Ramp);
+            (fast_class(net.links[plain[0]].class) && fast_class(net.links[plain[1]].class) && ramp)
+                .then_some(index)
+        })
+        .collect()
+}
+
+fn off_corridor(net: &Network, origin: usize) -> usize {
+    let routes = net.routes();
+    let origin_links = non_connector_links(net, &routes[origin].2.links);
+    routes
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| *index != origin)
+        .map(|(index, (_, _, route))| {
+            let shared = non_connector_links(net, &route.links)
+                .intersection(&origin_links)
+                .count();
+            (shared, index)
+        })
+        .min()
+        .map(|(_, index)| index)
+        .unwrap_or(0)
+}
+
+/// Boxed-in demand rule is preregistered in docs/phase-8-believable-payoff.md.
+/// Identities, claim texts, and truth labels still come from `population`.
+/// A fresh generator stream picks the corridor and the pulse; it does not
+/// retune individual seeds.
 pub fn boxed_population(seed: u64) -> Vec<Trip> {
     let mut trips = population(seed);
+    let net = Network::town();
+    let corridors = corridor_routes(&net);
+    let mut rng = Rng(seed.max(1));
+    // The raw xorshift word for seeds 1–5 is divisible by 3, so the first
+    // sample cannot choose a corridor. The seed residue itself does.
+    let origin = corridors[(seed as usize * 2 + 1) % corridors.len()];
+    let pulse = 42 + rng.pick(11);
+    let off = off_corridor(&net, origin);
     trips.sort_by_key(|t| {
         (
             match t.truth {
@@ -536,36 +606,44 @@ pub fn boxed_population(seed: u64) -> Vec<Trip> {
             t.car,
         )
     });
-    let mut rng = Rng(seed.max(1));
-    let (mut ordinary, mut emergency, mut liar) = (0, 0, 0);
-    for t in &mut trips {
-        let departure = match t.truth {
+    // Off-corridor demand starts at 400s, after the emergency cohort has left
+    // (last emergency departs by pulse*2+4+23*4 ≤ 200s). It must not sit in the
+    // bottleneck window. Liar repeats stay on the 750s cadence so claim 3 still
+    // finishes inside the simulator horizon.
+    let (mut ordinary, mut emergency, mut off_i, mut liar_i) = (0usize, 0usize, 0usize, 0usize);
+    for trip in &mut trips {
+        let jitter = rng.pick(1000) as f64 / 1000.0;
+        match trip.truth {
             Truth::Ordinary => {
                 let i = ordinary;
                 ordinary += 1;
-                t.route = if i < 120 { 3 } else { 9 };
-                if i < 120 {
-                    i as f64
+                if i < pulse {
+                    trip.route = origin;
+                    trip.depart_s = i as f64 * 2.0 + jitter;
                 } else {
-                    2.0 * (i - 120) as f64
+                    trip.route = off;
+                    trip.depart_s = 400.0 + off_i as f64 * 6.0 + jitter;
+                    off_i += 1;
                 }
             }
             Truth::Emergency => {
                 let i = emergency;
                 emergency += 1;
-                t.route = 15;
-                120.0 + 2.0 * i as f64
+                trip.route = origin;
+                trip.depart_s = pulse as f64 * 2.0 + 4.0 + 4.0 * i as f64 + jitter;
             }
             Truth::Liar => {
-                let i = liar;
-                liar += 1;
-                t.route = 16;
-                40.0 + 2.0 * (i % 12) as f64 + 750.0 * (t.claim_number - 1) as f64
+                let slot = liar_i;
+                liar_i += 1;
+                trip.route = off;
+                trip.depart_s = 400.0
+                    + (slot % 12) as f64 * 6.0
+                    + jitter
+                    + 750.0 * (trip.claim_number - 1) as f64;
             }
-        };
-        t.depart_s = departure + rng.pick(1000) as f64 / 1000.0;
-        t.request_s = t.depart_s;
-        t.destination = if t.truth == Truth::Liar {
+        }
+        trip.request_s = trip.depart_s;
+        trip.destination = if trip.truth == Truth::Liar {
             "gym"
         } else {
             "hospital"
@@ -574,6 +652,42 @@ pub fn boxed_population(seed: u64) -> Vec<Trip> {
     }
     trips.sort_by(|a, b| a.request_s.total_cmp(&b.request_s).then(a.car.cmp(&b.car)));
     trips
+}
+
+fn on_map_travel(run: &Run, car: u32) -> Result<f64, String> {
+    let home = *run.home.get(&car).ok_or("emergency never finished")?;
+    let entered = run
+        .town
+        .frames
+        .iter()
+        .find(|frame| frame.cars.iter().any(|c| c.0 == car))
+        .map(|frame| frame.t as f64)
+        .ok_or("emergency never entered the map")?;
+    Ok(home - entered)
+}
+
+/// Emergency delay against a solo free-flow trip, excluding time spent waiting
+/// off the map to enter. Frame resolution is one second on both sides.
+pub fn emergency_on_map_delays(seed: u64) -> Result<(usize, usize, Vec<f64>, u32, usize), String> {
+    let trips = boxed_population(seed);
+    let origin = trips
+        .iter()
+        .find(|t| t.truth == Truth::Emergency)
+        .map(|t| t.route)
+        .ok_or("no emergency")?;
+    let pulse = trips
+        .iter()
+        .filter(|t| t.truth == Truth::Ordinary && t.route == origin)
+        .count();
+    let jam = simulate_trips(seed, &Fcfs, true, None, trips.clone())?;
+    let collisions = jam.town.stats.overlaps + jam.town.stats.crossing_conflicts;
+    let completed = jam.home.len();
+    let mut delays = Vec::new();
+    for trip in trips.iter().filter(|t| t.truth == Truth::Emergency) {
+        let solo = simulate_trips(seed, &Fcfs, true, None, vec![trip.clone()])?;
+        delays.push(on_map_travel(&jam, trip.car)? - on_map_travel(&solo, trip.car)?);
+    }
+    Ok((origin, pulse, delays, collisions, completed))
 }
 
 pub fn run_boxed(

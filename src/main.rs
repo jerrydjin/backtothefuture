@@ -242,6 +242,8 @@ struct Args {
     export_replay: Option<std::path::PathBuf>,
     rewrite_every: Option<u32>,
     reason: Option<muse::reason::ReasonText>,
+    reason_debug: bool,
+    connected_share: f64,
 }
 
 impl Args {
@@ -277,6 +279,8 @@ impl Args {
             export_replay: None,
             rewrite_every: None,
             reason: None,
+            reason_debug: false,
+            connected_share: 1.0,
         };
         let mut args = env::args().skip(1);
         while let Some(arg) = args.next() {
@@ -339,6 +343,14 @@ impl Args {
                     let text = args.next().ok_or("--reason needs a sentence")?;
                     parsed.reason =
                         Some(muse::reason::ReasonText::new(&text).map_err(str::to_string)?);
+                }
+                "--reason-debug" => parsed.reason_debug = true,
+                "--connected-share" => {
+                    parsed.connected_share = args
+                        .next()
+                        .ok_or("--connected-share needs a fraction")?
+                        .parse()
+                        .map_err(|_| "invalid connected share")?;
                 }
                 "--demo" => parsed.demo = true,
                 "--headless" => parsed.headless = true,
@@ -419,6 +431,19 @@ impl Args {
         {
             return Err("choose rush-hour separately from legacy demo/replay/story modes".into());
         }
+        if parsed.demo && parsed.reason.is_some() {
+            // The typed sentence plays on the boxed-in corridor, not the
+            // three-encounter story. `--demo` alone still plays that story.
+            parsed.demo = false;
+            parsed.boxed_in = true;
+            parsed.rush_hour = true;
+            if parsed.policy == "fcfs" {
+                parsed.policy = "mock".into();
+            }
+        }
+        if !(0.0..=1.0).contains(&parsed.connected_share) {
+            return Err("--connected-share must be from 0 to 1".into());
+        }
         if parsed.reason.is_some()
             && (parsed.demo
                 || parsed.priority.is_some()
@@ -462,6 +487,9 @@ Knobs:
   --jam KIND               symmetric | ramp-surge | mainline-plug
   --prefs SENTENCE         plain English merge preference
   --reason SENTENCE        assess a rider reason (1–240 characters); --board shows the trip
+  --reason-debug           log the redacted model reply when a reason fails to parse
+  --demo --reason TEXT     play that reason on the boxed-in corridor and show the payoff
+  --connected-share F      fraction of cars that receive make-way messages (default 1)
   --rewrite-every N        ask for a new plan every N ticks
   --show                   print the ramp merge in the terminal: wreck, held jam, and cleared road
   --board                  open the live birds-eye window: white network, flat cars, one yield or merge cue
@@ -502,6 +530,9 @@ Blocker:
 }
 
 fn run_reason(args: &Args) -> Result<(), String> {
+    if args.reason_debug {
+        muse::reason::enable_reason_debug();
+    }
     use std::io::Write;
     let baseline = muse::reason::baseline();
     let agent = muse::reason::ReasonAgent::from_env();
@@ -568,6 +599,7 @@ fn run_rush_hour(args: &Args) -> Result<(), String> {
             speed_multiple: args.message_speed,
             hop_delay_s: args.hop_delay,
             lookahead_s: args.lookahead_minutes * 60.0,
+            connected_share: args.connected_share,
             ..Default::default()
         })
     };
@@ -621,9 +653,21 @@ fn run_rush_hour(args: &Args) -> Result<(), String> {
             config,
             &result,
             args.save_replay.clone(),
+            args.boxed_in,
         );
         if let Some(reason) = &args.reason {
+            if args.reason_debug {
+                muse::reason::enable_reason_debug();
+            }
             board = session.evaluate(reason)?;
+            if let Some(typed) = board.rush.as_ref().and_then(|rush| rush.typed.as_ref()) {
+                if typed.show_payoff {
+                    println!(
+                        "make-way-payoff cleared {:.0}m ahead · home {:.0}s sooner · others +{:.1}s source={}",
+                        typed.clear_ahead_m, typed.sooner_s, typed.others_s, typed.decision.source
+                    );
+                }
+            }
         }
         let typed_live = board
             .rush

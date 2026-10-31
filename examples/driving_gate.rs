@@ -12,6 +12,16 @@ fn main() {
             .find_map(|a| a.strip_prefix("lookahead="))
             .and_then(|s| s.parse().ok())
             .unwrap_or(240.0),
+        hop_delay_s: args
+            .iter()
+            .find_map(|a| a.strip_prefix("hop="))
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0.1),
+        connected_share: args
+            .iter()
+            .find_map(|a| a.strip_prefix("share="))
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(1.0),
         ..Default::default()
     };
     let typical = args.iter().any(|a| a == "typical");
