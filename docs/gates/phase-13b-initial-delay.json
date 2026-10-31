@@ -1,0 +1,15 @@
+{
+  "stage": "initial FCFS on-map delay diagnostic, before scoring",
+  "seed": 1,
+  "error": "emergency never finished",
+  "delay_s": null,
+  "policy": "fcfs",
+  "map_sha256": "0346c6e72b61a70f0b4942571f16056bec069e5ca9b361718fb09b8a6b1e70ae",
+  "initial_boxed_seed_6": {
+    "completed": 0,
+    "trips": 240,
+    "collisions": 0,
+    "gain_vs_local_s": 0,
+    "interpretation": "Not a measured zero benefit: no completed trips. Imported sub-car-length roads fail the host exit-room condition."
+  }
+}
