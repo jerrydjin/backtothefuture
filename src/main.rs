@@ -213,6 +213,7 @@ fn main() -> ExitCode {
 
 struct Args {
     rush_hour: bool,
+    no_history: bool,
     policy: String,
     seed: u64,
     score: Option<std::path::PathBuf>,
@@ -241,6 +242,7 @@ impl Args {
     fn from_env() -> Result<Self, String> {
         let mut parsed = Args {
             rush_hour: false,
+            no_history: false,
             policy: "fcfs".into(),
             seed: 7,
             score: None,
@@ -268,6 +270,7 @@ impl Args {
         while let Some(arg) = args.next() {
             match arg.as_str() {
                 "--rush-hour" => parsed.rush_hour = true,
+                "--no-history" => parsed.no_history = true,
                 "--policy" => parsed.policy = args.next().ok_or("--policy needs a name")?,
                 "--seed" => {
                     parsed.seed = args
@@ -426,6 +429,7 @@ Knobs:
   --policy NAME           fcfs, keyword, mock, or live
   --seed N                fixed rush-hour demand seed
   --score FILE            write the paired rush-hour score JSON
+  --no-history            compare rush hour without completed rider history
   --export-replay HTML     export --replay FILE as a standalone offline board
   --replay FILE            play that saved result with zero model calls
   --help
@@ -510,7 +514,8 @@ fn run_rush_hour(args: &Args) -> Result<(), String> {
         return Err("rush-hour currently supports headless scoring; legacy board and reason modes remain available separately".into());
     }
     let policy = muse::rush_hour::policy(&args.policy)?;
-    let mut result = muse::rush_hour::run(args.seed, policy.as_ref())?;
+    let mut result =
+        muse::rush_hour::run_with_history(args.seed, policy.as_ref(), !args.no_history)?;
     if args.require_live && result.score.model_decisions != result.run.decisions.len() {
         result.score.passed = false;
     }

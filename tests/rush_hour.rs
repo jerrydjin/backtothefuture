@@ -43,6 +43,7 @@ fn pool_is_fixed_with_repeated_riders_and_hidden_truth() {
             rider: t.rider,
             reason: t.reason,
             at_s: t.request_s,
+            history: Vec::new(),
         };
         let data = serde_json::to_value(request).unwrap();
         assert!(data.get("truth").is_none() && data.get("destination").is_none());
