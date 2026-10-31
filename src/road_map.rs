@@ -57,6 +57,9 @@ pub struct MapEdge {
 #[serde(deny_unknown_fields)]
 pub struct RoadMap {
     pub version: u32,
+    /// Credit carried through import, recording and distributed boards.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attribution: Option<String>,
     /// Optional hospital POI matched to a retained drivable intersection.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hospital_node: Option<usize>,

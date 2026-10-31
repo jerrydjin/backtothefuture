@@ -1,0 +1,13 @@
+{
+  "cargo_tests": {
+    "passed": 160,
+    "failed": 0,
+    "ignored": 3
+  },
+  "fixture_replay_exact": true,
+  "sf_replays": 0,
+  "sf_screenshots": 0,
+  "sf_gate": "BLOCKED",
+  "protected_files_unchanged": true,
+  "held_out_tuning": false
+}
