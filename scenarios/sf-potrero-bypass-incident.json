@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "id": "potrero-structural-bypass",
+  "kind": "blocked_lane",
+  "map": "maps/sf-zsfg.json",
+  "edge": 14,
+  "from_node": 27,
+  "to_node": 55,
+  "lane": 0,
+  "position_m": 61.14177884422628,
+  "length_m": 8.0,
+  "start_s": 240.0,
+  "duration_s": 300.0,
+  "rationale": "First structurally qualifying incident in the frozen cited Potrero demand order: edge 14. Centered eight-metre blockage, unchanged five-minute schedule; bypass avoids exit node 55 and rejoins at node 45."
+}
