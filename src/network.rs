@@ -1118,6 +1118,7 @@ pub enum MakeWayMode {
     #[default]
     Broadcast,
     MovingSlot,
+    MovingSlotV2,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, serde::Deserialize)]
@@ -1196,6 +1197,7 @@ fn slot_kind_name(kind: crate::slot::MoveKind) -> &'static str {
         crate::slot::MoveKind::GapShift => "gap_shift",
         crate::slot::MoveKind::DontEnter => "dont_enter",
         crate::slot::MoveKind::EaseOff => "ease_off",
+        crate::slot::MoveKind::QueueYield => "queue_yield",
     }
 }
 
@@ -1448,7 +1450,7 @@ impl TownSim {
         };
         if ex
             .broadcast
-            .is_some_and(|c| c.mode == MakeWayMode::MovingSlot)
+            .is_some_and(|c| matches!(c.mode, MakeWayMode::MovingSlot | MakeWayMode::MovingSlotV2))
             && !wording.is_empty()
         {
             ex.wording.insert(car, wording.to_string());
@@ -1464,8 +1466,9 @@ impl TownSim {
 
     fn moving_slot(&self) -> bool {
         self.experiment.as_ref().is_some_and(|e| {
-            e.broadcast
-                .is_some_and(|c| c.mode == MakeWayMode::MovingSlot)
+            e.broadcast.is_some_and(|c| {
+                matches!(c.mode, MakeWayMode::MovingSlot | MakeWayMode::MovingSlotV2)
+            })
         })
     }
 
@@ -1572,7 +1575,10 @@ impl TownSim {
         let Some(config) = ex.broadcast else {
             return;
         };
-        if config.mode == MakeWayMode::MovingSlot {
+        if matches!(
+            config.mode,
+            MakeWayMode::MovingSlot | MakeWayMode::MovingSlotV2
+        ) {
             self.publish_slot_request(id);
             return;
         }
@@ -2787,9 +2793,24 @@ impl TownSim {
             .collect();
         let blocks = self.slot_blocks();
         let graph = self.slot_graph();
-        Some(crate::slot::plan(
-            self.time, &ambulance, &cars, &graph, &blocks,
-        ))
+        if self.experiment.as_ref()?.broadcast?.mode == MakeWayMode::MovingSlotV2 {
+            let mut planned = crate::slot::plan_v2(self.time, &ambulance, &cars, &graph, &blocks);
+            let ex = self.experiment.as_ref()?;
+            if ex
+                .slot_shift
+                .values()
+                .any(|s| s.beneficiary == id && s.original == ambulance.links[0])
+            {
+                planned
+                    .diversions
+                    .retain(|d| d.route_link != ambulance.links[0]);
+            }
+            Some(planned)
+        } else {
+            Some(crate::slot::plan(
+                self.time, &ambulance, &cars, &graph, &blocks,
+            ))
+        }
     }
 
     fn dispatch_slot_asks(&mut self) {
@@ -2853,12 +2874,45 @@ impl TownSim {
             return SlotSend::Drop;
         };
         let kind = slot_kind_name(item.ask.kind).to_string();
+        let queue_yield = item.ask.kind == crate::slot::MoveKind::QueueYield;
+        if queue_yield {
+            if config.mode != MakeWayMode::MovingSlotV2
+                || ex.granted.contains(&item.ask.car)
+                || ex.slot_sent.iter().any(|(_, car)| *car == item.ask.car)
+            {
+                return SlotSend::Drop;
+            }
+            let Some(ambulance) = self.ambulance_actor(item.beneficiary) else {
+                return SlotSend::Drop;
+            };
+            if self
+                .cars
+                .iter()
+                .find(|car| car.id == item.beneficiary)
+                .is_none_or(|car| self.routes[car.route].links[car.idx] != ambulance.links[0])
+            {
+                return SlotSend::Drop;
+            }
+            let cars: Vec<_> = self
+                .cars
+                .iter()
+                .map(|car| self.actor_from_car(car))
+                .collect();
+            if crate::slot::queue_conflict(&ambulance, &cars).map(|car| car.id)
+                != Some(item.ask.car)
+            {
+                return SlotSend::Drop;
+            }
+        }
         match action {
             make_way::DrivingAction::LaneChange { to_link } => {
                 let remaining =
                     self.net.links[self.routes[self.cars[ci].route].links[self.cars[ci].idx]].len
                         - self.link_offset(ci);
-                if remaining < 40.0 || !self.gap_on_link(ci, to_link) {
+                if remaining < 40.0
+                    || !self.gap_on_link(ci, to_link)
+                    || (queue_yield && !make_way::pullover_room(remaining, self.cars[ci].v))
+                {
                     return if remaining < 40.0 {
                         SlotSend::Drop
                     } else {
@@ -2875,7 +2929,7 @@ impl TownSim {
                                 .any(|d| d.lane == to_link && d.to_m + CAR_LENGTH_M >= offset)
                         })
                 });
-                if slot_uses_it {
+                if slot_uses_it && !queue_yield {
                     return SlotSend::Drop;
                 }
                 // The parallel rejoins only by merging back into the hole this
@@ -2887,18 +2941,18 @@ impl TownSim {
                     .find(|car| car.id == item.beneficiary)
                     .map(|amb| (self.cars[ci].d - amb.d).max(0.0) / amb.v.max(1.0) + 4.0)
                     .unwrap_or(8.0);
-                if self.follower_closes_hole(ci, item.beneficiary, amb_gap) {
+                if !queue_yield && self.follower_closes_hole(ci, item.beneficiary, amb_gap) {
                     return SlotSend::Drop;
                 }
                 // The lane change is instant. Wait to use it until the ambulance
                 // is close enough that the car only stands aside for the pass.
-                if self.approach_s(item.beneficiary, ci) > PASS_WINDOW_S {
+                if !queue_yield && self.approach_s(item.beneficiary, ci) > PASS_WINDOW_S {
                     return SlotSend::Later;
                 }
                 // A moving stream refills the hole before a return onto a
                 // parallel that ends at the same connector. Leave the car in
                 // the lane and let the ambulance slow.
-                if self.lane_is_busy(ci, item.beneficiary) {
+                if !queue_yield && self.lane_is_busy(ci, item.beneficiary) {
                     return SlotSend::Drop;
                 }
                 let accepted = make_way::receive_one(

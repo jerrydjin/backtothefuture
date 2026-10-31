@@ -1,0 +1,152 @@
+[
+  {
+    "seed": 1,
+    "site": "potrero",
+    "physical_queue_conflict_samples": 236,
+    "remaining_lt_40m_samples": 236,
+    "first_witness": {
+      "time_s": 346,
+      "ambulance": 1164,
+      "predecessor": 1212,
+      "edge": 13,
+      "junction_node": 27,
+      "predecessor_remaining_m": 8.962958741703815
+    },
+    "queue_yield_deliveries": 0
+  },
+  {
+    "seed": 2,
+    "site": "potrero",
+    "physical_queue_conflict_samples": 236,
+    "remaining_lt_40m_samples": 236,
+    "first_witness": {
+      "time_s": 347,
+      "ambulance": 1103,
+      "predecessor": 1245,
+      "edge": 13,
+      "junction_node": 27,
+      "predecessor_remaining_m": 15.462958741703815
+    },
+    "queue_yield_deliveries": 0
+  },
+  {
+    "seed": 3,
+    "site": "potrero",
+    "physical_queue_conflict_samples": 236,
+    "remaining_lt_40m_samples": 236,
+    "first_witness": {
+      "time_s": 347,
+      "ambulance": 1081,
+      "predecessor": 1259,
+      "edge": 13,
+      "junction_node": 27,
+      "predecessor_remaining_m": 15.462958741703815
+    },
+    "queue_yield_deliveries": 0
+  },
+  {
+    "seed": 4,
+    "site": "potrero",
+    "physical_queue_conflict_samples": 235,
+    "remaining_lt_40m_samples": 235,
+    "first_witness": {
+      "time_s": 348,
+      "ambulance": 1072,
+      "predecessor": 1173,
+      "edge": 13,
+      "junction_node": 27,
+      "predecessor_remaining_m": 15.462958741703815
+    },
+    "queue_yield_deliveries": 0
+  },
+  {
+    "seed": 5,
+    "site": "potrero",
+    "physical_queue_conflict_samples": 236,
+    "remaining_lt_40m_samples": 236,
+    "first_witness": {
+      "time_s": 346,
+      "ambulance": 1125,
+      "predecessor": 1231,
+      "edge": 13,
+      "junction_node": 27,
+      "predecessor_remaining_m": 15.462958741703815
+    },
+    "queue_yield_deliveries": 0
+  },
+  {
+    "seed": 6,
+    "site": "potrero",
+    "physical_queue_conflict_samples": 236,
+    "remaining_lt_40m_samples": 236,
+    "first_witness": {
+      "time_s": 347,
+      "ambulance": 1167,
+      "predecessor": 1182,
+      "edge": 13,
+      "junction_node": 27,
+      "predecessor_remaining_m": 15.462958741703815
+    },
+    "queue_yield_deliveries": 0
+  },
+  {
+    "seed": 7,
+    "site": "potrero",
+    "physical_queue_conflict_samples": 235,
+    "remaining_lt_40m_samples": 235,
+    "first_witness": {
+      "time_s": 348,
+      "ambulance": 1045,
+      "predecessor": 1163,
+      "edge": 13,
+      "junction_node": 27,
+      "predecessor_remaining_m": 15.462958741703815
+    },
+    "queue_yield_deliveries": 0
+  },
+  {
+    "seed": 8,
+    "site": "potrero",
+    "physical_queue_conflict_samples": 235,
+    "remaining_lt_40m_samples": 235,
+    "first_witness": {
+      "time_s": 348,
+      "ambulance": 1098,
+      "predecessor": 1188,
+      "edge": 13,
+      "junction_node": 27,
+      "predecessor_remaining_m": 15.462958741703815
+    },
+    "queue_yield_deliveries": 0
+  },
+  {
+    "seed": 9,
+    "site": "potrero",
+    "physical_queue_conflict_samples": 236,
+    "remaining_lt_40m_samples": 236,
+    "first_witness": {
+      "time_s": 346,
+      "ambulance": 1189,
+      "predecessor": 1093,
+      "edge": 13,
+      "junction_node": 27,
+      "predecessor_remaining_m": 15.462958741703815
+    },
+    "queue_yield_deliveries": 0
+  },
+  {
+    "seed": 10,
+    "site": "potrero",
+    "physical_queue_conflict_samples": 236,
+    "remaining_lt_40m_samples": 236,
+    "first_witness": {
+      "time_s": 347,
+      "ambulance": 1234,
+      "predecessor": 1105,
+      "edge": 13,
+      "junction_node": 27,
+      "predecessor_remaining_m": 15.462958741703815
+    },
+    "queue_yield_deliveries": 0
+  }
+]

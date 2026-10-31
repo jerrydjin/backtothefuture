@@ -24,6 +24,7 @@ pub enum MoveKind {
     GapShift,
     DontEnter,
     EaseOff,
+    QueueYield,
 }
 
 /// One vehicle, seen only through its route and motion.
@@ -153,6 +154,65 @@ pub fn plan(now: f64, ambulance: &Actor, cars: &[Actor], graph: &Graph, blocks: 
         asks,
         slowed,
     }
+}
+
+/// Realized queue conflict, independent of the optimistic parallel-lane slot.
+/// Inspect the nearest predecessor first: never extract through another car.
+pub fn queue_conflict<'a>(ambulance: &Actor, cars: &'a [Actor]) -> Option<&'a Actor> {
+    let link = *ambulance.links.first()?;
+    let car = cars
+        .iter()
+        .filter(|c| {
+            c.id != ambulance.id
+                && c.links.first() == Some(&link)
+                && c.offset_m > ambulance.offset_m
+        })
+        .min_by(|a, b| a.offset_m.total_cmp(&b.offset_m).then(a.id.cmp(&b.id)))?;
+    let ahead = car.offset_m - ambulance.offset_m;
+    (ambulance.speed_mps < 1.25
+        && car.speed_mps < 1.25
+        && ahead <= make_way::LOCAL_YIELD_M
+        && ahead / ambulance.speed_mps.max(2.5) <= 6.0)
+        .then_some(car)
+}
+
+/// Post-13e variant frozen in phase-13f-preregistration.md. Execution still
+/// goes through the existing receiver, physical gap checks, and gap-shift return.
+pub fn plan_v2(
+    now: f64,
+    ambulance: &Actor,
+    cars: &[Actor],
+    graph: &Graph,
+    blocks: &[Block],
+) -> Plan {
+    let mut result = plan(now, ambulance, cars, graph, blocks);
+    let Some(car) = queue_conflict(ambulance, cars) else {
+        return result;
+    };
+    let link = ambulance.links[0];
+    result.diversions.retain(|d| d.route_link != link);
+    let Some(lane) = graph.parallel[link] else {
+        return result;
+    };
+    let remaining = graph.length[link] - car.offset_m;
+    if graph.connector[link]
+        || remaining < 40.0
+        || !make_way::pullover_room(remaining, car.speed_mps)
+    {
+        return result;
+    }
+    result.asks.retain(|ask| ask.car != car.id);
+    result.asks.push(Ask {
+        car: car.id,
+        kind: MoveKind::QueueYield,
+        action: Some(DrivingAction::LaneChange { to_link: lane }),
+        send_at: now,
+        hold_s: 0.0,
+        sent: true,
+        clear_link: link,
+        clear_offset_m: car.offset_m,
+    });
+    result
 }
 
 impl Plan {
