@@ -512,6 +512,7 @@ fn import_retained(
     }
     let map = RoadMap {
         version: 1,
+        demand_profile: None,
         attribution: Some(
             "© OpenStreetMap contributors · ODbL 1.0 · https://www.openstreetmap.org/copyright"
                 .into(),

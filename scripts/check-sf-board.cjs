@@ -3,7 +3,8 @@ const fs = require('fs');
 const assert = require('assert/strict');
 const { chromium } = require('playwright');
 (async () => {
-  const [htmlPath, replayPath, messagesPath, pngPath, reportPath] = process.argv.slice(2);
+  const [htmlPath, replayPath, messagesPath, pngPath, reportPath, startArg] = process.argv.slice(2);
+  const startS = Number(startArg || 0);
   const archive = JSON.parse(fs.readFileSync(replayPath));
   const board = archive.board, rush = board.rush, town = board.town;
   const messages = JSON.parse(fs.readFileSync(messagesPath));
@@ -49,24 +50,20 @@ const { chromium } = require('playwright');
         assert.ok(request);
         const hops = messages.events.filter(h => h.beneficiary === front.beneficiary && h.at_s >= request.issued_at && h.at_s < request.expires_at).sort((a, b) => a.at_s - b.at_s || a.route_m - b.route_m);
         const origin = hops.find(h => h.action === 'relay') || hops[0];
-        let previous = origin.route_m - origin.ahead_m, previousT = request.issued_at, head = previous;
-        for (const h of hops) {
-          if (h.route_m <= previous) continue;
-          if (t < h.at_s) { head = previous + (h.route_m - previous) * Math.max(0, Math.min(1, (t - previousT) / (h.at_s - previousT))); break; }
-          head = h.route_m; previous = head; previousT = h.at_s;
-        }
+        const head = Math.max(origin.route_m - origin.ahead_m, ...hops.filter(h => h.at_s <= t).map(h => h.route_m));
+        assert.ok(front.head <= head + 1e-6, 'front runs ahead of delivered data');
         assert.ok(Math.abs(front.head - head) < 1e-6, 'front differs from saved timestamps');
         for (const h of hops.filter(h => h.at_s <= t)) assert.ok(front.head + 1e-6 >= h.route_m, 'reaction delivered beyond the visible message front');
       }
       samples.push(measured); return measured;
     }
-    const actions = messages.events.filter(h => ['hold', 'clear', 'lane_change'].includes(h.action));
+    const actions = messages.events.filter(h => h.at_s >= startS && ['hold', 'clear', 'lane_change'].includes(h.action));
     const times = [...new Set(actions.slice(0, 4).flatMap(h => [Math.max(0, h.at_s - .01), h.at_s, Math.ceil(h.at_s)]))];
     for (const t of times) await inspect(t);
     let screenshot;
-    for (const t of [...new Set(actions.map(h => Math.ceil(h.at_s)))].concat([100, 110, 120, 140]).slice(0, 35)) {
+    for (const t of [...new Set(actions.map(h => Math.ceil(h.at_s)))].concat([startS + 45, startS + 60, startS + 90, startS + 120]).slice(0, 35)) {
       const measured = await inspect(t);
-      if (measured.emergency >= 2 && measured.reacting.length && measured.fronts.some(f => f.head - f.car > 100)) {
+      if (measured.emergency >= 1 && measured.reacting.length && measured.fronts.some(f => f.head - f.car > 100)) {
         await page.screenshot({ path: pngPath }); screenshot = measured; break;
       }
     }

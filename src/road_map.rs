@@ -57,6 +57,8 @@ pub struct MapEdge {
 #[serde(deny_unknown_fields)]
 pub struct RoadMap {
     pub version: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub demand_profile: Option<crate::demand::CorridorDemand>,
     /// Credit carried through import, recording and distributed boards.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attribution: Option<String>,
@@ -114,6 +116,9 @@ impl RoadMap {
         }
     }
     pub fn validate(&self) -> Result<(), String> {
+        if let Some(profile) = &self.demand_profile {
+            profile.validate(self)?;
+        }
         if self.version != 1
             || self.nodes.len() < 2
             || self.edges.is_empty()

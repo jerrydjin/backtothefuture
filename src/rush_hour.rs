@@ -484,6 +484,9 @@ pub fn population(seed: u64) -> Vec<Trip> {
 }
 
 pub fn population_on(seed: u64, net: &Network) -> Vec<Trip> {
+    if let Some(profile) = &net.demand_profile {
+        return corridor_population(seed, net, profile);
+    }
     let routes = net.routes();
     let mut hospital: Vec<_> = routes
         .iter()
@@ -575,6 +578,58 @@ pub fn population_on(seed: u64, net: &Network) -> Vec<Trip> {
         });
     }
     trips.sort_by(|a, b| a.request_s.total_cmp(&b.request_s).then(a.car.cmp(&b.car)));
+    trips
+}
+
+fn corridor_population(
+    seed: u64,
+    net: &Network,
+    profile: &crate::demand::CorridorDemand,
+) -> Vec<Trip> {
+    let route = profile
+        .route(net)
+        .expect("network validates the declared corridor");
+    let mut rng = Rng(seed.max(1));
+    let headway = 3600.0 / profile.vehicles_per_hour;
+    let phase = (rng.next() % 1_000_000) as f64 / 1_000_000.0 * headway;
+    let count = ((profile.arrival_duration_s - phase) / headway).ceil() as usize;
+    let mut ids: Vec<u32> = (1000..1000 + count as u32).collect();
+    for i in (1..ids.len()).rev() {
+        let j = rng.pick(i + 1);
+        ids.swap(i, j);
+    }
+    let mut trips: Vec<_> = ids
+        .into_iter()
+        .enumerate()
+        .map(|(i, car)| {
+            let depart_s = phase + i as f64 * headway;
+            Trip {
+                car,
+                rider: 50_000 + car,
+                route,
+                depart_s,
+                request_s: depart_s + profile.request_delay_s,
+                reason: "I'm driving through the corridor".into(),
+                truth: Truth::Ordinary,
+                destination: "other".into(),
+                claim_number: 1,
+            }
+        })
+        .collect();
+    let mut at = profile.warmup_s;
+    while at < profile.arrival_duration_s {
+        if let Some(trip) = trips.iter_mut().find(|t| t.depart_s >= at) {
+            trip.truth = Truth::Emergency;
+            trip.destination = "hospital".into();
+            trip.reason = [
+                "My passenger has severe chest pain",
+                "My partner is in active labour",
+                "My child is bleeding badly",
+            ][rng.pick(3)]
+            .into();
+        }
+        at += profile.emergency_interval_s;
+    }
     trips
 }
 
@@ -683,6 +738,9 @@ pub fn boxed_population(seed: u64) -> Vec<Trip> {
 }
 
 pub fn boxed_population_on(seed: u64, net: &Network) -> Result<Vec<Trip>, String> {
+    if net.demand_profile.is_some() {
+        return Ok(population_on(seed, net));
+    }
     let mut trips = population_on(seed, net);
     let corridors = corridor_routes(net);
     if corridors.is_empty() {
@@ -900,7 +958,8 @@ pub(crate) fn simulate_trips(
     )
 }
 
-pub(crate) fn simulate_trips_on(
+/// Simulate explicit demand once, without implicit comparison runs.
+pub fn simulate_trips_on(
     seed: u64,
     policy: &dyn Policy,
     history_enabled: bool,
@@ -1233,6 +1292,13 @@ pub(crate) fn run_custom(
 }
 
 /// Every counterfactual uses this same graph and exactly the supplied demand.
+/// Retain the actual paired runs for route-level measurements without rescoring.
+pub struct ComparedRun {
+    pub scored: ScoredRun,
+    pub baseline: Run,
+    pub local: Option<Run>,
+}
+
 pub fn run_on_map(
     seed: u64,
     policy: &dyn Policy,
@@ -1241,11 +1307,26 @@ pub fn run_on_map(
     trips: Vec<Trip>,
     net: &Network,
 ) -> Result<ScoredRun, String> {
+    Ok(compare_on_map(seed, policy, history_enabled, broadcast, trips, net)?.scored)
+}
+
+pub fn compare_on_map(
+    seed: u64,
+    policy: &dyn Policy,
+    history_enabled: bool,
+    broadcast: Option<BroadcastConfig>,
+    trips: Vec<Trip>,
+    net: &Network,
+) -> Result<ComparedRun, String> {
     let baseline = simulate_trips_on(seed, &Fcfs, history_enabled, None, trips.clone(), net)?;
     let run = simulate_trips_on(seed, policy, history_enabled, broadcast, trips.clone(), net)?;
     let mut score = score(seed, policy.name(), &run, &baseline)?;
     if broadcast.is_none() {
-        return Ok(ScoredRun { run, score });
+        return Ok(ComparedRun {
+            scored: ScoredRun { run, score },
+            baseline,
+            local: None,
+        });
     }
     let replay = RecordedPolicy {
         decisions: run.decisions.iter().map(|d| (d.car, d.clone())).collect(),
@@ -1351,7 +1432,11 @@ pub fn run_on_map(
     }
     score.passed &= local.home.len() == run.trips.len()
         && local.town.stats.overlaps + local.town.stats.crossing_conflicts == 0;
-    Ok(ScoredRun { run, score })
+    Ok(ComparedRun {
+        scored: ScoredRun { run, score },
+        baseline,
+        local: Some(local),
+    })
 }
 
 #[cfg(test)]

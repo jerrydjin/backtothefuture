@@ -1257,18 +1257,10 @@ const PAGE_TEMPLATE: &str = r##"<!DOCTYPE html>
       if(!hops.length)return;
       var originHop=hops.find(function(h){return h.action==="relay";}) || hops[0];
       var originM=originHop.route_m-originHop.ahead_m;
-      var previousM=originM,previousT=request ? request.issued_at : d.at_s,head=originM;
-      // A monotone envelope of recorded deliveries. Never invent propagation
-      // speed or use the current car position as the message's starting point.
-      for(var i=0;i<hops.length;i++){
-        var h=hops[i];
-        if(h.route_m<=previousM)continue;
-        if(t<h.at_s){
-          head=previousM+(h.route_m-previousM)*Math.max(0,Math.min(1,(t-previousT)/(h.at_s-previousT)));
-          break;
-        }
-        head=h.route_m;previousM=head;previousT=h.at_s;
-      }
+      // Only delivered evidence may advance the front. Do not interpolate
+      // toward a future relay or action: that would draw ahead of the data.
+      var head=originM;
+      hops.forEach(function(h){if(h.at_s<=t)head=Math.max(head,h.route_m);});
       if(head>carM){
         ctx.appendChild(svgNode("path",{d:rushPath(view,hops[0].route,Math.max(originM,carM),head),fill:"none",stroke:"#6a93ae","stroke-width":1,opacity:.8,"data-role":"rush-pulse","data-beneficiary":d.car,"data-head-m":head,"data-car-m":carM,"data-evidence":"save-messages"}));
         var dot=rushPoint(view,hops[0].route,head);
