@@ -1,0 +1,11 @@
+{
+  "potrero_commit": "747cea0",
+  "sha256": {
+    "maps/sf-zsfg.json": "062aadb0acb90cee8d65cb87c5c8c1702e1d7f25dcbcee569eab5831755849d0",
+    "maps/sf-zsfg-demand.json": "185cfcbbde33a9c66521c65788a7e115ab39e7f5f4de7239cba5622693291e8a",
+    "maps/sf-zsfg.osm": "285c955b7ed48b6be2dab528ee59e7d6422ba96328543300bb6032b9426d306a",
+    "examples/phase13f_sites.rs": "df6544d514a0b41ca59cc4077545d6ad3e63acde8c8e1770a0753a52a58b49bb",
+    "docs/gates/phase-13f-bypass-sites.json": "47917151e69236d8e8c53f7361494340dde766c7cbd3aff7b4608c2ff1ace45a",
+    "scenarios/sf-potrero-bypass-incident.json": "f1065516bc92472fb1028af4fcc1d1ccd50ce28cc7ebcc59ae4bf718a8639fc5"
+  }
+}
