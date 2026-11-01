@@ -1349,6 +1349,10 @@ pub struct TownSim {
     story: Option<StoryRun>,
     demo: Option<DemoTrip>,
     experiment: Option<Experiment>,
+    /// When set, a scheduled entry also yields to cars already on the source
+    /// link whose route started upstream. Off unless a caller opts in, so the
+    /// legacy entry test is unchanged.
+    admit_occupants: bool,
 }
 
 impl TownSim {
@@ -1398,7 +1402,14 @@ impl TownSim {
             story: None,
             demo: None,
             experiment: None,
+            admit_occupants: false,
         }
+    }
+
+    /// Hold a scheduled car while any body already occupies its source link
+    /// inside the existing gap rule. Legacy gates leave this off.
+    pub fn set_admit_occupants(&mut self, on: bool) {
+        self.admit_occupants = on;
     }
 
     pub fn network(&self) -> &Network {
@@ -3979,6 +3990,15 @@ impl TownSim {
             })
             .map(|car| (car.d - CAR_LENGTH_M, car.v))
             .min_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal));
+        if self.admit_occupants {
+            let index = self.index();
+            for body in &index[link] {
+                let rear = body.rear;
+                if tail.is_none_or(|(at, _)| rear < at) {
+                    tail = Some((rear, self.cars[body.car].v));
+                }
+            }
+        }
         for incident in &self.net.incidents {
             if incident.link == link && incident.definition.active_at(self.time) {
                 let rear = incident.definition.position_m;
