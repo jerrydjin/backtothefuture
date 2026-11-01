@@ -17,7 +17,7 @@ output must be supplied, or the network configuration must permit downloading
 the original photograph and model snapshot in a separate preparation step.
 The provided SAM script itself always stays offline.
 
-After installing CPU torch, transformers (the API was inspected in 4.57.1),
+After installing CPU torch/torchvision, transformers (the API was inspected in 4.57.1),
 and Pillow, put the hash-matching photograph in `assets/phase15/` and cache
 the requested model snapshot with its processor files. Then run:
 

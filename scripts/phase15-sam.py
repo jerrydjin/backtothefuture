@@ -54,6 +54,7 @@ def check(directory):
     for name in [IMAGE_NAME, "mask.png", "sam.json"]:
         require((directory / name).is_file(), f"missing genuine SAM evidence: {directory / name}")
     data = json.loads((directory / "sam.json").read_text())
+    require(isinstance(data, dict), "sam.json must be an object")
     require(data.get("version") == 1, "unsupported sam.json version")
     require(data.get("model_id") == MODEL_ID, "wrong SAM model")
     revision = data.get("hf_revision", "")
@@ -62,6 +63,8 @@ def check(directory):
     require(data.get("prompt_points") == POINTS, "positive prompt points changed")
     require(data.get("prompt_labels") == [1, 1, 1], "positive prompt labels changed")
     require(data.get("device") == "cpu", "SAM must run on CPU")
+    require(data.get("dtype") == "float32" and data.get("seed") == 0
+            and data.get("torch_threads") == 1, "inference settings changed")
     require(data.get("multimask_output") is False, "unexpected mask selection")
     require(data.get("mask_threshold") == 0.0, "unexpected mask threshold")
     for key in ["torch_version", "transformers_version"]:
@@ -97,6 +100,7 @@ def generate(directory):
     import torch
     import transformers
     from huggingface_hub import snapshot_download
+    from huggingface_hub.constants import HF_HUB_CACHE
     from transformers import Sam2Model, Sam2Processor
 
     image_path = directory / IMAGE_NAME
@@ -104,7 +108,14 @@ def generate(directory):
     require(sha256(image_path) == IMAGE_SHA256, "photograph sha256 mismatch")
     require(not any((directory / name).exists() for name in ["mask.png", "sam.json"]),
             "refusing to overwrite evidence; use a new output directory")
-    snapshot = Path(snapshot_download(MODEL_ID, revision=REVISION, local_files_only=True))
+    # Offline Hub lookup requires a full commit or a cached ref. A snapshot
+    # downloaded using `main` need not have a ref for the brief's short SHA.
+    # Resolve only that fixed prefix, never whichever commit `main` now names.
+    snapshots = Path(HF_HUB_CACHE) / "models--facebook--sam2.1-hiera-tiny" / "snapshots"
+    matches = [p for p in snapshots.glob(f"{REVISION}*")
+               if p.is_dir() and re.fullmatch(r"[0-9a-f]{40}", p.name)]
+    require(len(matches) == 1, f"need exactly one cached full revision starting with {REVISION}")
+    snapshot = Path(snapshot_download(MODEL_ID, revision=matches[0].name, local_files_only=True))
     revision = snapshot.name
     require(re.fullmatch(r"[0-9a-f]{40}", revision) is not None
             and revision.startswith(REVISION), "cached snapshot has wrong or unresolved revision")
@@ -166,7 +177,7 @@ def main():
     except (OSError, ValueError, ImportError) as error:
         print(f"Phase 15 SAM blocked: {error}", file=sys.stderr)
         print("Supply the original photograph and genuine cached SAM output before preregistration."
-              if args.check else "Install CPU torch/transformers and supply the photograph and cached "
+              if args.check else "Install CPU torch/torchvision, transformers and Pillow; supply the photograph and cached "
               "HF snapshot; this script never downloads them.", file=sys.stderr)
         return 1
     print(json.dumps({"check": "OK", "image_sha256": data["image_sha256"],
