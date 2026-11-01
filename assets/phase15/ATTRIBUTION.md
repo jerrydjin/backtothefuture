@@ -16,8 +16,8 @@ the three fixed positive points. It uses the single-mask output and a zero
 logit threshold. Mask bounds use inclusive original-image pixel coordinates.
 There is no acceptance threshold on predicted IoU or mask area.
 
-The photograph and SAM outputs are **not included yet**. No segmentation has
-been run in this environment. When generated, `mask.png` is a binary grayscale
+The photograph and genuine SAM outputs were supplied in commit `11772c2`.
+The cache check passes; inference was performed on CPU on the supplying machine. When generated, `mask.png` is a binary grayscale
 segmentation derived from that photograph; retain this attribution and the
 source license with the image and derivative. Reference measurements in the
 brief are not cached results and must never substitute for inference.

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "id": "potrero-fallen-tree",
+  "kind": "blocked_road",
+  "map": "maps/sf-zsfg.json",
+  "edge": 12,
+  "from_node": 54,
+  "to_node": 175,
+  "lane": 0,
+  "position_m": 5.928402572365728,
+  "length_m": 8.0,
+  "start_s": 240.0,
+  "duration_s": 900.0,
+  "rationale": "First directed road in expected_road_edges with a legal detour from its from-node to the sink avoiding that road. A fallen tree blocks every lane. Start 240 s; 900 s clearance is hypothetical, not a cited SF clearance estimate. Photo: https://commons.wikimedia.org/wiki/File:Fallen_tree_blocking_A36_-_geograph.org.uk_-_3794373.jpg (David Martin, CC BY-SA 2.0). The literal Phase 15 reachability rule selects edge 12 (54->175); edge 14 was the Phase 13f result under its stricter avoided-exit-node rule. The footprint is centered by rule before scoring."
+}

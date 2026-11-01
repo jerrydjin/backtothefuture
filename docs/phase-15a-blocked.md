@@ -1,4 +1,8 @@
-# Phase 15a is blocked before preregistration
+# Phase 15a SAM blocker history
+
+Resolved on 1 November 2026: genuine evidence was supplied in commit `11772c2`.
+`python3 scripts/phase15-sam.py --check` passes. The historical account below
+records the earlier stop; it does not describe the current implementation status.
 
 As of 1 November 2026, this branch starts at `bc5d51b` and contains evidence
 preparation only. There is no Phase 15 simulation implementation,

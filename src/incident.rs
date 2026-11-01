@@ -29,7 +29,7 @@ impl LaneIncident {
     }
     pub fn validate(&self) -> Result<(), String> {
         if self.version != 1
-            || self.kind != "blocked_lane"
+            || !["blocked_lane", "blocked_road"].contains(&self.kind.as_str())
             || self.id.is_empty()
             || self.rationale.is_empty()
             || self.from_node == self.to_node

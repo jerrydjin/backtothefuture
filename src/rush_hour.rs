@@ -1705,3 +1705,89 @@ mod live_batch_tests {
         assert_eq!(sizes, vec![1, 12, 12]);
     }
 }
+
+/// Opt-in Phase 15 runner. Legacy entry points and their outputs are unchanged.
+/// Same 10,000-step (2,500 s) horizon; no frames or Python/model calls at score time.
+pub fn simulate_trips_recorded(
+    seed: u64,
+    policy: &dyn Policy,
+    trips: Vec<Trip>,
+    net: &Network,
+    config: crate::record::RecordConfig,
+) -> Result<(Run, crate::record::Snapshot), String> {
+    let mut trips = trips;
+    trips.sort_by(|a, b| a.request_s.total_cmp(&b.request_s).then(a.car.cmp(&b.car)));
+    let schedule: Vec<_> = trips
+        .iter()
+        .map(|t| ScheduledCar {
+            id: t.car,
+            route: t.route,
+            depart_s: t.depart_s,
+        })
+        .collect();
+    let mut sim = TownSim::with_schedule_on(seed, &schedule, net.clone())?;
+    sim.enable_record(config)?;
+    let requests: Vec<_> = trips
+        .iter()
+        .map(|t| PolicyRequest {
+            car: t.car,
+            rider: t.rider,
+            reason: t.reason.clone(),
+            at_s: t.request_s,
+            history: Vec::new(),
+        })
+        .collect();
+    policy.prepare(&requests);
+    let mut cursor = 0;
+    let mut decisions = Vec::new();
+    let mut stats = NetStats::default();
+    for step in 0..=10_000 {
+        let first = cursor;
+        while cursor < trips.len() && trips[cursor].request_s <= sim.time() {
+            cursor += 1;
+        }
+        if cursor > first {
+            let batch = policy.decide_batch(&requests[first..cursor]);
+            if batch.len() != cursor - first
+                || batch
+                    .iter()
+                    .zip(&requests[first..cursor])
+                    .any(|(d, r)| d.car != r.car)
+            {
+                return Err("recorded policy identities mismatch".into());
+            }
+            for d in batch {
+                sim.set_precedence(d.car, d.granted);
+                decisions.push(d);
+            }
+        }
+        stats.overlaps += sim.overlaps();
+        stats.crossing_conflicts += sim.crossing_conflicts();
+        let home = sim.completed_trips();
+        stats.exited = home.len() as u32;
+        stats.spawned = stats.exited + sim.car_count() as u32;
+        stats.peak_cars = stats.peak_cars.max(sim.car_count() as u32);
+        if sim.queued() > stats.peak_queued {
+            stats.peak_queued = sim.queued();
+            stats.peak_at = sim.time() as u32;
+        }
+        if home.len() == trips.len() && cursor == trips.len() && step % 4 == 0 {
+            break;
+        }
+        sim.step();
+    }
+    let record = sim.record_snapshot();
+    let run = Run {
+        junction: sim.junction_snapshot(),
+        trips,
+        decisions,
+        home: sim.completed_trips(),
+        town: sim.experiment_recording(Vec::new(), stats),
+        history: BTreeMap::new(),
+        messages: sim.messages(),
+        message_log: sim.message_log(),
+        history_enabled: true,
+        slot_log: sim.slot_log(),
+    };
+    Ok((run, record))
+}
