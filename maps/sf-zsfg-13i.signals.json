@@ -1,0 +1,2004 @@
+{
+  "source": "https://services.sfmta.com/arcgis/rest/services/DataSF/master/FeatureServer/1",
+  "queried_utc": "2026-10-31",
+  "bbox_west_south_east_north": [
+    -122.422,
+    37.738,
+    -122.392,
+    37.772
+  ],
+  "features": [
+    {
+      "object_id": 14422,
+      "sig_num": "9135200",
+      "streets": [
+        "24TH ST",
+        "CAPP"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.75230597799998,
+      "lon": -122.41735781699998
+    },
+    {
+      "object_id": 14448,
+      "sig_num": "9199000",
+      "streets": [
+        "BAYSHORE",
+        "OAKDALE"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.74305120499997,
+      "lon": -122.40524238699999
+    },
+    {
+      "object_id": 14451,
+      "sig_num": "9151000",
+      "streets": [
+        "29TH ST",
+        "MISSION"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.744037633000005,
+      "lon": -122.420893659
+    },
+    {
+      "object_id": 14452,
+      "sig_num": "9492500",
+      "streets": [
+        "MISSION",
+        "VIRGINIA"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.743122664,
+      "lon": -122.42148545100002
+    },
+    {
+      "object_id": 14453,
+      "sig_num": "9335500",
+      "streets": [
+        "EVANS",
+        "RANKIN"
+      ],
+      "type": "SIGNAL",
+      "preempt": "HEAVY RAIL PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.74510099899999,
+      "lon": -122.39218234100002
+    },
+    {
+      "object_id": 14528,
+      "sig_num": "9153500",
+      "streets": [
+        "30TH ST",
+        "EUGENIA",
+        "MISSION"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.74237539799998,
+      "lon": -122.421968762
+    },
+    {
+      "object_id": 14529,
+      "sig_num": "9197000",
+      "streets": [
+        "BAYSHORE",
+        "CORTLAND"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.73956627299998,
+      "lon": -122.40697858599998
+    },
+    {
+      "object_id": 14589,
+      "sig_num": "9335000",
+      "streets": [
+        "EVANS",
+        "NAPOLEON",
+        "TOLAND"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.74726234799999,
+      "lon": -122.39600861299999
+    },
+    {
+      "object_id": 14590,
+      "sig_num": "9073500",
+      "streets": [
+        "13TH ST",
+        "HARRISON"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.76950200499999,
+      "lon": -122.41338523799999
+    },
+    {
+      "object_id": 14591,
+      "sig_num": "9068000",
+      "streets": [
+        "11TH ST",
+        "13TH ST",
+        "BRYANT",
+        "DIVISION"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.76941119100002,
+      "lon": -122.41093108799998
+    },
+    {
+      "object_id": 14592,
+      "sig_num": "9073000",
+      "streets": [
+        "13TH ST",
+        "FOLSOM"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.769591160999994,
+      "lon": -122.41557701599999
+    },
+    {
+      "object_id": 14711,
+      "sig_num": "9051500",
+      "streets": [
+        "07TH ST",
+        "TOWNSEND"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.77181712599997,
+      "lon": -122.40165668100002
+    },
+    {
+      "object_id": 14713,
+      "sig_num": "9054000",
+      "streets": [
+        "08TH ST",
+        "BRANNAN"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.771296353000025,
+      "lon": -122.405424735
+    },
+    {
+      "object_id": 14714,
+      "sig_num": "9060000",
+      "streets": [
+        "09TH ST",
+        "BRYANT",
+        "US-101 N OFF RAMP"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.771290792,
+      "lon": -122.40853108300001
+    },
+    {
+      "object_id": 14742,
+      "sig_num": "9059500",
+      "streets": [
+        "09TH ST",
+        "BRANNAN"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.77004977199999,
+      "lon": -122.40700149000003
+    },
+    {
+      "object_id": 14936,
+      "sig_num": "9072500",
+      "streets": [
+        "13TH ST",
+        "DUBOCE",
+        "MISSION",
+        "OTIS"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.77011144900001,
+      "lon": -122.42000832100001
+    },
+    {
+      "object_id": 14941,
+      "sig_num": "9268500",
+      "streets": [
+        "CESAR CHAVEZ",
+        "MISSION"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.74816568900002,
+      "lon": -122.41822117100003
+    },
+    {
+      "object_id": 14944,
+      "sig_num": "9138000",
+      "streets": [
+        "24TH ST",
+        "MISSION"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.752239454999994,
+      "lon": -122.418445271
+    },
+    {
+      "object_id": 14945,
+      "sig_num": "9145000",
+      "streets": [
+        "25TH ST",
+        "MISSION"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.75063964999998,
+      "lon": -122.41828786999997
+    },
+    {
+      "object_id": 14948,
+      "sig_num": "9136500",
+      "streets": [
+        "24TH ST",
+        "FOLSOM"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.75250606499998,
+      "lon": -122.41408603100001
+    },
+    {
+      "object_id": 14949,
+      "sig_num": "9266000",
+      "streets": [
+        "CESAR CHAVEZ",
+        "FOLSOM"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.748255330000006,
+      "lon": -122.41366884399997
+    },
+    {
+      "object_id": 14950,
+      "sig_num": "9139000",
+      "streets": [
+        "24TH ST",
+        "SOUTH VAN NESS"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.75237278899999,
+      "lon": -122.41626551000002
+    },
+    {
+      "object_id": 14951,
+      "sig_num": "9146000",
+      "streets": [
+        "25TH ST",
+        "SOUTH VAN NESS"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.750771086999976,
+      "lon": -122.41610762099998
+    },
+    {
+      "object_id": 14952,
+      "sig_num": "9148000",
+      "streets": [
+        "26TH ST",
+        "SOUTH VAN NESS"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.749172182999985,
+      "lon": -122.41595464199997
+    },
+    {
+      "object_id": 14953,
+      "sig_num": "9270000",
+      "streets": [
+        "CESAR CHAVEZ",
+        "SOUTH VAN NESS"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.74821214999997,
+      "lon": -122.41586279299997
+    },
+    {
+      "object_id": 14954,
+      "sig_num": "9139500",
+      "streets": [
+        "24TH ST",
+        "VALENCIA"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.75210364600002,
+      "lon": -122.42066480099999
+    },
+    {
+      "object_id": 14955,
+      "sig_num": "9146500",
+      "streets": [
+        "25TH ST",
+        "VALENCIA"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.750505825999994,
+      "lon": -122.42050700499999
+    },
+    {
+      "object_id": 14956,
+      "sig_num": "9148500",
+      "streets": [
+        "26TH ST",
+        "VALENCIA"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.74890653099999,
+      "lon": -122.42035371100002
+    },
+    {
+      "object_id": 14957,
+      "sig_num": "9147500",
+      "streets": [
+        "26TH ST",
+        "MISSION"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.74904128700001,
+      "lon": -122.41813525200001
+    },
+    {
+      "object_id": 14960,
+      "sig_num": "9337000",
+      "streets": [
+        "FAIR",
+        "MISSION",
+        "VALENCIA"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.74559509699998,
+      "lon": -122.41988576400001
+    },
+    {
+      "object_id": 14961,
+      "sig_num": "9196500",
+      "streets": [
+        "BAYSHORE",
+        "MIDBLOCK",
+        "CESAR CHAVEZ",
+        "MARIN"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.749067556,
+      "lon": -122.404663217
+    },
+    {
+      "object_id": 14962,
+      "sig_num": "9268000",
+      "streets": [
+        "CESAR CHAVEZ",
+        "KANSAS"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.74939667899997,
+      "lon": -122.402061634
+    },
+    {
+      "object_id": 14963,
+      "sig_num": "9489500",
+      "streets": [
+        "MISSION",
+        "PRECITA"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.74677514000001,
+      "lon": -122.41912130100002
+    },
+    {
+      "object_id": 14964,
+      "sig_num": "9207000",
+      "streets": [
+        "BESSIE",
+        "FOLSOM",
+        "PRECITA"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.746765650999976,
+      "lon": -122.413532073
+    },
+    {
+      "object_id": 14965,
+      "sig_num": "9222000",
+      "streets": [
+        "BRYANT",
+        "CESAR CHAVEZ"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.74835284699998,
+      "lon": -122.40870631299998
+    },
+    {
+      "object_id": 14966,
+      "sig_num": "9267000",
+      "streets": [
+        "CESAR CHAVEZ",
+        "HARRISON"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.74829828700001,
+      "lon": -122.41148412799998
+    },
+    {
+      "object_id": 14967,
+      "sig_num": "9269500",
+      "streets": [
+        "CESAR CHAVEZ",
+        "SHOTWELL"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.74823073099998,
+      "lon": -122.41491896299999
+    },
+    {
+      "object_id": 14968,
+      "sig_num": "9145500",
+      "streets": [
+        "25TH ST",
+        "POTRERO"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.751726209000026,
+      "lon": -122.40621941400002
+    },
+    {
+      "object_id": 14969,
+      "sig_num": "9135000",
+      "streets": [
+        "24TH ST",
+        "BRYANT"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.75279558400001,
+      "lon": -122.409129909
+    },
+    {
+      "object_id": 14970,
+      "sig_num": "9138500",
+      "streets": [
+        "24TH ST",
+        "POTRERO"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.75300403,
+      "lon": -122.406336238
+    },
+    {
+      "object_id": 14971,
+      "sig_num": "9133000",
+      "streets": [
+        "23RD ST",
+        "POTRERO"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.75456421199999,
+      "lon": -122.40648045900002
+    },
+    {
+      "object_id": 14972,
+      "sig_num": "9129000",
+      "streets": [
+        "22ND ST EAST",
+        "POTRERO"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.756833734,
+      "lon": -122.40669900099999
+    },
+    {
+      "object_id": 14973,
+      "sig_num": "9124000",
+      "streets": [
+        "21ST ST",
+        "POTRERO"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.757762058000026,
+      "lon": -122.40679973599998
+    },
+    {
+      "object_id": 14974,
+      "sig_num": "9126000",
+      "streets": [
+        "22ND ST",
+        "BRYANT"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.75599844200002,
+      "lon": -122.40943306899999
+    },
+    {
+      "object_id": 14975,
+      "sig_num": "9472500",
+      "streets": [
+        "MARIPOSA",
+        "POTRERO"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.763187802000004,
+      "lon": -122.40730484800002
+    },
+    {
+      "object_id": 14976,
+      "sig_num": "9100500",
+      "streets": [
+        "18TH ST",
+        "POTRERO"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.761935877999974,
+      "lon": -122.40718748799998
+    },
+    {
+      "object_id": 14977,
+      "sig_num": "9115000",
+      "streets": [
+        "19TH ST",
+        "POTRERO"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.760661266,
+      "lon": -122.40706579699997
+    },
+    {
+      "object_id": 14978,
+      "sig_num": "9121000",
+      "streets": [
+        "20TH ST",
+        "POTRERO"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.759365489000004,
+      "lon": -122.40694687299998
+    },
+    {
+      "object_id": 14979,
+      "sig_num": "9064500",
+      "streets": [
+        "10TH ST",
+        "BRANNAN",
+        "DIVISION",
+        "POTRERO"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.76924401000002,
+      "lon": -122.40800720300001
+    },
+    {
+      "object_id": 14980,
+      "sig_num": "9159500",
+      "streets": [
+        "ALAMEDA",
+        "POTRERO"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.76835372099998,
+      "lon": -122.407813487
+    },
+    {
+      "object_id": 14981,
+      "sig_num": "9084000",
+      "streets": [
+        "16TH ST",
+        "BRYANT"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.765605838,
+      "lon": -122.41048668899998
+    },
+    {
+      "object_id": 14982,
+      "sig_num": "9094000",
+      "streets": [
+        "17TH ST",
+        "POTRERO"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.76448783000001,
+      "lon": -122.40741973799999
+    },
+    {
+      "object_id": 14983,
+      "sig_num": "9088000",
+      "streets": [
+        "16TH ST",
+        "POTRERO"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP-Planned,TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.76578329900002,
+      "lon": -122.40753422900002
+    },
+    {
+      "object_id": 14984,
+      "sig_num": "9082000",
+      "streets": [
+        "15TH ST",
+        "POTRERO"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.76708198199998,
+      "lon": -122.407685033
+    },
+    {
+      "object_id": 14991,
+      "sig_num": "9125000",
+      "streets": [
+        "21ST ST",
+        "VALENCIA"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.75690200899999,
+      "lon": -122.42111754000001
+    },
+    {
+      "object_id": 14992,
+      "sig_num": "9128500",
+      "streets": [
+        "22ND ST",
+        "VALENCIA"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.75529478200002,
+      "lon": -122.42096409300001
+    },
+    {
+      "object_id": 14993,
+      "sig_num": "9122000",
+      "streets": [
+        "20TH ST",
+        "VALENCIA"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.75849850899999,
+      "lon": -122.42127172900001
+    },
+    {
+      "object_id": 14994,
+      "sig_num": "9134000",
+      "streets": [
+        "23RD ST",
+        "VALENCIA"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.753703094,
+      "lon": -122.420812136
+    },
+    {
+      "object_id": 14995,
+      "sig_num": "9126500",
+      "streets": [
+        "22ND ST",
+        "FOLSOM"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "PENDING",
+      "detection": "",
+      "lat": 37.75569946500002,
+      "lon": -122.41438760099999
+    },
+    {
+      "object_id": 14996,
+      "sig_num": "9131500",
+      "streets": [
+        "23RD ST",
+        "FOLSOM"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "PENDING",
+      "detection": "",
+      "lat": 37.75409888299998,
+      "lon": -122.41423350999997
+    },
+    {
+      "object_id": 14997,
+      "sig_num": "9123000",
+      "streets": [
+        "21ST ST",
+        "FOLSOM"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "PENDING",
+      "detection": "",
+      "lat": 37.757297644000005,
+      "lon": -122.41454146699999
+    },
+    {
+      "object_id": 14998,
+      "sig_num": "9119000",
+      "streets": [
+        "20TH ST",
+        "FOLSOM"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.758895989999985,
+      "lon": -122.41469002999997
+    },
+    {
+      "object_id": 14999,
+      "sig_num": "9133500",
+      "streets": [
+        "23RD ST",
+        "SOUTH VAN NESS"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.753967769999974,
+      "lon": -122.41641348899998
+    },
+    {
+      "object_id": 15000,
+      "sig_num": "9128000",
+      "streets": [
+        "22ND ST",
+        "SOUTH VAN NESS"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.755568278,
+      "lon": -122.41656664099997
+    },
+    {
+      "object_id": 15001,
+      "sig_num": "9124500",
+      "streets": [
+        "21ST ST",
+        "SOUTH VAN NESS"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.757166643000005,
+      "lon": -122.41671959400003
+    },
+    {
+      "object_id": 15002,
+      "sig_num": "9121500",
+      "streets": [
+        "20TH ST",
+        "SOUTH VAN NESS"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.75876422900001,
+      "lon": -122.41687248199997
+    },
+    {
+      "object_id": 15004,
+      "sig_num": "9078000",
+      "streets": [
+        "14TH ST",
+        "SOUTH VAN NESS"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.76840526799998,
+      "lon": -122.41780215400001
+    },
+    {
+      "object_id": 15006,
+      "sig_num": "9093500",
+      "streets": [
+        "17TH ST",
+        "MISSION"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.763429272999986,
+      "lon": -122.41951273699999
+    },
+    {
+      "object_id": 15015,
+      "sig_num": "9065000",
+      "streets": [
+        "10TH ST",
+        "BRYANT",
+        "US-101 S ON RAMP"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.770348517,
+      "lon": -122.40973588999998
+    },
+    {
+      "object_id": 15021,
+      "sig_num": "9094500",
+      "streets": [
+        "17TH ST",
+        "SOUTH VAN NESS"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.763571603,
+      "lon": -122.41733240600001
+    },
+    {
+      "object_id": 15023,
+      "sig_num": "9086500",
+      "streets": [
+        "16TH ST",
+        "HARRISON",
+        "TREAT"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.76544760799999,
+      "lon": -122.41310524300002
+    },
+    {
+      "object_id": 15026,
+      "sig_num": "9076500",
+      "streets": [
+        "14TH ST",
+        "FOLSOM"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.76853738699998,
+      "lon": -122.41561378099999
+    },
+    {
+      "object_id": 15028,
+      "sig_num": "9071500",
+      "streets": [
+        "12TH ST",
+        "HOWARD"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.77172394600001,
+      "lon": -122.41689981799999
+    },
+    {
+      "object_id": 15029,
+      "sig_num": "9100000",
+      "streets": [
+        "18TH ST",
+        "MISSION"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.761835855000015,
+      "lon": -122.419359268
+    },
+    {
+      "object_id": 15031,
+      "sig_num": "9095000",
+      "streets": [
+        "17TH ST",
+        "VALENCIA"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.763299768000024,
+      "lon": -122.42173152200002
+    },
+    {
+      "object_id": 15032,
+      "sig_num": "9081500",
+      "streets": [
+        "15TH ST",
+        "MISSION"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.766673602000026,
+      "lon": -122.41982523399997
+    },
+    {
+      "object_id": 15035,
+      "sig_num": "9092500",
+      "streets": [
+        "17TH ST",
+        "FOLSOM"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "PENDING",
+      "detection": "",
+      "lat": 37.763696767,
+      "lon": -122.41515508600003
+    },
+    {
+      "object_id": 15036,
+      "sig_num": "9066500",
+      "streets": [
+        "10TH ST",
+        "HARRISON"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.77157867699998,
+      "lon": -122.41127793700002
+    },
+    {
+      "object_id": 15039,
+      "sig_num": "9405000",
+      "streets": [
+        "GOUGH",
+        "MCCOPPIN",
+        "OTIS"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.771770249999975,
+      "lon": -122.42034436799997
+    },
+    {
+      "object_id": 15040,
+      "sig_num": "9069000",
+      "streets": [
+        "11TH ST",
+        "HARRISON"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.77062985399999,
+      "lon": -122.41247993500002
+    },
+    {
+      "object_id": 15041,
+      "sig_num": "9068500",
+      "streets": [
+        "11TH ST",
+        "FOLSOM"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.771863705999976,
+      "lon": -122.414026707
+    },
+    {
+      "object_id": 15043,
+      "sig_num": "9116000",
+      "streets": [
+        "19TH ST",
+        "VALENCIA"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.76010129399998,
+      "lon": -122.42142521300002
+    },
+    {
+      "object_id": 15044,
+      "sig_num": "9101500",
+      "streets": [
+        "18TH ST",
+        "VALENCIA"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.76170090900001,
+      "lon": -122.42157839999999
+    },
+    {
+      "object_id": 15045,
+      "sig_num": "9089500",
+      "streets": [
+        "16TH ST",
+        "VALENCIA"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.764917378999996,
+      "lon": -122.42188644599997
+    },
+    {
+      "object_id": 15051,
+      "sig_num": "9082500",
+      "streets": [
+        "15TH ST",
+        "SOUTH VAN NESS"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.766805241999975,
+      "lon": -122.41764545299998
+    },
+    {
+      "object_id": 15052,
+      "sig_num": "9080000",
+      "streets": [
+        "15TH ST",
+        "FOLSOM"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "SOME PHASES",
+      "detection": "",
+      "lat": 37.76693705600002,
+      "lon": -122.415462128
+    },
+    {
+      "object_id": 15053,
+      "sig_num": "0",
+      "streets": [
+        "19TH ST",
+        "MISSION"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.76023535500002,
+      "lon": -122.41920604299997
+    },
+    {
+      "object_id": 15054,
+      "sig_num": "9120500",
+      "streets": [
+        "20TH ST",
+        "MISSION"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.75863256700001,
+      "lon": -122.41905260700003
+    },
+    {
+      "object_id": 15055,
+      "sig_num": "9087500",
+      "streets": [
+        "16TH ST",
+        "MISSION"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.76505133699999,
+      "lon": -122.419668973
+    },
+    {
+      "object_id": 15056,
+      "sig_num": "9077500",
+      "streets": [
+        "14TH ST",
+        "MISSION"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.768273652999994,
+      "lon": -122.41998151199999
+    },
+    {
+      "object_id": 15057,
+      "sig_num": "9113500",
+      "streets": [
+        "19TH ST",
+        "FOLSOM"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "PENDING",
+      "detection": "FH BUTTON",
+      "lat": 37.76049887300002,
+      "lon": -122.41484189200003
+    },
+    {
+      "object_id": 15058,
+      "sig_num": "9098500",
+      "streets": [
+        "18TH ST",
+        "FOLSOM"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "SOME PHASES",
+      "detection": "",
+      "lat": 37.76209916099998,
+      "lon": -122.41499861699998
+    },
+    {
+      "object_id": 15059,
+      "sig_num": "9085500",
+      "streets": [
+        "16TH ST",
+        "FOLSOM"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.765314638999996,
+      "lon": -122.41530838800003
+    },
+    {
+      "object_id": 15060,
+      "sig_num": "9070500",
+      "streets": [
+        "12TH ST",
+        "FOLSOM"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.77089610899998,
+      "lon": -122.41499665399999
+    },
+    {
+      "object_id": 15063,
+      "sig_num": "9115500",
+      "streets": [
+        "19TH ST",
+        "SOUTH VAN NESS"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.760367023000015,
+      "lon": -122.41702581499999
+    },
+    {
+      "object_id": 15064,
+      "sig_num": "9101000",
+      "streets": [
+        "18TH ST",
+        "SOUTH VAN NESS"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.761967529,
+      "lon": -122.41717893700002
+    },
+    {
+      "object_id": 15065,
+      "sig_num": "9089000",
+      "streets": [
+        "16TH ST",
+        "SOUTH VAN NESS"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.76518313499997,
+      "lon": -122.417486596
+    },
+    {
+      "object_id": 15310,
+      "sig_num": "9269000",
+      "streets": [
+        "CESAR CHAVEZ",
+        "PENNSYLVANIA"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.750021505999996,
+      "lon": -122.39238199300001
+    },
+    {
+      "object_id": 15327,
+      "sig_num": "9265500",
+      "streets": [
+        "CESAR CHAVEZ",
+        "EVANS"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.74968462300001,
+      "lon": -122.39728541599999
+    },
+    {
+      "object_id": 15422,
+      "sig_num": "9137500",
+      "streets": [
+        "24TH ST",
+        "HARRISON"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.75262858999997,
+      "lon": -122.41189982100002
+    },
+    {
+      "object_id": 15423,
+      "sig_num": "9123500",
+      "streets": [
+        "21ST ST",
+        "MISSION"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.757035401999985,
+      "lon": -122.41890102899998
+    },
+    {
+      "object_id": 15424,
+      "sig_num": "9127500",
+      "streets": [
+        "22ND ST",
+        "MISSION"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.755436936000024,
+      "lon": -122.41874757400001
+    },
+    {
+      "object_id": 15425,
+      "sig_num": "9132500",
+      "streets": [
+        "23RD ST",
+        "MISSION"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.75383658800001,
+      "lon": -122.418593945
+    },
+    {
+      "object_id": 15426,
+      "sig_num": "9096500",
+      "streets": [
+        "18TH ST",
+        "CAPP"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.76190156299998,
+      "lon": -122.41827131999997
+    },
+    {
+      "object_id": 15454,
+      "sig_num": "9472000",
+      "streets": [
+        "MARIPOSA",
+        "OWENS",
+        "I-280 ON & OFF RAMPS"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.76409012099998,
+      "lon": -122.39248582300002
+    },
+    {
+      "object_id": 15455,
+      "sig_num": "9270500",
+      "streets": [
+        "CESAR CHAVEZ",
+        "VALENCIA"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.74812528299998,
+      "lon": -122.42027882999997
+    },
+    {
+      "object_id": 15495,
+      "sig_num": "9129500",
+      "streets": [
+        "22ND ST WEST",
+        "POTRERO"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.756166565,
+      "lon": -122.406633693
+    },
+    {
+      "object_id": 15496,
+      "sig_num": "9074000",
+      "streets": [
+        "13TH ST",
+        "SOUTH VAN NESS",
+        "US-101 S ON RAMP"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.76981507900001,
+      "lon": -122.41775319300001
+    },
+    {
+      "object_id": 15528,
+      "sig_num": "9541500",
+      "streets": [
+        "I-280",
+        "MIDBLOCK",
+        "20TH ST",
+        "INDIANA"
+      ],
+      "type": "BEACON",
+      "preempt": "",
+      "ped_signal": "n.a.",
+      "detection": "",
+      "lat": 37.760693285,
+      "lon": -122.39228480999998
+    },
+    {
+      "object_id": 15536,
+      "sig_num": "9198000",
+      "streets": [
+        "BAYSHORE",
+        "JERROLD",
+        "US-101 N OFF RAMP"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.74776187600003,
+      "lon": -122.403561018
+    },
+    {
+      "object_id": 15548,
+      "sig_num": "9047300",
+      "streets": [
+        "07TH ST",
+        "16TH ST",
+        "MISSISSIPPI"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.76654457000001,
+      "lon": -122.39506054399999
+    },
+    {
+      "object_id": 15549,
+      "sig_num": "9086700",
+      "streets": [
+        "16TH ST",
+        "KANSAS"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.76601681599999,
+      "lon": -122.403642967
+    },
+    {
+      "object_id": 15550,
+      "sig_num": "9084700",
+      "streets": [
+        "16TH ST",
+        "DE HARO"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.766132503999984,
+      "lon": -122.40172051399998
+    },
+    {
+      "object_id": 15557,
+      "sig_num": "9159400",
+      "streets": [
+        "ALABAMA",
+        "CESAR CHAVEZ"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.74831671800001,
+      "lon": -122.41054606699998
+    },
+    {
+      "object_id": 15565,
+      "sig_num": "9264800",
+      "streets": [
+        "CESAR CHAVEZ",
+        "CONNECTICUT"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.74974559999998,
+      "lon": -122.396273544
+    },
+    {
+      "object_id": 15572,
+      "sig_num": "9089600",
+      "streets": [
+        "16TH ST",
+        "VERMONT"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.765958189,
+      "lon": -122.40462333699998
+    },
+    {
+      "object_id": 15573,
+      "sig_num": "9087700",
+      "streets": [
+        "16TH ST",
+        "OWENS"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.76667127600001,
+      "lon": -122.39300095200002
+    },
+    {
+      "object_id": 15590,
+      "sig_num": "9525700",
+      "streets": [
+        "POTRERO",
+        "MIDBLOCK",
+        "22ND ST",
+        "23RD ST"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.755335005999996,
+      "lon": -122.40655816200001
+    },
+    {
+      "object_id": 15618,
+      "sig_num": "9088300",
+      "streets": [
+        "16TH ST",
+        "RHODE ISLAND"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.766074608,
+      "lon": -122.40268495700002
+    },
+    {
+      "object_id": 15632,
+      "sig_num": "9047400",
+      "streets": [
+        "07TH ST",
+        "BERRY EXTENSION",
+        "MISSION BAY"
+      ],
+      "type": "SIGNAL",
+      "preempt": "HEAVY RAIL PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.769410547999996,
+      "lon": -122.39864217600001
+    },
+    {
+      "object_id": 15633,
+      "sig_num": "0",
+      "streets": [
+        "BAYSHORE",
+        "MIDBLOCK",
+        "CORTLAND",
+        "FLOWER (LOWES)"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.74201127200001,
+      "lon": -122.40601245900001
+    },
+    {
+      "object_id": 15638,
+      "sig_num": "9084300",
+      "streets": [
+        "16TH ST",
+        "CAPP"
+      ],
+      "type": "SIGNAL",
+      "preempt": "FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.765109955000014,
+      "lon": -122.41869842599999
+    },
+    {
+      "object_id": 15719,
+      "sig_num": "0",
+      "streets": [
+        "CAMPUS",
+        "OWENS"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.767602236000016,
+      "lon": -122.393804359
+    },
+    {
+      "object_id": 15723,
+      "sig_num": "0",
+      "streets": [
+        "MARIPOSA",
+        "PENNSYLVANIA"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.764021343000024,
+      "lon": -122.393729796
+    },
+    {
+      "object_id": 15742,
+      "sig_num": "0",
+      "streets": [
+        "22ND ST",
+        "MIDBLOCK",
+        "POTRERO",
+        "SAN BRUNO"
+      ],
+      "type": "BEACON - RRFB",
+      "preempt": "",
+      "ped_signal": "N.A.",
+      "detection": "",
+      "lat": 37.75689847699999,
+      "lon": -122.40562418000002
+    },
+    {
+      "object_id": 15768,
+      "sig_num": "0",
+      "streets": [
+        "17TH ST",
+        "HARRISON"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.764090861,
+      "lon": -122.41300268399999
+    },
+    {
+      "object_id": 15770,
+      "sig_num": "0",
+      "streets": [
+        "16TH ST",
+        "CONNECTICUT"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.76636933899999,
+      "lon": -122.39786338599998
+    },
+    {
+      "object_id": 15771,
+      "sig_num": "9087600",
+      "streets": [
+        "16TH ST",
+        "MISSOURI"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.766429969,
+      "lon": -122.396897104
+    },
+    {
+      "object_id": 15772,
+      "sig_num": "0",
+      "streets": [
+        "16TH ST",
+        "SAN BRUNO"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.76590040100001,
+      "lon": -122.40558529600003
+    },
+    {
+      "object_id": 15773,
+      "sig_num": "0",
+      "streets": [
+        "16TH ST",
+        "SHOTWELL"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.76524949399999,
+      "lon": -122.41638752300003
+    },
+    {
+      "object_id": 15774,
+      "sig_num": "0",
+      "streets": [
+        "16TH ST",
+        "UTAH"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.765842271,
+      "lon": -122.406552826
+    },
+    {
+      "object_id": 15775,
+      "sig_num": "0",
+      "streets": [
+        "16TH ST",
+        "WISCONSIN"
+      ],
+      "type": "SIGNAL",
+      "preempt": "TSP,FIRE PREEMPT",
+      "ped_signal": "ALL",
+      "detection": "OPTICOM",
+      "lat": 37.76625025300001,
+      "lon": -122.39976095999998
+    },
+    {
+      "object_id": 15776,
+      "sig_num": "0",
+      "streets": [
+        "17TH ST",
+        "BRYANT"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.76430998500001,
+      "lon": -122.410363749
+    },
+    {
+      "object_id": 15777,
+      "sig_num": "0",
+      "streets": [
+        "17TH ST",
+        "UTAH"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.76454765400001,
+      "lon": -122.40642915500001
+    },
+    {
+      "object_id": 15793,
+      "sig_num": "9506700",
+      "streets": [
+        "OWENS",
+        "MIDBLOCK",
+        "16TH ST",
+        "MARIPOSA (UCSF GARAGE)"
+      ],
+      "type": "SIGNAL",
+      "preempt": "",
+      "ped_signal": "ALL",
+      "detection": "",
+      "lat": 37.765723057,
+      "lon": -122.39243997800003
+    },
+    {
+      "object_id": 15803,
+      "sig_num": "0",
+      "streets": [
+        "LOOMIS",
+        "OAKDALE"
+      ],
+      "type": "PENDING SIGNAL",
+      "preempt": "",
+      "ped_signal": "PENDING",
+      "detection": "",
+      "lat": 37.74252073399998,
+      "lon": -122.404306292
+    },
+    {
+      "object_id": 15810,
+      "sig_num": "0",
+      "streets": [
+        "09TH ST",
+        "DIVISION",
+        "SAN BRUNO"
+      ],
+      "type": "PENDING SIGNAL",
+      "preempt": "",
+      "ped_signal": "PENDING",
+      "detection": "",
+      "lat": 37.769462546,
+      "lon": -122.406213363
+    },
+    {
+      "object_id": 15849,
+      "sig_num": "0",
+      "streets": [
+        "CESAR CHAVEZ",
+        "FLORIDA"
+      ],
+      "type": "PENDING SIGNAL",
+      "preempt": "",
+      "ped_signal": "PENDING",
+      "detection": "",
+      "lat": 37.748334390000025,
+      "lon": -122.409646388
+    },
+    {
+      "object_id": 15866,
+      "sig_num": "0",
+      "streets": [
+        "CORTLAND",
+        "MOULTRIE"
+      ],
+      "type": "PENDING BEACON",
+      "preempt": "",
+      "ped_signal": "",
+      "detection": "",
+      "lat": 37.73900186999998,
+      "lon": -122.41589948000001
+    },
+    {
+      "object_id": 15879,
+      "sig_num": "0",
+      "streets": [
+        "MISSION",
+        "US-101 N OFF RAMP"
+      ],
+      "type": "PENDING BEACON",
+      "preempt": "",
+      "ped_signal": "",
+      "detection": "",
+      "lat": 37.77067259500001,
+      "lon": -122.41975852500002
+    }
+  ]
+}
