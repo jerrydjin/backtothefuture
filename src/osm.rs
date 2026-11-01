@@ -528,17 +528,28 @@ fn import_retained(
         edges,
     };
     map.validate()?;
-    let net = map.network()?;
+    let net = crate::network::Network::from_road_map_lenient(&map)?;
     // The car stops MIN_GAP_M behind the host's line obstacle, 0.5 m
     // before the next connector. Its rear must have cleared the previous
     // connector by then. Allow a centimetre for rounded host geometry.
     let minimum_road = crate::world::CAR_LENGTH_M + crate::world::MIN_GAP_M + 0.5 + 0.01;
-    let unusable: BTreeSet<_> = net
+    let mut unusable: BTreeSet<_> = net
         .links
         .iter()
         .filter(|l| !l.is_connector() && l.len <= minimum_road)
         .map(|l| edge_keys[l.edge].clone())
         .collect();
+    // A connector that rounds to nothing never reaches the short-road test,
+    // because `network` rejects the map first. Drop both roads of that turn
+    // and rebuild, the same exclusion the short-road loop already uses.
+    for link in net.links.iter().filter(|l| {
+        l.is_connector() && !(l.len.is_finite() && l.len > 0.0 && l.pts.len() >= 2)
+    }) {
+        if let Some((incoming, outgoing)) = link.via {
+            unusable.insert(edge_keys[net.links[incoming].edge].clone());
+            unusable.insert(edge_keys[net.links[outgoing].edge].clone());
+        }
+    }
     Ok((map, unusable.into_iter().collect()))
 }
 

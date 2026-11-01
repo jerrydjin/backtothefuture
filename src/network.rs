@@ -325,6 +325,22 @@ impl Network {
     }
 
     pub fn from_road_map(map: &crate::road_map::RoadMap) -> Result<Self, String> {
+        let net = Self::from_road_map_lenient(map)?;
+        if net
+            .links
+            .iter()
+            .any(|l| !l.len.is_finite() || l.len <= 0.0 || l.pts.len() < 2)
+            || net.routes().is_empty()
+        {
+            return Err("map has degenerate geometry or no drivable source-to-sink route".into());
+        }
+        Ok(net)
+    }
+
+    /// Same geometry as `from_road_map` without the acceptance check. The OSM
+    /// importer uses it to name roads that belong to a collapsed connector and
+    /// drop them. Loaded maps still go through `from_road_map`.
+    pub(crate) fn from_road_map_lenient(map: &crate::road_map::RoadMap) -> Result<Self, String> {
         map.validate()?;
         let nodes = map
             .nodes
@@ -382,14 +398,6 @@ impl Network {
                 });
             }
             profile.route(&net)?;
-        }
-        if net
-            .links
-            .iter()
-            .any(|l| !l.len.is_finite() || l.len <= 0.0 || l.pts.len() < 2)
-            || net.routes().is_empty()
-        {
-            return Err("map has degenerate geometry or no drivable source-to-sink route".into());
         }
         Ok(net)
     }

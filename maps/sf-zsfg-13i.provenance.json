@@ -1,0 +1,22 @@
+{
+  "source": "https://overpass-api.de/api/interpreter",
+  "query": "highways, amenity=fire_station and amenity=hospital in bbox west -122.422, south 37.738, east -122.392, north 37.772",
+  "fetched_utc": "2026-10-31",
+  "osm_base": "2026-10-31T23:56:56Z",
+  "raw_file": "maps/sf-zsfg-13i.osm",
+  "bytes": 2701170,
+  "sha256": "e4421498ed3f4e363f8b4e3c4785189e1363f507238eea2e5d54186ab9fa0aa1",
+  "map_file": "maps/sf-zsfg-13i.json",
+  "map_sha256": "1fad05050600bc8c3da49363eb3fa8e0cacd491181cda6781cf19efeb9f848a4",
+  "bbox_west_south_east_north": [-122.422, 37.738, -122.392, 37.772],
+  "attribution": "© OpenStreetMap contributors. Data available under the Open Database License (ODbL 1.0).",
+  "copyright_url": "https://www.openstreetmap.org/copyright",
+  "license_url": "https://opendatacommons.org/licenses/odbl/1-0/",
+  "importer": "malleable import-osm, src/osm.rs",
+  "hospital_node": 4,
+  "hospital_osm_way": 24446045,
+  "signals_file": "maps/sf-zsfg-13i.signals.json",
+  "signals_sha256": "698b0e858d830744ee68c0531bb437fd56b8f39bfc71139a5c216a629e7cc917",
+  "signals_source": "https://services.sfmta.com/arcgis/rest/services/DataSF/master/FeatureServer/1",
+  "note": "The importer drops both roads of a connector that rounds to a non-positive length, then rebuilds. That is the same short-road exclusion the importer already repeats until every retained road is long enough to release a claim. Reimporting maps/sf-zsfg.osm reproduces maps/sf-zsfg.json on version, attribution, hospital node, origin, schedule scale, nodes and edges. The committed demand_profile is not written by the importer."
+}
