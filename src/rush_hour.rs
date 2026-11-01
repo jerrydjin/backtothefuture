@@ -906,6 +906,7 @@ pub struct Score {
 }
 
 pub struct Run {
+    pub junction: crate::network::JunctionSnapshot,
     pub trips: Vec<Trip>,
     pub decisions: Vec<Decision>,
     pub home: BTreeMap<u32, f64>,
@@ -981,6 +982,29 @@ pub fn simulate_trips_on_observed(
     broadcast: Option<BroadcastConfig>,
     trips: Vec<Trip>,
     net: &Network,
+    observe: impl FnMut(&TownSim),
+) -> Result<Run, String> {
+    simulate_trips_on_experimental(
+        seed,
+        policy,
+        history_enabled,
+        broadcast,
+        trips,
+        net,
+        None,
+        observe,
+    )
+}
+
+/// Opt-in 13h host layer. Existing entry points always pass None.
+pub fn simulate_trips_on_experimental(
+    seed: u64,
+    policy: &dyn Policy,
+    history_enabled: bool,
+    broadcast: Option<BroadcastConfig>,
+    trips: Vec<Trip>,
+    net: &Network,
+    junction: Option<crate::network::JunctionConfig>,
     mut observe: impl FnMut(&TownSim),
 ) -> Result<Run, String> {
     let demand: Vec<_> = trips
@@ -994,6 +1018,9 @@ pub fn simulate_trips_on_observed(
     let mut sim = TownSim::with_schedule_on(seed, &demand, net.clone())?;
     if let Some(config) = broadcast {
         sim.enable_broadcast(config)?;
+    }
+    if let Some(config) = junction {
+        sim.enable_junction_layer(config)?;
     }
     // Earliest claims cannot have a completed earlier trip for their rider.
     // Repeated claims are assessed later, against actual completed history.
@@ -1088,6 +1115,7 @@ pub fn simulate_trips_on_observed(
     let message_log = sim.message_log();
     let town = sim.experiment_recording(frames, stats);
     Ok(Run {
+        junction: sim.junction_snapshot(),
         trips,
         decisions,
         home,

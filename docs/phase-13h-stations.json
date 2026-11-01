@@ -1,0 +1,22 @@
+{
+  "osm": "maps/sf-zsfg.osm",
+  "source_extent": [
+    -122.416,
+    37.75,
+    -122.4,
+    37.764
+  ],
+  "all_fire_station_pois": [
+    {
+      "osm_type": "way",
+      "osm_id": 161385045,
+      "name": "San Francisco Fire Station 7",
+      "address": "2300 Folsom Street",
+      "lat": 37.76016115501284,
+      "lon": -122.41512098640551,
+      "qualifies": true,
+      "access_node": 149,
+      "source": "https://sf-fire.org/fire-station/san-francisco-fire-station-7"
+    }
+  ]
+}

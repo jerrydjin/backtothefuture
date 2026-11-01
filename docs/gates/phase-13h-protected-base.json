@@ -1,0 +1,17 @@
+{
+  "base": "bbdfc6b",
+  "protected_sha256": {
+    "docs/gates/phase-13e-scores.jsonl": "9acb4a8e7e338e45b786fd81be47c71703de0ff88d470291d25964438d0ccf2f",
+    "docs/gates/phase-13f-broadcast-trace.jsonl": "fb315e696960acb115ed45150c416e866059d9eafa7648eadb79305bdab5bd57",
+    "docs/gates/phase-13f-bypass-scores.jsonl": "40c91baab07b2d9adfa4f84db8b5580737486bc01b7460ab3428129600ba9d5a",
+    "docs/gates/phase-13f-potrero-scores.jsonl": "23bd5979a309a06819b73af1a2b329147202787a71ccf1cb37e2d346afabd5a8",
+    "docs/gates/phase-13g-bypass-scores.jsonl": "99a253e93b137473c4f6d1760e12c3f59a9cc36d983f46afcf5e182be6233176",
+    "docs/gates/phase-13g-potrero-margins.jsonl": "12ec18addb32737e2030db4cf39871311c44913bb77667efaad03e80eae31320",
+    "docs/phase-13e-preregistration.md": "04caddbc2c2936b8d7829407d78a123d05f644d2ffcb448ad4c5609565930efd",
+    "docs/phase-13f-bypass-preregistration.md": "edcf84afd0eb233dabdb9651cf9bc723d3a89fd2c3af545c48dc830484c3d26f",
+    "docs/phase-13f-preregistration.md": "91146a178237dac869b66ac54fe82f76155e3c8a1e140278ff9fbd1f13758c73",
+    "docs/phase-13g-preregistration.md": "8e51038f6332f70af19b16a22dde14c43267bdf28b76cc6e19dd1e5dfe555d9c",
+    "src/judge.rs": "53553e2ca0b7ecdf84895d64f3d6c02f2388df3905bb803fa7681d752f4dcee0",
+    "src/schema.rs": "54e80f03470d57251ffdb8729f86e0eb543a62a7bd419600a2fee3835db0002a"
+  }
+}
