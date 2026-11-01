@@ -1005,6 +1005,63 @@ pub fn simulate_trips_on_experimental(
     trips: Vec<Trip>,
     net: &Network,
     junction: Option<crate::network::JunctionConfig>,
+    observe: impl FnMut(&TownSim),
+) -> Result<Run, String> {
+    simulate_core(
+        seed,
+        policy,
+        history_enabled,
+        broadcast,
+        trips,
+        net,
+        junction,
+        None,
+        false,
+        true,
+        observe,
+    )
+}
+
+/// Same paired runner with an opt-in signal clock and the opt-in admission
+/// check. Frames are not stored. Legacy gates keep the wrapper above.
+pub fn simulate_trips_signalled(
+    seed: u64,
+    policy: &dyn Policy,
+    history_enabled: bool,
+    broadcast: Option<BroadcastConfig>,
+    trips: Vec<Trip>,
+    net: &Network,
+    junction: Option<crate::network::JunctionConfig>,
+    signals: Option<crate::network::SignalInstall>,
+    admit_occupants: bool,
+    observe: impl FnMut(&TownSim),
+) -> Result<Run, String> {
+    simulate_core(
+        seed,
+        policy,
+        history_enabled,
+        broadcast,
+        trips,
+        net,
+        junction,
+        signals,
+        admit_occupants,
+        false,
+        observe,
+    )
+}
+
+fn simulate_core(
+    seed: u64,
+    policy: &dyn Policy,
+    history_enabled: bool,
+    broadcast: Option<BroadcastConfig>,
+    trips: Vec<Trip>,
+    net: &Network,
+    junction: Option<crate::network::JunctionConfig>,
+    signals: Option<crate::network::SignalInstall>,
+    admit_occupants: bool,
+    record_frames: bool,
     mut observe: impl FnMut(&TownSim),
 ) -> Result<Run, String> {
     let demand: Vec<_> = trips
@@ -1021,6 +1078,12 @@ pub fn simulate_trips_on_experimental(
     }
     if let Some(config) = junction {
         sim.enable_junction_layer(config)?;
+    }
+    if admit_occupants {
+        sim.set_admit_occupants(true);
+    }
+    if let Some(install) = signals {
+        sim.enable_signals(install)?;
     }
     // Earliest claims cannot have a completed earlier trip for their rider.
     // Repeated claims are assessed later, against actual completed history.
@@ -1102,7 +1165,7 @@ pub fn simulate_trips_on_experimental(
             stats.peak_queued = sim.queued();
             stats.peak_at = sim.time() as u32;
         }
-        if step % 4 == 0 {
+        if record_frames && step % 4 == 0 {
             frames.push(sim.experiment_frame());
         }
         if home.len() == trips.len() && cursor == trips.len() && step % 4 == 0 {

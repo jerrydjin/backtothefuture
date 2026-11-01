@@ -9,7 +9,13 @@
 
 #[path = "junction.rs"]
 mod junction;
+#[path = "signal.rs"]
+mod signal;
 pub use junction::{JunctionConfig, JunctionEvent, JunctionSnapshot};
+pub use signal::{
+    all_red_s, compile_signals, demand_vph, min_green_s, ped_clear_s, split_greens, yellow_s,
+    SignalArm, SignalInstall, SignalLight, SignalPlan, SignalSpec,
+};
 
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, VecDeque};
@@ -1353,6 +1359,8 @@ pub struct TownSim {
     /// link whose route started upstream. Off unless a caller opts in, so the
     /// legacy entry test is unchanged.
     admit_occupants: bool,
+    /// Absent unless a 13i arm installs a clock. No phase is consulted then.
+    signals: Option<signal::SignalControl>,
 }
 
 impl TownSim {
@@ -1403,6 +1411,7 @@ impl TownSim {
             demo: None,
             experiment: None,
             admit_occupants: false,
+            signals: None,
         }
     }
 
@@ -3456,6 +3465,9 @@ impl TownSim {
             self.update_make_way();
         }
         self.tick_junction_layer();
+        if self.signals.is_some() {
+            self.tick_signals();
+        }
         let index = self.index();
         self.revoke_stale_claims(&index);
         self.arbitrate(&index);
@@ -3634,6 +3646,9 @@ impl TownSim {
         held: &[Vec<usize>],
         index: &[Vec<Body>],
     ) -> bool {
+        if self.signal_refuses(ci, link, held, index) {
+            return false;
+        }
         if self
             .experiment
             .as_ref()
@@ -3979,6 +3994,10 @@ impl TownSim {
     }
 
     fn entry_speed(&self, s: usize) -> Option<f64> {
+        self.entry_speed_indexed(s, None)
+    }
+
+    fn entry_speed_indexed(&self, s: usize, occupants: Option<&[Vec<Body>]>) -> Option<f64> {
         let link = self.net.sources[s].link;
         let speed = self.net.links[link].speed;
         let mut tail = self
@@ -3991,7 +4010,13 @@ impl TownSim {
             .map(|car| (car.d - CAR_LENGTH_M, car.v))
             .min_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(Ordering::Equal));
         if self.admit_occupants {
-            let index = self.index();
+            let owned;
+            let index = if let Some(index) = occupants {
+                index
+            } else {
+                owned = self.index();
+                &owned
+            };
             for body in &index[link] {
                 let rear = body.rear;
                 if tail.is_none_or(|(at, _)| rear < at) {
@@ -4023,6 +4048,11 @@ impl TownSim {
     }
 
     fn spawn_scheduled(&mut self) {
+        let occupants = if self.admit_occupants {
+            Some(self.index())
+        } else {
+            None
+        };
         for source in 0..self.net.sources.len() {
             let due = self.experiment.as_ref().unwrap().pending[source]
                 .front()
@@ -4030,7 +4060,7 @@ impl TownSim {
             if !due {
                 continue;
             }
-            let Some(v) = self.entry_speed(source) else {
+            let Some(v) = self.entry_speed_indexed(source, occupants.as_deref()) else {
                 continue;
             };
             let request = self.experiment.as_mut().unwrap().pending[source]
@@ -4527,7 +4557,7 @@ impl TownSim {
 
 /// Distance at which a car asks for the junction: room to stop comfortably, plus a margin.
 /// Short on purpose, so a priority car does not hold the junction long before it arrives.
-fn claim_reach(v: f64) -> f64 {
+pub fn claim_reach(v: f64) -> f64 {
     v * v / (2.0 * IDM_B) + v * 0.5 + 4.0
 }
 
