@@ -1332,6 +1332,7 @@ struct PullOver {
 }
 
 pub struct TownSim {
+    record: Option<crate::record::RecordState>,
     junction: Option<junction::JunctionState>,
     incident_started: BTreeSet<usize>,
     incident_clearance: BTreeSet<(usize, u32)>,
@@ -1388,6 +1389,7 @@ impl TownSim {
         let sources = net.sources.len();
         let nodes = net.nodes.len();
         TownSim {
+            record: None,
             junction: None,
             incident_started: BTreeSet::new(),
             incident_clearance: BTreeSet::new(),
@@ -2591,16 +2593,45 @@ impl TownSim {
         true
     }
 
+    fn incident_covers(&self, i: &crate::incident::RecordedIncident, link: usize) -> bool {
+        i.link == link
+            || (i.definition.kind == "blocked_road"
+                && !self.net.links[link].is_connector()
+                && self.net.links[link].edge == i.definition.edge
+                && self.net.links[link].from == i.definition.from_node
+                && self.net.links[link].to == i.definition.to_node)
+    }
+    fn incident_applies_on(&self, index: usize, car: u32, link: usize) -> bool {
+        let i = &self.net.incidents[index];
+        if i.definition.kind != "blocked_road" {
+            return self.incident_applies(index, car);
+        }
+        if !i.definition.active_at(self.time) || self.incident_clearance.contains(&(index, car)) {
+            return false;
+        }
+        if !self.incident_started.contains(&index) {
+            if let Some(c) = self.cars.iter().find(|c| c.id == car) {
+                let r = &self.routes[c.route];
+                if (self.rear_index(c)..=c.idx)
+                    .any(|k| r.links[k] == link && c.d - r.start[k] >= i.definition.position_m)
+                {
+                    return false;
+                }
+            }
+        }
+        true
+    }
     fn obstacle_spans(&self, link: usize, car: u32) -> impl Iterator<Item = (f64, f64)> + '_ {
         self.net
             .incidents
             .iter()
             .enumerate()
             .filter_map(move |(index, i)| {
-                (i.link == link && self.incident_applies(index, car)).then_some((
-                    i.definition.position_m,
-                    i.definition.position_m + i.definition.length_m,
-                ))
+                (self.incident_covers(i, link) && self.incident_applies_on(index, car, link))
+                    .then_some((
+                        i.definition.position_m,
+                        i.definition.position_m + i.definition.length_m,
+                    ))
             })
     }
 
@@ -2628,7 +2659,7 @@ impl TownSim {
             for car in &self.cars {
                 let route = &self.routes[car.route];
                 if (self.rear_index(car)..=car.idx).any(|k| {
-                    route.links[k] == incident.link
+                    self.incident_covers(incident, route.links[k])
                         && car.d - route.start[k] >= incident.definition.position_m
                 }) {
                     self.incident_clearance.insert((index, car.id));
@@ -2645,7 +2676,7 @@ impl TownSim {
                     && self.cars.iter().find(|c| c.id == *id).is_some_and(|c| {
                         let r = &self.routes[c.route];
                         (self.rear_index(c)..=c.idx).any(|k| {
-                            r.links[k] == incident.link
+                            self.incident_covers(incident, r.links[k])
                                 && c.d - CAR_LENGTH_M - r.start[k]
                                     <= incident.definition.position_m + incident.definition.length_m
                         })
@@ -3464,6 +3495,9 @@ impl TownSim {
             self.rejoin_pullovers();
             self.update_make_way();
         }
+        if self.record.is_some() {
+            self.tick_record();
+        }
         self.tick_junction_layer();
         if self.signals.is_some() {
             self.tick_signals();
@@ -4025,7 +4059,7 @@ impl TownSim {
             }
         }
         for incident in &self.net.incidents {
-            if incident.link == link && incident.definition.active_at(self.time) {
+            if self.incident_covers(incident, link) && incident.definition.active_at(self.time) {
                 let rear = incident.definition.position_m;
                 if tail.is_none_or(|(at, _)| rear < at) {
                     tail = Some((rear, 0.0));
@@ -5111,3 +5145,6 @@ mod fleet_release_tests {
         assert!(sim.experiment.as_ref().unwrap().held.is_empty());
     }
 }
+
+#[path = "record_host.rs"]
+mod record_host;

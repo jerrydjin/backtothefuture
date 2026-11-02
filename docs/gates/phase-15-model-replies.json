@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "tree": {
+    "source": "model",
+    "reply": {
+      "label": "blocked",
+      "blocks": "road",
+      "reach": {
+        "scope": "route",
+        "radius_m": 1500.0
+      },
+      "rationale": "Source URL describes fallen tree blocking A36; SAM mask covers ~27.6% area with bbox spanning nearly full image width (36,0,639,348) consistent with obstruction across carriageway, but SAM geometry is uncalibrated evidence only, so treat as route-level hazard requiring rerouting not precise lane control."
+    }
+  },
+  "priority": {
+    "source": "model",
+    "reply": {
+      "label": "medical_priority_active_labour",
+      "blocks": "none",
+      "reach": {
+        "scope": "nearby",
+        "radius_m": 500.0
+      },
+      "rationale": "Host policy granted priority claim for partner in active labour; no physical road blockage asserted, so no road/lane block - share as nearby informational priority only"
+    }
+  }
+}

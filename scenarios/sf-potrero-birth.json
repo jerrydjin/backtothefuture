@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "map": "maps/sf-zsfg.json",
+  "labour_reason": "My partner is in active labour",
+  "gym_reason": "I'm late for the gym",
+  "probe_rule": "Replace the first cited corridor trip departing at or after 300 s; keep ID, origin, route, departure and request offset identical in both twins",
+  "arrival_duration_s": 900,
+  "cross_flow_rule": "At every unsignalised corridor connector, take conflicting input roads; use the straightest legal movement by direction dot product, then connector id. Deduplicate the three-link routes. Same rule and seed phase as Phase 13i.",
+  "cross_flow_rate_rule": "network::demand_vph by incoming class: arterial 1250 veh/h, other 125 veh/h",
+  "policy": "existing rush_hour::Mock grants labour and denies gym; model-reply cache chooses reach only",
+  "sensor_ranges_m": [60, 150, 300],
+  "signals": false,
+  "siren": false,
+  "queue_reordering": false,
+  "horizon_s": 2500
+}
